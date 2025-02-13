@@ -18,8 +18,8 @@ import gc
 
 model_name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B"  # Can be changed to use different models
 
-num_rollouts = 1000
-max_examples_per_first_token = 10
+num_rollouts = -1
+max_examples_per_first_token = 100
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.bfloat16)
@@ -172,7 +172,11 @@ if not os.path.exists(tasks_json_path):
 
 print(f"Loading existing annotated responses from {annotated_responses_json_path}")
 with open(annotated_responses_json_path, 'r') as f:
-    annotated_responses_data = random.sample(json.load(f)["responses"], k=num_rollouts)
+    if num_rollouts == -1:
+        annotated_responses_data = json.load(f)["responses"]
+        random.shuffle(annotated_responses_data)
+    else:
+        annotated_responses_data = random.sample(json.load(f)["responses"], k=num_rollouts)
 
 print(f"Loading existing original messages from {original_messages_json_path}")
 with open(original_messages_json_path, 'r') as f:

@@ -292,7 +292,7 @@ with open(f'data/annotated_responses_{model_name.split("/")[-1].lower()}.json', 
 
 # %%
 labels = ['uncertainty-estimation','adding-knowledge', 'example-testing', 'backtracking']
-n_examples = 10 # Number of examples to analyze per label
+target_positions = 1  # Number of positions to analyze per label
 
 # %%
 fixed_vector_effects = {label: {} for label in labels}
@@ -304,8 +304,12 @@ for label in labels:
     for fixed_layer_idx in range(model.config.num_hidden_layers):
         print(f"Using steering vector from layer {fixed_layer_idx}")
         layer_total_effects = []
+        processed_positions = 0
         
-        for annotated_example in tqdm(annotated_results[:n_examples]):
+        for annotated_example in tqdm(annotated_results):
+            if processed_positions >= target_positions:
+                break
+                
             annotated_text = annotated_example['annotated_response']
             
             example = next((x for x in base_results if x['response_uuid'] == annotated_example['response_uuid']), None)
@@ -313,8 +317,13 @@ for label in labels:
             
             label_positions = find_label_positions(annotated_text, original_text, tokenizer, label)
             label_positions = [x for x in label_positions if x[1] < max_length]
-
+            
             if label_positions:
+                # Only process up to remaining needed positions
+                positions_to_process = min(len(label_positions), target_positions - processed_positions)
+                label_positions = label_positions[:positions_to_process]
+                processed_positions += positions_to_process
+
                 effects = analyze_layer_effects_fixed_vector(
                     model,
                     tokenizer,
@@ -326,7 +335,7 @@ for label in labels:
                 )
                 
                 if effects:
-                    layer_total_effects.append(sum(effects))  # Sum effects across all layers
+                    layer_total_effects.append(sum(effects))
         
         if layer_total_effects:
             fixed_vector_effects[label][str(fixed_layer_idx)] = np.mean(layer_total_effects)
@@ -343,18 +352,26 @@ layer_effects = {label: [] for label in labels}
 # Analyze each label
 for label in labels:
     print(f"Analyzing label: {label}")
-    for annotated_example in tqdm(annotated_results[:n_examples]):
+    processed_positions = 0
+    
+    for annotated_example in tqdm(annotated_results):
+        if processed_positions >= target_positions:
+            break
+            
         annotated_text = annotated_example['annotated_response']
         
-        # Find matching annotated response using UUID
         example = next((x for x in base_results if x['response_uuid'] == annotated_example['response_uuid']), None)
         original_text = example['response_str']
 
-        # Find token positions of labeled sentences
         label_positions = find_label_positions(annotated_text, original_text, tokenizer, label)
         label_positions = [x for x in label_positions if x[1] < max_length]
 
-        if label_positions:  # Only process if we found labeled sentences
+        if label_positions:
+            # Only process up to remaining needed positions
+            positions_to_process = min(len(label_positions), target_positions - processed_positions)
+            label_positions = label_positions[:positions_to_process]
+            processed_positions += positions_to_process
+
             effects = analyze_layer_effects(
                 model,
                 tokenizer,
