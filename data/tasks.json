@@ -2671,5 +2671,302 @@
     },
     "task_category": "scientific-reasoning",
     "split": "eval"
+  },
+  {
+    "task_uuid": "8990a91d-0caf-41e5-be93-c6d0738ce80c",
+    "prompt_message": {
+      "role": "user",
+      "content": "In a school with 5 teachers and 4 time slots, each teacher must teach exactly once and no two teachers can share a slot. Teacher A can't teach in slots 1 or 2, and Teacher B must teach before Teacher C. How can you schedule the classes?"
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "2dc09219-6180-4334-8f8d-e5941d4a2fb3",
+    "prompt_message": {
+      "role": "user",
+      "content": "Assign 6 different jobs to 4 workers where each worker can handle at most 2 jobs, Worker 1 can't do Job 3, Worker 2 must do Job 4, and Jobs 1 and 2 must be done by different workers."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "a90b0d4a-1202-4737-91f0-d314722f2194",
+    "prompt_message": {
+      "role": "user",
+      "content": "Place 8 queens on a chess board so no queen can attack another. The first queen must be on the first row, and the second queen must be in column 3."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "a08a33de-3daf-4f8c-a427-5fc97870ca17",
+    "prompt_message": {
+      "role": "user",
+      "content": "Color a map of 5 regions using 3 colors where no adjacent regions share a color. Region A borders B and C, B borders A and D, C borders A and E, D borders B and E."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "098bcdf7-25b2-4abf-b3b0-5643b71c4259",
+    "prompt_message": {
+      "role": "user",
+      "content": "Schedule 6 meetings where Person A must attend meetings 1,3,5, Person B must attend 2,4,6, and Person C must attend 1,2,4. No person can be in two meetings at once."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "97fced04-8bc2-4b80-9c15-f284edfd6eda",
+    "prompt_message": {
+      "role": "user",
+      "content": "Arrange 8 people in a line where Alice must be before Bob, Charlie must be after David, Eve can't be first or last, and Frank must be next to George."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "f4a8652e-e17e-4753-b552-5c466abb6e18",
+    "prompt_message": {
+      "role": "user",
+      "content": "Assign 5 projects to 3 teams where each project needs exactly 2 teams, Team 1 can't work with Team 3, and no team can work on more than 3 projects."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "22df5a97-30b9-4634-bd51-1d0e27cde91d",
+    "prompt_message": {
+      "role": "user",
+      "content": "Place numbers 1-9 in a 3x3 grid where each row and column sums to 15, and 5 must be in the center."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "3f58213e-7ae8-4d3b-9ce1-ce2dd0b4962b",
+    "prompt_message": {
+      "role": "user",
+      "content": "Schedule 4 bands for a concert where each needs 1 hour to perform and 30 minutes to set up. Band A must play before B, C can't play first, and D must play last."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "f8723b51-a39a-409c-9e85-68641fef4be1",
+    "prompt_message": {
+      "role": "user",
+      "content": "Distribute 12 identical books among 4 libraries where each library must get at least 2 books, Library A must get more than B, and C must get an even number."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "49da1c7a-d178-490c-aa8a-27c527ed6eaa",
+    "prompt_message": {
+      "role": "user",
+      "content": "Assign 7 tasks to 3 days where no day can have more than 3 tasks, Task 1 must be on the same day as Task 2, and Tasks 3 and 4 must be on different days."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "f4bc0af4-27dd-4a17-af95-65e9afb8d64a",
+    "prompt_message": {
+      "role": "user",
+      "content": "Place 6 different-sized boxes on 3 shelves where each shelf has a weight limit, larger boxes can't be placed on smaller ones, and certain boxes must be on specific shelves."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "4242cc37-e9af-4c14-9f5f-e4c5552af820",
+    "prompt_message": {
+      "role": "user",
+      "content": "Create a 5-person committee where Alice and Bob can't both be included, Charlie must be included if David is, and Eve must be included if Frank isn't."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "9eda48d4-90a1-4a16-b7c6-af5f259f8343",
+    "prompt_message": {
+      "role": "user",
+      "content": "Arrange 5 cars in a single-lane road where Car A must be behind B, C must be behind D, and E must be either first or last."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "371c1678-0e82-49b5-9bb3-77402dde904e",
+    "prompt_message": {
+      "role": "user",
+      "content": "Assign 4 teachers to 3 subjects where each subject needs at least 1 teacher, Teacher 1 can only teach Math or Science, and Teacher 2 must teach English."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "676adaea-8a66-4ca2-84f2-3f6a3934d470",
+    "prompt_message": {
+      "role": "user",
+      "content": "Place 10 students in 3 study groups where each group needs at least 2 students, Amy and Bob can't be in the same group, and Charlie must be with David."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "9e895abe-af8e-4b07-a7ea-f951428fa40e",
+    "prompt_message": {
+      "role": "user",
+      "content": "Schedule 5 maintenance tasks where Task 1 must happen before 2 and 3, Task 4 must happen after 3, and no two tasks can happen simultaneously."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "3aff13e2-27e3-48bc-990e-fb6000cdadba",
+    "prompt_message": {
+      "role": "user",
+      "content": "Assign 8 employees to 4 shifts where each shift needs exactly 2 people, Employee A can't work with B, and C must work with D."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "c8d104d3-e60e-4aa1-98d5-f63f25a72ea3",
+    "prompt_message": {
+      "role": "user",
+      "content": "Arrange 6 books on 2 shelves where red books can't be adjacent, the blue book must be on the top shelf, and the green book must be on the end."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "27c25e8f-2c73-4ca5-845e-cf4031f070da",
+    "prompt_message": {
+      "role": "user",
+      "content": "Create a 4-digit number where each digit is different, the first digit can't be 0, the sum of digits is 15, and the number is divisible by 4."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "4d592215-dc7c-49b3-98d1-e124dcef4315",
+    "prompt_message": {
+      "role": "user",
+      "content": "Place 7 different-sized disks on 3 pegs where no larger disk can be on top of a smaller one, and certain disks must start on specific pegs."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "158b655c-0568-4946-9c9c-7dc7bb1e99ca",
+    "prompt_message": {
+      "role": "user",
+      "content": "Assign 5 presentations to 3 time slots where no person can present twice in the same slot, A must present before B, and C can't present in the last slot."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "92534824-cb9d-4a9b-baca-65edc20cfd2d",
+    "prompt_message": {
+      "role": "user",
+      "content": "Distribute 15 identical balls among 4 boxes where each box must have an odd number of balls, and no box can have more than 5 balls."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "f54be79b-84b9-4579-8828-ee89939cb472",
+    "prompt_message": {
+      "role": "user",
+      "content": "Arrange 6 people at a round table where Alice can't sit next to Bob, Charlie must sit next to David, and Eve must sit opposite Frank."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "e3331477-7e83-4a0c-b07e-1b8bfe33f919",
+    "prompt_message": {
+      "role": "user",
+      "content": "Schedule 8 games between 4 teams where each team must play every other team twice, no team can play consecutive games, and certain matchups must happen on specific days."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "0d357277-3fc2-44fc-b89f-458267ea1013",
+    "prompt_message": {
+      "role": "user",
+      "content": "Place 9 guards in a 5x5 grid where each row and column must have at least 1 guard, no guards can be adjacent, and certain positions must be guarded."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "0f19d091-9a80-425d-b3cf-4c94e20eb26b",
+    "prompt_message": {
+      "role": "user",
+      "content": "Assign 6 actors to 4 roles where each role needs at least 1 actor, Actor A can't play Role 1, Actor B must play Role 2, and no actor can play more than 2 roles."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "a504b651-adcd-47f6-b2c0-ef876b7ce0cf",
+    "prompt_message": {
+      "role": "user",
+      "content": "Create a sequence of 5 colors where no color appears twice in a row, red must appear exactly twice, and blue must be somewhere before green."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "e2b76352-0716-44a0-becb-88a8e73b3609",
+    "prompt_message": {
+      "role": "user",
+      "content": "Divide 20 identical items among 5 people where each person must get at least 2 items, Person A must get more than B, and C must get an even number."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "0605281d-e40a-4eb6-83bb-fa958e8a89c7",
+    "prompt_message": {
+      "role": "user",
+      "content": "Arrange 7 different-sized boxes in a line where Box A must be before B, C must be after D, and no box can be adjacent to a box more than twice its size."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "train"
+  },
+  {
+    "task_uuid": "566feb64-cb58-4a80-80fd-e580b7238949",
+    "prompt_message": {
+      "role": "user",
+      "content": "Assign 4 tasks to 3 workers where each worker can do at most 2 tasks, Worker 1 can't do Task 2, and Task 1 must be done before Task 3."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "eval"
+  },
+  {
+    "task_uuid": "8beaa0c6-f536-4e44-9aff-537d196ec40d",
+    "prompt_message": {
+      "role": "user",
+      "content": "Place 5 different books on 2 shelves where the red book can't be next to the blue book, the green book must be on the top shelf, and each shelf must have at least 2 books."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "eval"
+  },
+  {
+    "task_uuid": "395ded62-4ee9-4f95-acfb-b52fb4bdd9db",
+    "prompt_message": {
+      "role": "user",
+      "content": "Schedule 3 meetings for 4 people where each meeting needs at least 2 people, Person A can't meet with B, and Person C must attend all meetings with D."
+    },
+    "task_category": "constraint-reasoning",
+    "split": "eval"
   }
 ]

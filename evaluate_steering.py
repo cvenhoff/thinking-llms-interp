@@ -27,20 +27,20 @@ def generate_and_analyze(model, tokenizer, message, feature_vectors, label, laye
     
     steer_positive = True if steer_mode == "positive" else False
 
-    layers = [9,10,11,12]
-    #effects = torch.stack([torch.tensor(x) for x in layer_effects[label]], dim=0).mean(0)
+    layers = []
+    effects = torch.stack([torch.tensor(x) for x in layer_effects[label]], dim=0).mean(0)
 
-    #positive_indices = [i for i, effect in enumerate(effects) if effect > 0]
+    positive_indices = [i for i, effect in enumerate(effects) if effect > 0]
     # Sort indices by effect size and select layers until sum reaches threshold
-    #sorted_indices = sorted(positive_indices, key=lambda i: effects[i], reverse=True)
+    sorted_indices = sorted(positive_indices, key=lambda i: effects[i], reverse=True)
     selected_effects_sum = 0
-    #target_sum = 0.02
+    target_sum = 0.01
     
-    #for idx in sorted_indices:
-    #    layers.append(idx)
-    #    selected_effects_sum += effects[idx]
-    #    if selected_effects_sum >= target_sum:
-    #        break
+    for idx in sorted_indices:
+        layers.append(idx)
+        selected_effects_sum += effects[idx]
+        if selected_effects_sum >= target_sum:
+            break
     
     print(f"Selected effects sum: {selected_effects_sum}")
     print("Layers: ", layers)

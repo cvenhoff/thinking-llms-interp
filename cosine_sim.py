@@ -16,7 +16,11 @@ for label in mean_vectors_dict:
         feature_vectors[label] = mean_vectors_dict[label]['mean'] - overall_mean
 
 def plot_cosine_similarity_heatmap(feature_vectors, model_id):
-    labels = list(feature_vectors.keys())[2:]
+    labels = list(feature_vectors.keys())
+
+    labels.remove('initializing')
+    labels.remove('deduction')
+
     n_labels = len(labels)
     
     # Create similarity matrix
@@ -62,4 +66,5 @@ def plot_cosine_similarity_heatmap(feature_vectors, model_id):
 
 # Plot the aggregated heatmap
 plot_cosine_similarity_heatmap(feature_vectors, model_id=model_name.split('/')[-1].lower())
+
 # %%

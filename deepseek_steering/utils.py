@@ -7,7 +7,7 @@ from tqdm import tqdm
 import gc
 import asyncio
 from openai import AsyncOpenAI
-from typing import List
+from typing import List, Dict, Any
 
 dotenv.load_dotenv(".env")
 
@@ -191,12 +191,75 @@ def custom_generate_with_projection_removal(model, tokenizer, input_ids, max_new
         if feature_vector is not None:
             for layer_idx in layers:
 
+                normed_feature_vector = feature_vector / feature_vector.norm()
+                normed_feature_vector = normed_feature_vector * model.model.layers[layer_idx].output[0][:, 1:].norm(dim=1, keepdim=True)
+
                 if steer_positive:
-                    model.model.layers[layer_idx].output[0][:, 1:] += coefficient * feature_vector[layer_idx]
+                    model.model.layers[layer_idx].output[0][:, 1:] += coefficient * normed_feature_vector
                 else:
-                    model.model.layers[layer_idx].output[0][:, 1:] -= coefficient * feature_vector[layer_idx]
+                    model.model.layers[layer_idx].output[0][:, 1:] -= coefficient * normed_feature_vector
         
         # Save the final output
         outputs = model.generator.output.save()
 
     return outputs
+
+def prepare_model_input(
+    response_uuid: str,
+    annotated_responses_data: List[Dict[str, Any]],
+    tasks_data: List[Dict[str, Any]],
+    original_messages_data: List[Dict[str, Any]],
+    tokenizer: AutoTokenizer
+) -> Dict[str, Any]:
+    """
+    Prepare model input for a given response UUID.
+    Returns the tokenized input ready for the model.
+    Returns:
+        Dict with keys:
+            'prompt_and_response_ids': Tensor of shape (1, sequence_length)
+            'annotated_response': str
+    """
+    # Fetch the relevant response data
+    annotated_response_data = next((r for r in annotated_responses_data if r["response_uuid"] == response_uuid), None)
+    if not annotated_response_data:
+        raise ValueError(f"Could not find annotated response data for UUID {response_uuid}")
+    task_data = next((t for t in tasks_data if t["task_uuid"] == annotated_response_data["task_uuid"]), None)
+    if not task_data:
+        raise ValueError(f"Could not find task data for UUID {annotated_response_data['task_uuid']}")
+    base_response_data = next((m for m in original_messages_data if m["response_uuid"] == response_uuid), None)
+    if not base_response_data:
+        raise ValueError(f"Could not find base response data for UUID {response_uuid}")
+    # Build prompt message
+    prompt_message = [task_data["prompt_message"]]
+    prompt_message_input_ids = tokenizer.apply_chat_template(
+        conversation=prompt_message,
+        add_generation_prompt=True,
+        return_tensors="pt"
+    )
+    # Process base response
+    base_response_str = base_response_data["response_str"]
+    if base_response_str.startswith("<think>"):
+        base_response_str = base_response_str[len("<think>"):]
+    base_response_input_ids = tokenizer.encode(
+        text=base_response_str,
+        add_special_tokens=False,
+        return_tensors="pt"
+    )
+    prompt_and_response_ids = torch.cat(
+        tensors=[prompt_message_input_ids, base_response_input_ids],
+        dim=1
+    )
+    # Find start and end positions of thinking process (-1 if not found)
+    thinking_start_token_id = tokenizer.encode("<think>", add_special_tokens=False)[0]
+    thinking_end_token_id = tokenizer.encode("</think>", add_special_tokens=False)[0]
+    prompt_and_response_ids_list = prompt_and_response_ids.tolist()[0]
+    thinking_start_token_index = next((i + 1 for i, token in enumerate(prompt_and_response_ids_list) if token == thinking_start_token_id), -1)
+    thinking_end_token_index = next((i for i, token in enumerate(prompt_and_response_ids_list) if token == thinking_end_token_id), -1)
+    thinking_token_ids = prompt_and_response_ids[:, thinking_start_token_index:thinking_end_token_index]
+    return {
+        'prompt_and_response_ids': prompt_and_response_ids,
+        'annotated_response': annotated_response_data["annotated_response"],
+        'thinking_start_token_index': thinking_start_token_index,
+        'thinking_end_token_index': thinking_end_token_index,
+        'thinking_token_ids': thinking_token_ids
+    }

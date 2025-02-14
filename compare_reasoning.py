@@ -2,7 +2,6 @@
 from deepseek_steering.utils import chat
 import json
 import random
-from deepseek_steering.messages import messages
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
@@ -176,7 +175,7 @@ def plot_comparison(chat_results, deepseek_results, labels, model_name):
     plt.close()
 
 # %% Parameters
-n_examples = 10
+n_examples = 100
 random.seed(42)
 model_name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B"
 model_id = model_name.split('/')[-1].lower()
@@ -239,6 +238,10 @@ else:
         original_text = original_example['response_str']
         selected_messages.append(original_text)
 
+    selected_deepseek_responses = []
+    for deepseek_example in annotated_data:
+        selected_deepseek_responses.append(deepseek_example["annotated_response"])
+    
     # Process chat responses
     chat_results = []
     deepseek_results = []
@@ -249,10 +252,9 @@ else:
         chat_results.append(chat_result)
         
         # Process existing DeepSeek response
-        thinking_process = deepseek_response["annotated_response"]
-        label_fractions, annotated_response = get_label_counts(thinking_process, tokenizer, labels)
+        label_fractions, annotated_response = get_label_counts(deepseek_response, tokenizer, labels)
         deepseek_results.append({
-            "annotated_response": deepseek_response["annotated_response"],
+            "annotated_response": deepseek_response,
             "label_fractions": label_fractions,
             "annotated_response": annotated_response
         })
