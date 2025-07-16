@@ -500,8 +500,8 @@ def generate_cluster_descriptions(model_name, cluster_examples_list, evaluator_m
     Generate descriptions for multiple clusters in batch.
     
     Args:
-        cluster_examples_list (list): List of tuples (cluster_idx, examples) for each cluster
-        model (str): Model to use for generating descriptions
+        cluster_examples_list (list): List of tuples (cluster_idx, positive_examples, negative_examples) for each cluster
+        evaluator_model (str): Model to use for generating descriptions
         n_trace_examples (int): Number of full reasoning trace examples to include in prompts
         model_name (str): Name of the model whose responses should be loaded for trace examples
         
@@ -557,22 +557,32 @@ def generate_cluster_descriptions(model_name, cluster_examples_list, evaluator_m
     batch_prompts = []
     cluster_indices = []
     
-    for cluster_idx, examples in cluster_examples_list:
-        # Create a prompt for this cluster
-        prompt = f"""Analyze the following {len(examples)} sentences from an LLM reasoning trace. These sentences are grouped into a cluster based on their similar role or function in the reasoning process.
+    for cluster_idx, positive_examples, negative_examples in cluster_examples_list:
+        # Prepare negative examples text if provided
+        negative_examples_text = ""
+        if negative_examples and len(negative_examples) > 0:
+            negative_examples_text = f"""
 
-Your task is to identify the precise cognitive function these sentences serve in the reasoning process. Consider the reasoning strategy or cognitive operation being performed.
+Examples that should NOT belong to this cluster (from other clusters):
+'''
+{chr(10).join([f"- {example}" for example in negative_examples])}
+'''"""
+        
+        # Create a prompt for this cluster
+        prompt = f"""Your task is to identify the precise cognitive function that a group of sentences serves in an LLM reasoning process. You will analyze {len(positive_examples)} sentences from an LLM reasoning trace that have been grouped into a cluster based on their similar role or function in the reasoning process, and you will also be provided with reference sentences from other clusters that do not belong to the cluster being analyzed.
+
+Consider the reasoning strategy or cognitive operation being performed.
 """ + (f"\n{trace_examples_text}" if trace_examples_text else "") + f"""
 
-Sentences:
+Sentences that BELONG to this cluster:
 '''
-{chr(10).join([f"- {example}" for example in examples])}
-'''
+{chr(10).join([f"- {example}" for example in positive_examples])}
+'''{negative_examples_text}
 
 Look for:
-- Shared reasoning strategies or cognitive mechanisms
-- Common linguistic patterns or structures
-- Functional role within the overall reasoning process"""  + (f"\n\n{category_examples_text}" if category_examples_text else "") + """
+- Shared reasoning strategies or cognitive mechanisms among the POSITIVE examples
+- Common linguistic patterns or structures in the POSITIVE examples
+- Functional role within the overall reasoning process that distinguishes the POSITIVE examples from the NEGATIVE examples"""  + (f"\n\n{category_examples_text}" if category_examples_text else "") + """
 
 Your response should be in this exact format:
 Title: [concise title naming the specific reasoning function]
@@ -581,6 +591,9 @@ Description: [2-3 brief sentences explaining (1) what this function does, (2) wh
 Avoid overly general descriptions. Be precise enough that someone could reliably identify new examples of this reasoning function.
 """
         
+        print("-"*100)
+        print(prompt)
+        print("-"*100)
         batch_prompts.append(prompt)
         cluster_indices.append(cluster_idx)
     
@@ -1136,22 +1149,25 @@ def generate_representative_examples(cluster_centers, texts, cluster_labels, exa
 def generate_category_descriptions(cluster_centers, model_name, evaluator_model, n_description_examples, representative_examples, n_trace_examples=3, n_categories_examples=3):
     """
     Generate descriptions for each cluster based on most representative sentences.
-    Uses half top examples and half random examples from the cluster.
+    Splits n_description_examples in half to get positive examples from the cluster
+    and negative examples from other clusters.
     
     Parameters:
     -----------
     cluster_centers : numpy.ndarray
         Cluster centers
-    texts : list
-        List of texts
-    cluster_labels : numpy.ndarray
-        Cluster labels for each text
-    example_activations : numpy.ndarray
-        Normalized activation vectors
     model_name : str
         Name of the model to use for generating descriptions
+    evaluator_model : str
+        Model to use for evaluation
     n_description_examples : int
-        Number of examples to use for generating descriptions
+        Total number of examples to use (split between positive and negative)
+    representative_examples : dict
+        Dictionary mapping cluster indices to lists of representative examples
+    n_trace_examples : int
+        Number of full reasoning trace examples to include
+    n_categories_examples : int
+        Number of category examples to include
         
     Returns:
     --------
@@ -1159,6 +1175,11 @@ def generate_category_descriptions(cluster_centers, model_name, evaluator_model,
         List of tuples (cluster_id, category_title, category_description)
     """
     start_time = time.time()    
+    
+    # Split n_description_examples between positive and negative examples
+    n_positive_examples = n_description_examples // 2
+    n_negative_examples = n_description_examples - n_positive_examples
+    
     # Prepare batch data for all non-empty clusters
     cluster_examples_list = []
     for cluster_idx in range(len(cluster_centers)):
@@ -1167,18 +1188,18 @@ def generate_category_descriptions(cluster_centers, model_name, evaluator_model,
             print_and_flush(f"WARNING:Skipping empty cluster {cluster_idx} in generate_category_descriptions")
             continue
         
-        # Sample examples from across the entire cluster for better diversity
+        # Sample positive examples from the current cluster
         cluster_examples = representative_examples[cluster_idx]
         total_examples = len(cluster_examples)
         
-        if total_examples <= n_description_examples:
+        if total_examples <= n_positive_examples:
             # If we have fewer examples than requested, use all of them
-            examples = cluster_examples
+            positive_examples = cluster_examples
         else:
             # Divide examples into 10 deciles and sample from each
-            examples = []
-            examples_per_decile = n_description_examples // 10
-            remainder = n_description_examples % 10
+            positive_examples = []
+            examples_per_decile = n_positive_examples // 10
+            remainder = n_positive_examples % 10
             
             for decile in range(10):
                 # Calculate start and end indices for this decile
@@ -1195,12 +1216,29 @@ def generate_category_descriptions(cluster_centers, model_name, evaluator_model,
                     
                 # Take the first num_to_sample examples from this decile
                 # (they are already sorted by distance to centroid)
-                examples.extend(decile_examples[:num_to_sample])
+                positive_examples.extend(decile_examples[:num_to_sample])
         
-        # Shuffle examples to ensure diversity
-        random.shuffle(examples)
+        # Shuffle positive examples to ensure diversity
+        random.shuffle(positive_examples)
+        
+        # Sample negative examples from other clusters
+        negative_examples = []
+        if n_negative_examples > 0:
+            # Get all other cluster indices
+            other_cluster_indices = [idx for idx in representative_examples.keys() if idx != cluster_idx]
+            
+            if len(other_cluster_indices) > 0:
+                # Collect examples from all other clusters
+                all_other_examples = []
+                for other_idx in other_cluster_indices:
+                    all_other_examples.extend(representative_examples[other_idx])
+                
+                # Sample negative examples from other clusters
+                if len(all_other_examples) > 0:
+                    n_to_sample = min(n_negative_examples, len(all_other_examples))
+                    negative_examples = random.sample(all_other_examples, n_to_sample)
 
-        cluster_examples_list.append((cluster_idx, examples))
+        cluster_examples_list.append((cluster_idx, positive_examples, negative_examples))
     
     # Generate descriptions in batch
     categories = generate_cluster_descriptions(
@@ -1321,7 +1359,7 @@ def evaluate_clustering_scoring_metrics(texts, cluster_labels, n_clusters, examp
     n_autograder_examples : int
         Number of examples from each cluster to use for autograding
     n_description_examples : int
-        Number of examples to use for generating descriptions
+        Number of examples to use for generating descriptions (split between positive and negative)
         
     Returns:
     --------

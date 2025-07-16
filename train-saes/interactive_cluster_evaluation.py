@@ -48,10 +48,10 @@ print(f"Clustering method: {CLUSTERING_METHOD}")
 
 # Clustering evaluation config
 MODEL_NAME_FOR_CATEGORY_DESCRIPTIONS = "o3"
-N_DESCRIPTION_EXAMPLES = 200
+N_DESCRIPTION_EXAMPLES = 200  # Total examples (split between positive and negative)
 
 MODEL_NAME_FOR_COMPLETENESS_EVALUATION = "o3"
-N_COMPLETENESS_EXAMPLES = 500
+N_COMPLETENESS_EXAMPLES = 100
 
 MODEL_NAME_FOR_ACCURACY_EVALUATION = "o3"
 N_ACCURACY_EXAMPLES = 100
@@ -233,7 +233,7 @@ completeness_results = evaluate_clustering_completeness(
     all_texts,
     categories,
     MODEL_NAME_FOR_COMPLETENESS_EVALUATION,
-    N_COMPLETENESS_EXAMPLES,
+    50,
     [str(label) for label in cluster_labels]
 )
 print(f"Completeness results: {completeness_results}")
