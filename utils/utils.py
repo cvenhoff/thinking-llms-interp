@@ -321,9 +321,13 @@ def process_saved_responses(model_name, n_examples, model, tokenizer, layer_or_l
         }) as tracer:
             layer_outputs = {layer: model.model.layers[layer].output[0].save() for layer in uncached_layers}
 
-        # Detach and convert to float32
+        # Detach and convert to float32, validate shapes and finiteness
         for layer in uncached_layers:
-            layer_outputs[layer] = layer_outputs[layer].detach().to(torch.float32)
+            tensor = layer_outputs[layer].detach().to(torch.float32)
+            assert tensor.ndim == 3, f"Layer {layer}: expected 3D tensor (batch, seq, hidden), got {tensor.ndim}D"
+            assert tensor.shape[0] == 1, f"Layer {layer}: expected batch size 1, got {tensor.shape[0]}"
+            assert torch.isfinite(tensor).all(), f"Layer {layer}: non-finite values in raw layer activations"
+            layer_outputs[layer] = tensor
 
         char_to_token = get_char_to_token_map(full_response, tokenizer)
         
@@ -340,18 +344,25 @@ def process_saved_responses(model_name, n_examples, model, tokenizer, layer_or_l
                     token_end = char_to_token.get(text_pos + len(sentence), None)
                     
                     if token_start is not None and token_end is not None and token_start < token_end:
+                        # Fail fast on invalid token bounds before slicing
+                        assert token_start >= 1, f"Layer {layer}: token_start={token_start} < 1 for sentence segment"
+                        assert token_end <= layer_output.shape[1], f"Layer {layer}: token_end={token_end} exceeds seq_len={layer_output.shape[1]}"
                         if token_start < min_token_start:
                             min_token_start = token_start
                         if token_end > max_token_end:
                             max_token_end = token_end
 
-                        segment_activations = layer_output[:, token_start - 1:token_end, :].mean(dim=1).cpu().numpy()
+                        segment_tensor = layer_output[:, token_start - 1:token_end, :].mean(dim=1)
+                        assert torch.isfinite(segment_tensor).all(), f"Layer {layer}: non-finite values in segment activations"
+                        segment_activations = segment_tensor.cpu().numpy()
+                        assert np.isfinite(segment_activations).all(), f"Layer {layer}: non-finite values after numpy conversion"
                         
                         activations_by_layer[layer].append(segment_activations)
                         texts_by_layer[layer].append(sentence)
             
             if min_token_start < layer_output.shape[1] and max_token_end > 0:
                 vector = layer_output[:, min_token_start:max_token_end, :].mean(dim=1).cpu()
+                assert torch.isfinite(vector).all(), f"Layer {layer}: non-finite values in running mean window"
                 mean_by_layer[layer] = mean_by_layer[layer] + (vector - mean_by_layer[layer]) / (count_by_layer[layer] + 1)
                 count_by_layer[layer] += 1
 
@@ -359,9 +370,26 @@ def process_saved_responses(model_name, n_examples, model, tokenizer, layer_or_l
     for layer in uncached_layers:
         print(f"Found {len(activations_by_layer[layer])} sentences with activations for layer {layer} across {count_by_layer[layer]} examples")
         overall_running_mean = mean_by_layer[layer].cpu().numpy()
+        assert np.isfinite(overall_running_mean).all(), f"Layer {layer}: non-finite values in overall_running_mean"
 
+        # Pre-validate centered norms to avoid division by zero/NaNs
+        centered = [a.reshape(-1) - overall_running_mean.reshape(-1) for a in activations_by_layer[layer]]
+        if len(centered) == 0:
+            raise AssertionError(f"Layer {layer}: no sentence activations extracted; cannot proceed")
+        centered_stack = np.stack(centered)
+        assert np.isfinite(centered_stack).all(), f"Layer {layer}: non-finite values after centering"
+        norms = np.linalg.norm(centered_stack, axis=1)
+        assert np.isfinite(norms).all(), f"Layer {layer}: non-finite norms after centering"
+        assert np.all(norms > 0), f"Layer {layer}: zero norm detected after centering; normalization would produce NaN"
         # Center and normalize activations
         activations_by_layer[layer] = center_and_normalize_activations(activations_by_layer[layer], overall_running_mean)
+        # Post-validate normalized activations
+        assert isinstance(activations_by_layer[layer], np.ndarray)
+        assert activations_by_layer[layer].ndim == 2
+        assert np.isfinite(activations_by_layer[layer]).all(), f"Layer {layer}: non-finite values after normalization"
+        row_norms = np.linalg.norm(activations_by_layer[layer], axis=1)
+        assert np.isfinite(row_norms).all(), f"Layer {layer}: non-finite row norms after normalization"
+        assert np.all(row_norms > 0), f"Layer {layer}: zero row norm after normalization"
         
         result = (activations_by_layer[layer], texts_by_layer[layer])
         results_by_layer[layer] = result

@@ -1114,6 +1114,7 @@ def generate_representative_examples(cluster_centers, texts, cluster_labels, exa
             encoded_activations = sae.encoder(activations_tensor - sae.b_dec).detach().cpu().numpy()
 
     # Iterate over clusters
+    skipped_empty_clusters = 0
     for cluster_idx in tqdm(range(len(cluster_centers)), desc="Generating representative examples"):
         # Indices belonging to this cluster
         cluster_indices = np.where(cluster_labels == cluster_idx)[0]
@@ -1122,6 +1123,7 @@ def generate_representative_examples(cluster_centers, texts, cluster_labels, exa
         if len(cluster_indices) == 0:
             representative_examples[cluster_idx] = []
             print_and_flush(f"WARNING:Skipping empty cluster {cluster_idx} in generate_representative_examples")
+            skipped_empty_clusters += 1
             continue
 
         cluster_texts = [texts[i] for i in cluster_indices]
@@ -1141,6 +1143,12 @@ def generate_representative_examples(cluster_centers, texts, cluster_labels, exa
         representative_examples[cluster_idx] = sorted_examples
 
     print_and_flush(f"Generated representative examples in {time.time() - start_time} seconds")
+    
+    print_and_flush(f"Skipped {skipped_empty_clusters} empty clusters in generate_representative_examples")
+    # Assert we haven't skipped more than 10% of clusters
+    if skipped_empty_clusters > len(cluster_centers) * 0.1:
+        raise ValueError(f"Skipped more than 10% of clusters in generate_representative_examples: {skipped_empty_clusters} / {len(cluster_centers)}")
+
     return representative_examples
 
 

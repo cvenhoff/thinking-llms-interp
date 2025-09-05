@@ -1,4 +1,5 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cot-interp
 Version: 0.1.0
 Requires-Python: >=3.6
+Dynamic: requires-python

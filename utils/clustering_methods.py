@@ -486,16 +486,31 @@ def clustering_sae_topk(activations, n_clusters, args, topk=3):
     start_time = time.time()
     # Ensure we're working with torch tensors on the appropriate device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    debug = getattr(args, "sae_debug", False)
     
     # Convert numpy array to torch tensor
+    assert isinstance(activations, np.ndarray)
+    assert activations.ndim == 2, f"Expected 2D activations, got {activations.ndim}D"
     X = torch.from_numpy(activations).float().to(device)
     input_dim = activations.shape[1]
+    # Fail fast on non-finite inputs
+    assert torch.isfinite(X).all(), "Non-finite values detected in input activations X"
     
     # Initialize model, loss, and optimizer
     sae = SAE(input_dim, n_clusters, k=topk).to(device)
+    assert topk <= n_clusters, f"topk ({topk}) must be ≤ n_clusters ({n_clusters})"
+    # Basic parameter sanity
+    if debug:
+        ew = sae.encoder.weight.data
+        wd = sae.W_dec.data
+        print_and_flush(f"[SAE-DEBUG] Encoder weight mean/std: {ew.mean().item():.6f}/{ew.std().item():.6f}")
+        row_norms = torch.norm(wd, dim=1)
+        print_and_flush(f"[SAE-DEBUG] Decoder row-norms min/mean/max: {row_norms.min().item():.6f}/{row_norms.mean().item():.6f}/{row_norms.max().item():.6f}")
     # Auto-select LR using 1 / sqrt(d) scaling law from TinySAE
     lr = 2e-4 / (n_clusters / (2**14)) ** 0.5
     optimizer = torch.optim.Adam(sae.parameters(), lr=lr)
+    if debug:
+        print_and_flush(f"[SAE-DEBUG] Using learning rate lr={lr:.3e}")
     
     # Train the autoencoder
     max_epochs = 300
@@ -521,18 +536,38 @@ def clustering_sae_topk(activations, n_clusters, args, topk=3):
         for i in range(0, n_samples, batch_size):
             batch_indices = indices[i:min(i+batch_size, n_samples)]
             batch_X = X[batch_indices]
+            # Input batch checks
+            assert torch.isfinite(batch_X).all(), f"Non-finite values in batch_X at epoch {epoch+1}, step {i}"
             
             # Forward pass
             predicted = sae(batch_X)
+            assert predicted.shape == batch_X.shape, f"Predicted shape {tuple(predicted.shape)} != input shape {tuple(batch_X.shape)}"
+            assert torch.isfinite(predicted).all(), f"Non-finite values in predicted at epoch {epoch+1}, step {i}"
             
             # Compute loss - using the Loss function from TinySAE
             error = predicted - batch_X
-            loss = (error**2).sum()
-            loss /= ((batch_X - batch_X.mean(dim=0, keepdim=True)) ** 2).sum()
+            num = (error**2).sum()
+            denom = ((batch_X - batch_X.mean(dim=0, keepdim=True)) ** 2).sum()
+            # Denominator should be strictly positive
+            assert torch.isfinite(denom) and denom > 0, f"Zero/invalid variance denominator at epoch {epoch+1}, step {i}"
+            loss = num / denom
+            if debug and (epoch < 2 or (i == 0 and ((epoch + 1) % 10 == 0))):
+                with torch.no_grad():
+                    nitem = num.item()
+                    ditem = denom.item()
+                print_and_flush(f"[SAE-DEBUG] epoch {epoch+1} step {i}: num={nitem:.6e} denom={ditem:.6e} loss={nitem/ditem:.6e}")
             
             # Backpropagation
             optimizer.zero_grad()
             loss.backward()
+            if debug:
+                total_norm_sq = 0.0
+                for p in sae.parameters():
+                    if p.grad is not None:
+                        assert torch.isfinite(p.grad).all(), f"Non-finite gradient at epoch {epoch+1}, step {i}"
+                        total_norm_sq += p.grad.detach().float().norm().item() ** 2
+                grad_norm = total_norm_sq ** 0.5
+                print_and_flush(f"[SAE-DEBUG] epoch {epoch+1} step {i}: grad_norm={grad_norm:.6e}")
             optimizer.step()
             
             # Apply decoder normalization after each step (as in TinySAE)
@@ -541,11 +576,12 @@ def clustering_sae_topk(activations, n_clusters, args, topk=3):
             total_loss += loss.item() * len(batch_indices)
             
             # Free up memory
-            del batch_X, predicted, error, loss
+            del batch_X, predicted, error, loss, num, denom
             torch.cuda.empty_cache() if torch.cuda.is_available() else None
         
         # Calculate average loss
         avg_loss = total_loss / n_samples
+        assert np.isfinite(avg_loss), f"Average loss became non-finite at epoch {epoch+1}"
         
         # Print progress
         if (epoch + 1) % 10 == 0:

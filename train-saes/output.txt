@@ -1,0 +1,172 @@
+`torch_dtype` is deprecated! Use `dtype` instead!
+`torch_dtype` is deprecated! Use `dtype` instead!
+Generating activations for model: qwen/QwQ-32B
+Processing layers: [9]
+Number of examples: 100000
+Loading checkpoint shards:   0%|          | 0/14 [00:00<?, ?it/s]Loading checkpoint shards:   7%|▋         | 1/14 [00:01<00:13,  1.00s/it]Loading checkpoint shards:  14%|█▍        | 2/14 [00:02<00:12,  1.02s/it]Loading checkpoint shards:  21%|██▏       | 3/14 [00:03<00:11,  1.04s/it]Loading checkpoint shards:  29%|██▊       | 4/14 [00:04<00:10,  1.03s/it]Loading checkpoint shards:  36%|███▌      | 5/14 [00:05<00:09,  1.04s/it]Loading checkpoint shards:  43%|████▎     | 6/14 [00:06<00:08,  1.02s/it]Loading checkpoint shards:  50%|█████     | 7/14 [00:07<00:07,  1.00s/it]Loading checkpoint shards:  57%|█████▋    | 8/14 [00:08<00:05,  1.01it/s]Loading checkpoint shards:  64%|██████▍   | 9/14 [00:09<00:05,  1.00s/it]Loading checkpoint shards:  71%|███████▏  | 10/14 [00:10<00:04,  1.00s/it]Loading checkpoint shards:  79%|███████▊  | 11/14 [00:11<00:02,  1.01it/s]Loading checkpoint shards:  86%|████████▌ | 12/14 [00:12<00:01,  1.01it/s]Loading checkpoint shards:  93%|█████████▎| 13/14 [00:13<00:00,  1.01it/s]Loading checkpoint shards: 100%|██████████| 14/14 [00:13<00:00,  1.23it/s]Loading checkpoint shards: 100%|██████████| 14/14 [00:13<00:00,  1.04it/s]
+Processing saved responses for layers: [9]...
+Loading responses from ../generate-responses/results/vars/responses_qwq-32b.json...
+Extracting activations for 100000 responses across layers [9]...
+  0%|          | 0/12032 [00:00<?, ?it/s]  0%|          | 0/12032 [00:00<?, ?it/s]
+Traceback (most recent call last):
+  File "/root/base-models-reasoning-interp/train-saes/generate_activations.py", line 46, in main
+    results = utils.process_saved_responses(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/base-models-reasoning-interp/utils/utils.py", line 318, in process_saved_responses
+    with model.trace({
+         ^^^^^^^^^^^^^
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/tracing/base.py", line 416, in __exit__
+    self.backend(self)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/backends/execution.py", line 24, in __call__
+    raise wrap_exception(e, tracer.info) from None
+nnsight.NNsightException: 
+
+Traceback (most recent call last):
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/backends/execution.py", line 21, in __call__
+    tracer.execute(fn)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/tracing/tracer.py", line 385, in execute
+    self.model.interleave(self.fn, *args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/modeling/mixins/meta.py", line 76, in interleave
+    return super().interleave(fn, *args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/envoy.py", line 733, in interleave
+    fn(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/envoy.py", line 384, in __call__
+    else self._module(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1773, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1879, in _call_impl
+    return inner()
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1827, in inner
+    result = forward_call(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/interleaver.py", line 133, in skippable_forward
+    return forward(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 940, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 449, in forward
+    outputs: BaseModelOutputWithPast = self.model(
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1773, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1879, in _call_impl
+    return inner()
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1827, in inner
+    result = forward_call(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/interleaver.py", line 133, in skippable_forward
+    return forward(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 1064, in wrapper
+    outputs = func(self, *args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 384, in forward
+    hidden_states = decoder_layer(
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/transformers/modeling_layers.py", line 94, in __call__
+    return super().__call__(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1773, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1879, in _call_impl
+    return inner()
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1827, in inner
+    result = forward_call(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/interleaver.py", line 133, in skippable_forward
+    return forward(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/transformers/utils/deprecation.py", line 172, in wrapped_func
+    return func(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 249, in forward
+    hidden_states = self.mlp(hidden_states)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1773, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1879, in _call_impl
+    return inner()
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1827, in inner
+    result = forward_call(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/interleaver.py", line 133, in skippable_forward
+    return forward(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 46, in forward
+    down_proj = self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1773, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1879, in _call_impl
+    return inner()
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1827, in inner
+    result = forward_call(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/interleaver.py", line 133, in skippable_forward
+    return forward(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/activation.py", line 434, in forward
+    return F.silu(input, inplace=self.inplace)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/functional.py", line 2375, in silu
+    return torch._C._nn.silu(input)
+
+OutOfMemoryError: CUDA out of memory. Tried to allocate 54.00 MiB. GPU 0 has a total capacity of 79.25 GiB of which 4.75 MiB is free. Process 3426745 has 79.24 GiB memory in use. Of the allocated memory 78.46 GiB is allocated by PyTorch, and 292.28 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+Error processing saved responses: 
+
+Traceback (most recent call last):
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/backends/execution.py", line 21, in __call__
+    tracer.execute(fn)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/tracing/tracer.py", line 385, in execute
+    self.model.interleave(self.fn, *args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/modeling/mixins/meta.py", line 76, in interleave
+    return super().interleave(fn, *args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/envoy.py", line 733, in interleave
+    fn(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/envoy.py", line 384, in __call__
+    else self._module(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1773, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1879, in _call_impl
+    return inner()
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1827, in inner
+    result = forward_call(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/interleaver.py", line 133, in skippable_forward
+    return forward(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 940, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 449, in forward
+    outputs: BaseModelOutputWithPast = self.model(
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1773, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1879, in _call_impl
+    return inner()
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1827, in inner
+    result = forward_call(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/interleaver.py", line 133, in skippable_forward
+    return forward(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 1064, in wrapper
+    outputs = func(self, *args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 384, in forward
+    hidden_states = decoder_layer(
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/transformers/modeling_layers.py", line 94, in __call__
+    return super().__call__(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1773, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1879, in _call_impl
+    return inner()
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1827, in inner
+    result = forward_call(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/interleaver.py", line 133, in skippable_forward
+    return forward(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/transformers/utils/deprecation.py", line 172, in wrapped_func
+    return func(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 249, in forward
+    hidden_states = self.mlp(hidden_states)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1773, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1879, in _call_impl
+    return inner()
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1827, in inner
+    result = forward_call(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/interleaver.py", line 133, in skippable_forward
+    return forward(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 46, in forward
+    down_proj = self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1773, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1879, in _call_impl
+    return inner()
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1827, in inner
+    result = forward_call(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/nnsight/intervention/interleaver.py", line 133, in skippable_forward
+    return forward(*args, **kwargs)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/modules/activation.py", line 434, in forward
+    return F.silu(input, inplace=self.inplace)
+  File "/root/base-models-reasoning-interp/.venv/lib/python3.12/site-packages/torch/nn/functional.py", line 2375, in silu
+    return torch._C._nn.silu(input)
+
+OutOfMemoryError: CUDA out of memory. Tried to allocate 54.00 MiB. GPU 0 has a total capacity of 79.25 GiB of which 4.75 MiB is free. Process 3426745 has 79.24 GiB memory in use. Of the allocated memory 78.46 GiB is allocated by PyTorch, and 292.28 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+Cleaned up resources.

@@ -61,6 +61,12 @@ parser.add_argument(
     help="Clustering methods to use",
 )
 parser.add_argument(
+    "--sae_debug",
+    action="store_true",
+    default=False,
+    help="Enable verbose SAE training debug checks/logging",
+)
+parser.add_argument(
     "--clustering_pilot_size",
     type=int,
     default=50_000,
@@ -213,6 +219,23 @@ all_activations, all_texts = utils.process_saved_responses(
 del model, tokenizer
 torch.cuda.empty_cache()
 gc.collect()
+
+# %% Sanity-check activations
+assert isinstance(all_activations, np.ndarray)
+assert all_activations.ndim == 2, f"Expected 2D activations, got {all_activations.ndim}D"
+num_nonfinite = np.sum(~np.isfinite(all_activations))
+min_val = float(np.nanmin(all_activations))
+max_val = float(np.nanmax(all_activations))
+mean_val = float(np.nanmean(all_activations))
+print_and_flush(
+    f"Activations shape={all_activations.shape}, nonfinite={num_nonfinite}, min/mean/max={min_val:.6f}/{mean_val:.6f}/{max_val:.6f}"
+)
+# Each row should be unit norm due to preprocessing
+row_norms = np.linalg.norm(all_activations, axis=1)
+assert np.isfinite(row_norms).all(), "Non-finite row norms in activations"
+approx_unit = np.all((row_norms > 0.5) & (row_norms < 1.5))
+if not approx_unit:
+    print_and_flush("Warning: activation row norms deviate from ~1.0; downstream loss normalization may be unstable.")
 
 # %% Filter clustering methods based on args
 clustering_methods = [
