@@ -99,10 +99,8 @@ def optimize_vector_simple(
     lr: float = 0.01,
     max_iters: int = 50,
     optim_minibatch_size: int = 32,
-    base_gen_minibatch_size: int = 32,
     warmup_steps: int = 0,
     min_lr: float = 0.0,
-    coldness: float = 0.7,
     grad_clip: Optional[float] = None,
     early_stopping_patience: int = 5,
     early_stopping_min_delta: float = 1e-4,
@@ -115,11 +113,6 @@ def optimize_vector_simple(
     projection_clamp: bool = False,
     wandb_run=None,
     static_vectors: Optional[list[torch.Tensor]] = None,
-    include_base_objective: bool = True,
-    base_loss_weight: float = 1.0,
-    eps: float = 1e-6,
-    eval_prompts: Optional[list[str]] = None,
-    eval_target_completions: Optional[list[str]] = None,
 ):
     """One‑stop promotion‑steering optimiser matching the paper’s details."""
 
@@ -145,114 +138,6 @@ def optimize_vector_simple(
 
     prompt_tokens, prompt_lens = tok_batch(prompts)
     target_tokens, target_lens = tok_batch(target_completions)
-
-    # ---- Optional evaluation tokenisation ----
-    have_eval = eval_prompts is not None and eval_target_completions is not None and len(eval_prompts) > 0
-    if have_eval:
-        eval_prompt_tokens, eval_prompt_lens = tok_batch(eval_prompts)
-        eval_target_tokens, eval_target_lens = tok_batch(eval_target_completions)
-
-    # ---- Precompute unsteered base completions (used as "src" completions in the objective) ----
-    base_completions: list[str] = []
-    if include_base_objective:
-        descr = "Precomputing base completions" if static_vectors is None else "Precomputing base completions with static vectors"
-        
-        # Batching for efficiency
-        for i in tqdm(range(0, len(prompts), base_gen_minibatch_size), desc=descr):
-            batch_prompts = prompts[i:i + base_gen_minibatch_size]
-            batch_target_lens = target_lens[i:i + base_gen_minibatch_size]
-
-            max_new = max(1, max(tl.item() if isinstance(tl, torch.Tensor) else int(tl) for tl in batch_target_lens))
-
-            inputs = tokenizer(batch_prompts, return_tensors='pt', padding=True, truncation=False).to(model.device)
-            
-            hooks = []
-            if static_vectors is not None:
-                clean_static_vectors = [sv for sv in static_vectors if sv is not None]
-                if clean_static_vectors:
-                    prompt_lens_tensor = inputs['attention_mask'].sum(dim=1)
-                    def static_vec_batch_hook(_m, args, p_lens=prompt_lens_tensor):
-                        (x,) = args
-                        for row in range(x.shape[0]):
-                            p_len = p_lens[row].item()
-                            sl = slice(p_len, x.shape[1])
-                            for sv in clean_static_vectors:
-                                x[row, sl] += sv.to(x)
-                        return (x,)
-                    hooks.append((layer, static_vec_batch_hook))
-
-            with torch.no_grad():
-                generation_kwargs = dict(
-                    max_new_tokens=max_new,
-                    pad_token_id=tokenizer.eos_token_id,
-                    suppress_tokens=[tokenizer.eos_token_id] if tokenizer.eos_token_id is not None else None,
-                )
-                if hooks:
-                    with hf_hooks_contextmanager(model, hooks):
-                        gen = model.generate(**inputs, **generation_kwargs)
-                else:
-                    gen = model.generate(**inputs, **generation_kwargs)
-            
-            decoded_texts = tokenizer.batch_decode(gen, skip_special_tokens=True)
-            for j, txt in enumerate(decoded_texts):
-                original_prompt = batch_prompts[j]
-                base_completions.append(txt[len(original_prompt):])
-    else:
-        base_completions = [""] * len(prompts)
-
-    base_tokens, base_lens = tok_batch(base_completions)
-
-    # Precompute base completions for eval set if provided and base objective enabled
-    if have_eval:
-        if include_base_objective:
-            descr_eval = "Precomputing base completions (eval)" if static_vectors is None else "Precomputing base completions with static vectors (eval)"
-            base_completions_eval: list[str] = []
-            for i in tqdm(range(0, len(eval_prompts), base_gen_minibatch_size), desc=descr_eval):
-                batch_prompts = eval_prompts[i:i + base_gen_minibatch_size]
-                batch_target_lens = eval_target_lens[i:i + base_gen_minibatch_size]
-                
-                max_new = max(1, max(tl.item() if isinstance(tl, torch.Tensor) else int(tl) for tl in batch_target_lens))
-
-                inputs = tokenizer(batch_prompts, return_tensors='pt', padding=True, truncation=False).to(model.device)
-                
-                hooks = []
-                if static_vectors is not None:
-                    clean_static_vectors = [sv for sv in static_vectors if sv is not None]
-                    if clean_static_vectors:
-                        prompt_lens_tensor = inputs['attention_mask'].sum(dim=1)
-                        def static_vec_batch_hook_eval(_m, args, p_lens=prompt_lens_tensor):
-                            (x,) = args
-                            for row in range(x.shape[0]):
-                                p_len = p_lens[row].item()
-                                sl = slice(p_len, x.shape[1])
-                                for sv in clean_static_vectors:
-                                    x[row, sl] += sv.to(x)
-                            return (x,)
-                        hooks.append((layer, static_vec_batch_hook_eval))
-
-                with torch.no_grad():
-                    generation_kwargs = dict(
-                        max_new_tokens=max_new,
-                        pad_token_id=tokenizer.eos_token_id,
-                        suppress_tokens=[tokenizer.eos_token_id] if tokenizer.eos_token_id is not None else None,
-                    )
-                    if hooks:
-                        with hf_hooks_contextmanager(model, hooks):
-                            gen = model.generate(**inputs, **generation_kwargs)
-                    else:
-                        gen = model.generate(**inputs, **generation_kwargs)
-                
-                decoded_texts = tokenizer.batch_decode(gen, skip_special_tokens=True)
-                for j, txt in enumerate(decoded_texts):
-                    original_prompt = batch_prompts[j]
-                    base_completions_eval.append(txt[len(original_prompt):])
-            
-            base_tokens_eval, base_lens_eval = tok_batch(base_completions_eval)
-        else:
-            base_tokens_eval = [torch.tensor([], device=model.device)] * len(eval_prompts)  # type: ignore
-            base_lens_eval = [0] * len(eval_prompts)  # type: ignore
-    else:
-        base_tokens_eval, base_lens_eval = None, None
 
     # Evaluation dataset and metrics have been removed.
     eval_hist = []
@@ -337,7 +222,7 @@ def optimize_vector_simple(
 
             with hf_hooks_contextmanager(model, [(layer, batch_hook)]):
                 out = model(input_ids=input_ids, attention_mask=attn_mask)
-                logits = out.logits * coldness
+                logits = out.logits * 0.7  # coldness
 
             # Cross‑entropy on *targets only*
             shift_logits = logits[:, :-1].contiguous()
@@ -352,73 +237,7 @@ def optimize_vector_simple(
 
             active_logits = shift_logits[target_mask]
             active_labels = shift_labels[target_mask]
-            ce_target = torch.nn.functional.cross_entropy(active_logits, active_labels, reduction="mean") / math.log(10)
-
-            # ---- Base (unsteered) completion objective: -log(1 - p_base) on base tokens ----
-            base_loss = 0.0
-            if include_base_objective:
-                base_seqs = [torch.cat([prompt_tokens[i], base_tokens[i]]) for i in batch]
-                max_len_b = max(s.size(0) for s in base_seqs)
-
-                input_ids_b = torch.full((len(batch), max_len_b), pad_id, device=model.device)
-                attn_mask_b = torch.zeros_like(input_ids_b)
-
-                steering_slices_b = []
-                for row, (i, seq) in enumerate(zip(batch, base_seqs)):
-                    Lb = seq.size(0)
-                    input_ids_b[row, :Lb] = seq
-                    attn_mask_b[row, :Lb] = 1
-
-                    start_b = prompt_lens[i] if steering_token_window is None else (
-                        prompt_lens[i] + max(0, (base_lens[i] if isinstance(base_lens[i], int) else int(base_lens[i])) - steering_token_window)
-                    )
-                    steering_slices_b.append(slice(start_b, Lb))
-
-                def batch_hook_base(_m, args, slices=steering_slices_b, stat_vecs=static_vectors_local):
-                    (x,) = args
-                    v_local = vector.to(x)
-                    stat_vecs_on_device = [sv.to(x.device) for sv in stat_vecs]
-                    for row, sl in enumerate(slices):
-                        if projection_clamp:
-                            seg = x[row, sl]
-                            coef = (seg @ v_local) / (v_local.norm() ** 2)
-                            x[row, sl] = seg - coef.unsqueeze(-1) * v_local + v_local
-                        else:
-                            x[row, sl] += v_local
-                        if stat_vecs_on_device:
-                            for sv in stat_vecs_on_device:
-                                x[row, sl] += sv
-                    return (x,)
-
-                with hf_hooks_contextmanager(model, [(layer, batch_hook_base)]):
-                    out_b = model(input_ids=input_ids_b, attention_mask=attn_mask_b)
-                    logits_b = out_b.logits * coldness
-
-                shift_logits_b = logits_b[:, :-1].contiguous()
-                shift_labels_b = input_ids_b[:, 1:].contiguous()
-
-                target_mask_b = torch.zeros_like(shift_labels_b, dtype=torch.bool)
-                for row, sl in enumerate(steering_slices_b):
-                    tgt_start_b = sl.start - 1
-                    tgt_end_b = sl.stop - 1 if sl.stop is not None else shift_labels_b.size(1)
-                    if tgt_start_b < tgt_end_b:
-                        target_mask_b[row, tgt_start_b:tgt_end_b] = True
-
-                active_logits_b = shift_logits_b[target_mask_b]
-                active_labels_b = shift_labels_b[target_mask_b]
-                if active_logits_b.numel() > 0:
-                    log_probs_b = torch.log_softmax(active_logits_b, dim=-1)
-                    idx = torch.arange(active_labels_b.size(0), device=active_labels_b.device)
-                    p_b = torch.exp(log_probs_b[idx, active_labels_b])
-                    base_loss = (-torch.log(torch.clamp(1.0 - p_b, min=eps))).mean() / math.log(10)
-                else:
-                    base_loss = torch.tensor(0.0, device=model.device)
-
-                # cleanup base tensors
-                del input_ids_b, attn_mask_b, shift_logits_b, shift_labels_b, active_logits_b, active_labels_b, out_b, logits_b
-                torch.cuda.empty_cache()
-
-            loss = ce_target + (base_loss_weight * base_loss if include_base_objective else 0.0)
+            loss = torch.nn.functional.cross_entropy(active_logits, active_labels, reduction="mean") / math.log(10)  # hartleys
 
             optim.zero_grad()
             loss.backward()
@@ -446,153 +265,16 @@ def optimize_vector_simple(
 
         train_loss = running_loss / max(1, batches)
 
-        # ---- Evaluation loss on eval set (if provided) ----
+        # Evaluation step removed; rely solely on train_loss.
         eval_loss = None
-        if have_eval:
-            with torch.no_grad():
-                running_eval_loss = 0.0
-                eval_batches = 0
-                for i in range(0, len(eval_prompts), optim_minibatch_size):
-                    batch_indices = range(i, min(i + optim_minibatch_size, len(eval_prompts)))
-                    
-                    # Build right-padded eval batch
-                    seqs_eval = [torch.cat([eval_prompt_tokens[j], eval_target_tokens[j]]) for j in batch_indices]
-                    if not seqs_eval:
-                        continue
-                        
-                    max_len_e = max(s.size(0) for s in seqs_eval)
-                    pad_id = tokenizer.pad_token_id
-                    input_ids_e = torch.full((len(seqs_eval), max_len_e), pad_id, device=model.device)
-                    attn_mask_e = torch.zeros_like(input_ids_e)
-                    steering_slices_e = []
-                    
-                    for row, j in enumerate(batch_indices):
-                        L = seqs_eval[row].size(0)
-                        input_ids_e[row, :L] = seqs_eval[row]
-                        attn_mask_e[row, :L] = 1
-                        start_e = eval_prompt_lens[j] if steering_token_window is None else (
-                            eval_prompt_lens[j] + max(0, eval_target_lens[j] - steering_token_window)
-                        )
-                        steering_slices_e.append(slice(start_e, L))
-
-                    def batch_hook_eval(_m, args, slices=steering_slices_e, stat_vecs=static_vectors_local):
-                        (x,) = args
-                        v_local = vector.to(x)
-                        stat_vecs_on_device = [sv.to(x.device) for sv in stat_vecs]
-                        for row, sl in enumerate(slices):
-                            if projection_clamp:
-                                seg = x[row, sl]
-                                coef = (seg @ v_local) / (v_local.norm() ** 2)
-                                x[row, sl] = seg - coef.unsqueeze(-1) * v_local + v_local
-                            else:
-                                x[row, sl] += v_local
-                            if stat_vecs_on_device:
-                                for sv in stat_vecs_on_device:
-                                    x[row, sl] += sv
-                        return (x,)
-
-                    with hf_hooks_contextmanager(model, [(layer, batch_hook_eval)]):
-                        out_e = model(input_ids=input_ids_e, attention_mask=attn_mask_e)
-                        logits_e = out_e.logits * coldness
-
-                    shift_logits_e = logits_e[:, :-1].contiguous()
-                    shift_labels_e = input_ids_e[:, 1:].contiguous()
-
-                    target_mask_e = torch.zeros_like(shift_labels_e, dtype=torch.bool)
-                    for row, sl in enumerate(steering_slices_e):
-                        tgt_start_e = sl.start - 1
-                        tgt_end_e = sl.stop - 1 if sl.stop is not None else shift_labels_e.size(1)
-                        if tgt_start_e < tgt_end_e:
-                            target_mask_e[row, tgt_start_e:tgt_end_e] = True
-
-                    active_logits_e = shift_logits_e[target_mask_e]
-                    active_labels_e = shift_labels_e[target_mask_e]
-                    ce_target_e = torch.nn.functional.cross_entropy(active_logits_e, active_labels_e, reduction="mean") / math.log(10)
-
-                    base_loss_e = 0.0
-                    if include_base_objective:
-                        base_seqs_e = [torch.cat([eval_prompt_tokens[j], base_tokens_eval[j]]) for j in batch_indices]  # type: ignore
-                        max_len_be = max(s.size(0) for s in base_seqs_e)
-                        input_ids_be = torch.full((len(base_seqs_e), max_len_be), pad_id, device=model.device)
-                        attn_mask_be = torch.zeros_like(input_ids_be)
-
-                        steering_slices_be = []
-                        for row, j in enumerate(batch_indices):
-                            seq = base_seqs_e[row]
-                            Lb = seq.size(0)
-                            input_ids_be[row, :Lb] = seq
-                            attn_mask_be[row, :Lb] = 1
-                            start_be = eval_prompt_lens[j] if steering_token_window is None else (
-                                eval_prompt_lens[j] + max(0, (base_lens_eval[j] if isinstance(base_lens_eval[j], int) else int(base_lens_eval[j])) - steering_token_window)  # type: ignore
-                            )
-                            steering_slices_be.append(slice(start_be, Lb))
-
-                        def batch_hook_base_eval(_m, args, slices=steering_slices_be, stat_vecs=static_vectors_local):
-                            (x,) = args
-                            v_local = vector.to(x)
-                            stat_vecs_on_device = [sv.to(x.device) for sv in stat_vecs]
-                            for row, sl in enumerate(slices):
-                                if projection_clamp:
-                                    seg = x[row, sl]
-                                    coef = (seg @ v_local) / (v_local.norm() ** 2)
-                                    x[row, sl] = seg - coef.unsqueeze(-1) * v_local + v_local
-                                else:
-                                    x[row, sl] += v_local
-                                if stat_vecs_on_device:
-                                    for sv in stat_vecs_on_device:
-                                        x[row, sl] += sv
-                            return (x,)
-
-                        with hf_hooks_contextmanager(model, [(layer, batch_hook_base_eval)]):
-                            out_be = model(input_ids=input_ids_be, attention_mask=attn_mask_be)
-                            logits_be = out_be.logits * coldness
-
-                        shift_logits_be = logits_be[:, :-1].contiguous()
-                        shift_labels_be = input_ids_be[:, 1:].contiguous()
-
-                        target_mask_be = torch.zeros_like(shift_labels_be, dtype=torch.bool)
-                        for row, sl in enumerate(steering_slices_be):
-                            tgt_start_be = sl.start - 1
-                            tgt_end_be = sl.stop - 1 if sl.stop is not None else shift_labels_be.size(1)
-                            if tgt_start_be < tgt_end_be:
-                                target_mask_be[row, tgt_start_be:tgt_end_be] = True
-
-                        active_logits_be = shift_logits_be[target_mask_be]
-                        active_labels_be = shift_labels_be[target_mask_be]
-                        if active_logits_be.numel() > 0:
-                            log_probs_be = torch.log_softmax(active_logits_be, dim=-1)
-                            idx_be = torch.arange(active_labels_be.size(0), device=active_labels_be.device)
-                            p_be = torch.exp(log_probs_be[idx_be, active_labels_be])
-                            base_loss_e = (-torch.log(torch.clamp(1.0 - p_be, min=eps))).mean() / math.log(10)
-                        else:
-                            base_loss_e = torch.tensor(0.0, device=model.device)
-
-                        # cleanup eval base tensors
-                        del input_ids_be, attn_mask_be, shift_logits_be, shift_labels_be, active_logits_be, active_labels_be, out_be, logits_be
-                        torch.cuda.empty_cache()
-
-                    batch_eval_loss = (ce_target_e + (base_loss_weight * base_loss_e if include_base_objective else 0.0)).item()
-                    running_eval_loss += batch_eval_loss
-                    eval_batches += 1
-
-                    # cleanup eval tensors
-                    del input_ids_e, attn_mask_e, shift_logits_e, shift_labels_e, active_logits_e, active_labels_e, out_e, logits_e
-                    torch.cuda.empty_cache()
-                
-                if eval_batches > 0:
-                    eval_loss = running_eval_loss / eval_batches
-                    eval_hist.append(eval_loss)
 
         # --- wandb logging ---
         if wandb_run is not None:
-            log_payload = {
+            wandb_run.log({
                 'train_loss': train_loss,
                 'step': step,
                 'vector_norm': vector.norm().item(),
-            }
-            if eval_loss is not None:
-                log_payload['eval_loss'] = eval_loss
-            wandb_run.log(log_payload, step=step)
+            }, step=step)
 
         metric = train_loss
         if metric + early_stopping_min_delta < best_loss:
@@ -631,7 +313,6 @@ def optimize_vector_simple(
             final_loss=best_loss,
             norm=vector.norm().item(),
             loss_history=loss_hist if return_loss_history else None,
-            eval_loss_history=eval_hist if (return_loss_history and have_eval) else None,
         )
         return vector, info
     return vector

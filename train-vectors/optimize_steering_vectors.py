@@ -27,8 +27,6 @@ parser.add_argument("--model", type=str, default="meta-llama/Llama-3.1-8B",
                     help="Model to train steering vectors for")
 parser.add_argument("--n_training_examples", type=int, default=8,
                     help="Number of training examples to use per category")
-parser.add_argument("--n_eval_examples", type=int, default=0,
-                    help="Number of evaluation examples to use per category (0 disables eval)")
 parser.add_argument("--save_path", type=str, default="results/vars/optimized_vectors",
                     help="Path to save optimized vectors")
 parser.add_argument("--layer", type=int, default=6,
@@ -43,14 +41,12 @@ parser.add_argument("--warmup_iters", type=int, default=0,
                     help="Number of warmup iterations")
 parser.add_argument("--context_sentences", type=int, default=0,
                     help="Number of additional sentences to include after target completion")
-parser.add_argument("--test_max_tokens", type=int, default=30,
+parser.add_argument("--test_max_tokens", type=int, default=100,
                     help="Maximum tokens to generate when testing")
 parser.add_argument("--load_in_8bit", action="store_true", default=False,
                     help="Load model in 8-bit mode")
 parser.add_argument("--optim_minibatch_size", type=int, default=6,
                     help="Size of minibatches for optimization loop")
-parser.add_argument("--base_gen_minibatch_size", type=int, default=6,
-                    help="Size of minibatches for base completion generation")
 parser.add_argument("--seed", type=int, default=42,
                     help="Random seed")
 parser.add_argument("--steering_vector_idx", type=int, default=0,
@@ -65,8 +61,6 @@ parser.add_argument("--wandb_project", type=str, default="optimize-steering-vect
                     help="Wandb project name")
 parser.add_argument("--use_activation_perplexity_selection", action="store_true", default=False,
                     help="If set, use activation/perplexity-based selection. If not set, use random sampling over the full set.")
-parser.add_argument("--use_synthetic_examples", action="store_true", default=False,
-                    help="If set, use synthetic training examples from synthetic_training_examples.json instead of generated responses")
 args, _ = parser.parse_known_args()
 
 # At module level
@@ -162,13 +156,13 @@ def get_label_positions(annotated_thinking, response_text, tokenizer, context_se
     
     return label_positions
 
-def extract_examples_for_category(responses_data, category_name, tokenizer, n_training_examples, n_eval_examples, model):
-    """Extract training and evaluation examples for `category_name`.
+def extract_examples_for_category(responses_data, category_name, tokenizer, n_training_examples, model):
+    """Extract *training* examples for `category_name`.
 
-    Returns (training_examples, eval_examples, max_activation).
-    If `--use_activation_perplexity_selection` is off, we random-sample for train and then
-    sample eval from the remaining pool. If on, we activation pre-filter, compute perplexities,
-    then take top-K where K = train + eval; the first N train, next M eval.
+    Returns (training_examples, max_activation).
+    If `--use_activation_perplexity_selection` is off, we random-sample up to the requested
+    number; otherwise we use activation + perplexity ranking as before but without keeping a
+    separate test split.
     """
     examples_for_category = []
     
@@ -200,7 +194,7 @@ def extract_examples_for_category(responses_data, category_name, tokenizer, n_tr
                 
                 # Filter out target sequences with fewer than 3 words
                 word_count = len(text.strip().split())
-                if word_count < 7:
+                if word_count < 10:
                     continue
                 
                 examples_for_category.append({
@@ -218,24 +212,26 @@ def extract_examples_for_category(responses_data, category_name, tokenizer, n_tr
     print(f"Found {n_annotated_thinking_containing_category} annotated thinking containing category {category_name}")
     print(f"Found {len(examples_for_category)} examples for category {category_name}")
 
-    # Total needed to cover both train and eval
-    total_examples_needed = n_training_examples + n_eval_examples
+    # Calculate how many total examples we need to get the desired number of training and test
+    # Now: only training examples are returned.
+    total_examples_needed = n_training_examples
 
     if not args.use_activation_perplexity_selection:
-        # Random sampling separately for train and eval (no overlap)
-        pool = examples_for_category.copy()
-        random.shuffle(pool)
-        training_examples = pool[:min(n_training_examples, len(pool))]
-        remaining = pool[len(training_examples):]
-        eval_examples = remaining[:min(n_eval_examples, len(remaining))]
-        print(f"Final selection (random): {len(training_examples)} training examples, {len(eval_examples)} eval examples")
-        return training_examples, eval_examples, 1.0
+        # Use random sampling over the full set
+        if len(examples_for_category) > total_examples_needed:
+            final_examples = random.sample(examples_for_category, total_examples_needed)
+        else:
+            final_examples = examples_for_category.copy()
+        random.shuffle(final_examples)
+        training_examples = final_examples[:total_examples_needed]
+        print(f"Final selection (random): {len(training_examples)} training examples")
+        return training_examples, 1.0
 
     # --- CORRECTED LOGIC: Activation pre-filter, then select by perplexity ---
     # 1. Sort all examples by activation (descending)
     examples_for_category_sorted = sorted(examples_for_category, key=lambda x: x['activation'], reverse=True)
     # 2. Take the top 4x the data needed
-    sample_size = min(len(examples_for_category_sorted), max(1, total_examples_needed) * 4)
+    sample_size = min(len(examples_for_category_sorted), total_examples_needed * 2)
     sampled_examples = examples_for_category_sorted[:sample_size]
 
     print(f"Top {sample_size} examples by activation selected for perplexity ranking")
@@ -277,36 +273,31 @@ def extract_examples_for_category(responses_data, category_name, tokenizer, n_tr
     if not examples_with_metrics:
         print("No valid examples with perplexity found. Falling back to random sampling.")
         # Fall back to random sampling if perplexity calculation fails
-        pool = examples_for_category.copy()
-        random.shuffle(pool)
-        training_examples = pool[:min(n_training_examples, len(pool))]
-        remaining = pool[len(training_examples):]
-        eval_examples = remaining[:min(n_eval_examples, len(remaining))]
-        return training_examples, eval_examples, 1.0
+        max_examples = min(len(examples_for_category), total_examples_needed)
+        selected_examples = random.sample(examples_for_category, max_examples)
+        # Split based on test percentage
+        training_examples = selected_examples[:total_examples_needed]
+        return training_examples, 1.0
 
     # 4. From the top N (train + test) by perplexity (descending), split into train and test
-    final_examples = sorted(examples_with_metrics, key=lambda x: x['perplexity'], reverse=True)[:max(0, total_examples_needed)]
+    final_examples = sorted(examples_with_metrics, key=lambda x: x['perplexity'], reverse=True)[:total_examples_needed]
 
-    # 5. Split into train and eval (no overlap)
-    training_examples = final_examples[:min(n_training_examples, len(final_examples))]
-    eval_examples = final_examples[len(training_examples):len(training_examples) + n_eval_examples]
+    # 5. Split into train and test
+    training_examples = final_examples[:total_examples_needed]
 
-    print(f"Final selection (perplexity): {len(training_examples)} training examples, {len(eval_examples)} eval examples")
+    print(f"Final selection (perplexity): {len(training_examples)} training examples")
 
     # Calculate max activation before removing the field
     max_activation = max(ex['activation'] for ex in final_examples) if final_examples else 1.0
 
-    # Remove perplexity/activation from the selected examples only
-    for ex in training_examples:
-        ex.pop('perplexity', None)
-        ex.pop('activation', None)
-    for ex in eval_examples:
+    # Remove perplexity/activation from the final examples
+    for ex in final_examples:
         ex.pop('perplexity', None)
         ex.pop('activation', None)
 
-    return training_examples, eval_examples, max_activation
+    return training_examples, max_activation
 
-def generate_bias_examples(responses_data, tokenizer, model, n_training_examples, n_eval_examples):
+def generate_bias_examples(responses_data, tokenizer, model, n_training_examples):
     """Generate examples for the *bias* vector.
     Each example uses the *entire* thinking process as the target completion, with the task + question
     (everything *before* the reasoning) as the prompt.
@@ -346,16 +337,16 @@ def generate_bias_examples(responses_data, tokenizer, model, n_training_examples
 
     # If the user disabled perplexity selection, just random-sample
     if not args.use_activation_perplexity_selection:
-        pool = all_examples.copy()
-        random.shuffle(pool)
-        train_sel = pool[:min(n_training_examples, len(pool))]
-        remaining = pool[len(train_sel):]
-        eval_sel = remaining[:min(n_eval_examples, len(remaining))]
-        print(f"Selected {len(train_sel)} random training and {len(eval_sel)} eval examples (no perplexity ranking)")
-        return train_sel, eval_sel
+        if len(all_examples) > total_examples_needed:
+            selected = random.sample(all_examples, total_examples_needed)
+        else:
+            selected = all_examples.copy()
+        random.shuffle(selected)
+        print(f"Selected {len(selected)} random training examples (no perplexity ranking)")
+        return selected
 
     # Otherwise: random pre-sample 2×, then rank by perplexity
-    sample_size = min(len(all_examples), max(1, total_examples_needed) * 4)
+    sample_size = min(len(all_examples), total_examples_needed * 2)
     presampled = random.sample(all_examples, sample_size)
 
     print(f"Presampled {sample_size} examples for perplexity ranking; computing perplexities…")
@@ -388,23 +379,14 @@ def generate_bias_examples(responses_data, tokenizer, model, n_training_examples
 
     if not examples_with_metrics:
         print("Perplexity computation failed for all examples; falling back to random selection.")
-        pool = all_examples.copy()
-        random.shuffle(pool)
-        train_sel = pool[:min(n_training_examples, len(pool))]
-        remaining = pool[len(train_sel):]
-        eval_sel = remaining[:min(n_eval_examples, len(remaining))]
-        return train_sel, eval_sel
+        return random.sample(all_examples, total_examples_needed)
 
     # Sort by perplexity descending and take top N
-    final_examples = sorted(examples_with_metrics, key=lambda x: x['perplexity'], reverse=True)[:max(0, total_examples_needed)]
-    train_sel = final_examples[:min(n_training_examples, len(final_examples))]
-    eval_sel = final_examples[len(train_sel):len(train_sel) + n_eval_examples]
-    for ex in train_sel:
+    final_examples = sorted(examples_with_metrics, key=lambda x: x['perplexity'], reverse=True)[:total_examples_needed]
+    for ex in final_examples:
         ex.pop('perplexity', None)
-    for ex in eval_sel:
-        ex.pop('perplexity', None)
-    print(f"Selected {len(train_sel)} training and {len(eval_sel)} eval examples after perplexity ranking")
-    return train_sel, eval_sel
+    print(f"Selected {len(final_examples)} training examples after perplexity ranking")
+    return final_examples
 
 def get_sorted_categories(responses_data):
     """Extract all unique categories from responses data and return them in order by idx number"""
@@ -516,103 +498,6 @@ def save_hyperparameters(hyperparams, model_name_short, steering_vector_idx, cat
     
     print(f"Saved hyperparameters to {hp_file}")
 
-def load_synthetic_training_examples(category_name, n_training_examples, n_eval_examples):
-    """Load synthetic training and evaluation examples for a specific category.
-    Returns (training_examples, eval_examples) in the same format as extract_examples_for_category.
-    """
-    synthetic_file_path = "results/vars/synthetic_training_examples.json"
-    
-    if not os.path.exists(synthetic_file_path):
-        raise FileNotFoundError(f"Synthetic training examples file not found at {synthetic_file_path}")
-    
-    with open(synthetic_file_path, 'r') as f:
-        synthetic_data = json.load(f)
-    
-    # Find the category in the synthetic data
-    category_examples = None
-    for category_data in synthetic_data.get("synthetic_training_examples", []):
-        if category_data.get("category_name") == category_name:
-            category_examples = category_data
-            break
-    
-    if not category_examples:
-        raise ValueError(f"Category '{category_name}' not found in synthetic training examples")
-    
-    # Convert synthetic examples to the expected format
-    training_examples = []
-    eval_examples = []
-    examples = category_examples.get("examples", [])
-    
-    # Randomly sample train and eval without overlap
-    pool = examples.copy()
-    random.shuffle(pool)
-    selected_train = pool[:min(n_training_examples, len(pool))]
-    remaining = pool[len(selected_train):]
-    selected_eval = remaining[:min(n_eval_examples, len(remaining))]
-
-    for example in selected_train:
-        # Create the prompt format that matches what the model expects
-        prompt = f"Task: Answer the question below. Explain your reasoning step by step.\n\n\n\nQuestion:\n{example['task']}\n\nStep by step answer:\n{example['context']}"
-        
-        training_examples.append({
-            'prompt': prompt,
-            'target_completion': example['target_completion'],
-            'original_question': example['task'],
-            'full_thinking': example['context'],
-            'activation': 1.0  # Default activation for synthetic examples
-        })
-    for example in selected_eval:
-        prompt = f"Task: Answer the question below. Explain your reasoning step by step.\n\n\n\nQuestion:\n{example['task']}\n\nStep by step answer:\n{example['context']}"
-        eval_examples.append({
-            'prompt': prompt,
-            'target_completion': example['target_completion'],
-            'original_question': example['task'],
-            'full_thinking': example['context'],
-            'activation': 1.0
-        })
-    
-    print(f"Loaded {len(training_examples)} synthetic training and {len(eval_examples)} eval examples for category '{category_name}'")
-    return training_examples, eval_examples
-
-def generate_synthetic_bias_examples(n_training_examples, n_eval_examples):
-    """Generate synthetic bias train/eval examples by combining examples from all categories."""
-    synthetic_file_path = "results/vars/synthetic_training_examples.json"
-    
-    if not os.path.exists(synthetic_file_path):
-        raise FileNotFoundError(f"Synthetic training examples file not found at {synthetic_file_path}")
-    
-    with open(synthetic_file_path, 'r') as f:
-        synthetic_data = json.load(f)
-    
-    all_examples = []
-    
-    # Collect examples from all categories
-    for category_data in synthetic_data.get("synthetic_training_examples", []):
-        examples = category_data.get("examples", [])
-        for example in examples:
-            # Create the prompt format that matches what the model expects
-            prompt = f"Task: Answer the question below. Explain your reasoning step by step.\n\n\n\nQuestion:\n{example['task']}\n\nStep by step answer:\n{example['context']}"
-            
-            all_examples.append({
-                'prompt': prompt,
-                'target_completion': example['target_completion'],
-                'original_question': example['task'],
-            })
-    
-    if not all_examples:
-        raise ValueError("No synthetic examples found in the file")
-    
-    print(f"Collected {len(all_examples)} candidate synthetic bias examples")
-    
-    # Randomly sample train and eval without overlap
-    pool = all_examples.copy()
-    random.shuffle(pool)
-    selected_train = pool[:min(n_training_examples, len(pool))]
-    remaining = pool[len(selected_train):]
-    selected_eval = remaining[:min(n_eval_examples, len(remaining))]
-    print(f"Selected {len(selected_train)} synthetic bias training and {len(selected_eval)} eval examples")
-    return selected_train, selected_eval
-
 def main():
     # Set random seed
     random.seed(args.seed)
@@ -650,59 +535,43 @@ def main():
     if thinking_model_name is None:
         thinking_model_name = model_name_short
     thinking_model_short = thinking_model_name.split('/')[-1].lower()
+    responses_json_path = f"../generate-responses/results/vars/responses_{thinking_model_short}.json"
+    annotated_responses_json_path = f"../generate-responses/results/vars/annotated_responses_{thinking_model_short}.json"
     
-    if args.use_synthetic_examples:
-        print("Using synthetic training examples - skipping response loading")
-        valid_responses = []
-        # For synthetic examples, we need to get categories from the synthetic data
-        synthetic_file_path = "results/vars/synthetic_training_examples.json"
-        if not os.path.exists(synthetic_file_path):
-            raise FileNotFoundError(f"Synthetic training examples file not found at {synthetic_file_path}")
-        
-        with open(synthetic_file_path, 'r') as f:
-            synthetic_data = json.load(f)
-        
-        # Extract category names from synthetic data
-        all_categories = [cat_data.get("category_name") for cat_data in synthetic_data.get("synthetic_training_examples", [])]
-        print(f"Found {len(all_categories)} categories in synthetic data: {all_categories}")
-    else:
-        responses_json_path = f"../generate-responses/results/vars/responses_{thinking_model_short}.json"
-        annotated_responses_json_path = f"../generate-responses/results/vars/annotated_responses_{thinking_model_short}.json"
-        
-        if not os.path.exists(responses_json_path):
-            raise FileNotFoundError(f"Annotated responses file not found at {responses_json_path}. Please annotate responses first.")
-        
-        # Load responses
-        print(f"Loading annotated responses from {responses_json_path}")
-        with open(responses_json_path, 'r') as f:
-            responses_data = json.load(f)
+    if not os.path.exists(responses_json_path):
+        raise FileNotFoundError(f"Annotated responses file not found at {responses_json_path}. Please annotate responses first.")
+    
+    # Load responses
+    print(f"Loading annotated responses from {responses_json_path}")
+    with open(responses_json_path, 'r') as f:
+        responses_data = json.load(f)
 
-        # Load annotated responses
-        print(f"Loading annotated responses from {annotated_responses_json_path}")
-        with open(annotated_responses_json_path, 'r') as f:
-            annotated_responses_data = json.load(f)
-        
-        # Match responses with their annotations by index and validate
-        valid_responses = []
-        for i, resp in enumerate(responses_data):
-            if i < len(annotated_responses_data):
-                annotated_resp = annotated_responses_data[i]
-                # Verify that the responses match by question_id and dataset_name
-                if (resp['question_id'] == annotated_resp['question_id'] and 
-                    resp['dataset_name'] == annotated_resp['dataset_name'] and
-                    annotated_resp.get('annotated_thinking')):
-                    # Create merged response with annotated_thinking
-                    merged_resp = resp.copy()
-                    merged_resp['annotated_thinking'] = annotated_resp['annotated_thinking']
-                    merged_resp['thinking_process'] = extract_thinking_process(resp["full_response"])
-                    valid_responses.append(merged_resp)
-                else:
-                    print(f"Warning: Mismatch at index {i} - response question_id: {resp['question_id']}, annotated question_id: {annotated_resp.get('question_id')}")
-        
-        print(f"Found {len(valid_responses)} responses with annotations out of {len(responses_data)} total responses")
-        
-        # Get all available categories sorted alphabetically
-        all_categories = get_sorted_categories(valid_responses)
+    # Load annotated responses
+    print(f"Loading annotated responses from {annotated_responses_json_path}")
+    with open(annotated_responses_json_path, 'r') as f:
+        annotated_responses_data = json.load(f)
+    
+    # Match responses with their annotations by index and validate
+    valid_responses = []
+    for i, resp in enumerate(responses_data):
+        if i < len(annotated_responses_data):
+            annotated_resp = annotated_responses_data[i]
+            # Verify that the responses match by question_id and dataset_name
+            if (resp['question_id'] == annotated_resp['question_id'] and 
+                resp['dataset_name'] == annotated_resp['dataset_name'] and
+                annotated_resp.get('annotated_thinking')):
+                # Create merged response with annotated_thinking
+                merged_resp = resp.copy()
+                merged_resp['annotated_thinking'] = annotated_resp['annotated_thinking']
+                merged_resp['thinking_process'] = extract_thinking_process(resp["full_response"])
+                valid_responses.append(merged_resp)
+            else:
+                print(f"Warning: Mismatch at index {i} - response question_id: {resp['question_id']}, annotated question_id: {annotated_resp.get('question_id')}")
+    
+    print(f"Found {len(valid_responses)} responses with annotations out of {len(responses_data)} total responses")
+    
+    # Get all available categories sorted alphabetically
+    all_categories = get_sorted_categories(valid_responses)
     
     # Print all available categories with their indices
     print("\nAvailable categories with indices:")
@@ -719,20 +588,12 @@ def main():
     if args.steering_vector_idx == -1:
         target_category = "bias"
         print("\nOptimizing general bias vector (full rollouts)")
-        if args.use_synthetic_examples:
-            print("Using synthetic examples for bias vector")
-            training_examples, eval_examples = generate_synthetic_bias_examples(
-                args.n_training_examples,
-                args.n_eval_examples
-            )
-        else:
-            training_examples, eval_examples = generate_bias_examples(
-                valid_responses,
-                tokenizer,
-                model,
-                args.n_training_examples,
-                args.n_eval_examples
-            )
+        training_examples = generate_bias_examples(
+            valid_responses,
+            tokenizer,
+            model,
+            args.n_training_examples
+        )
         max_activation = 1.0  # Not used for bias vector
     else:
         # Get the target category name
@@ -740,20 +601,14 @@ def main():
         print(f"\nOptimizing vector for category: {target_category} (index {args.steering_vector_idx})")
         
         # Extract examples only for the target category
-        if args.use_synthetic_examples:
-            print(f"Using synthetic training examples for category {target_category}")
-            training_examples, eval_examples = load_synthetic_training_examples(target_category, args.n_training_examples, args.n_eval_examples)
-            max_activation = 1.0  # Default activation for synthetic examples
-        else:
-            print(f"Extracting examples for category {target_category}...")
-            training_examples, eval_examples, max_activation = extract_examples_for_category(
-                valid_responses, 
-                target_category, 
-                tokenizer,
-                args.n_training_examples,
-                args.n_eval_examples,
-                model
-            )
+        print(f"Extracting examples for category {target_category}...")
+        training_examples, max_activation = extract_examples_for_category(
+            valid_responses, 
+            target_category, 
+            tokenizer,
+            args.n_training_examples,
+            model
+        )
 
         # --- Load bias vector (if available) to attach during optimisation ---
         bias_vector = None
@@ -770,15 +625,15 @@ def main():
 
     # Proceed even if no separate test examples are available.
         
-    print(f"Found {len(training_examples)} training examples and {len(eval_examples) if 'eval_examples' in locals() else 0} eval examples")
+    print(f"Found {len(training_examples)} training examples")
     
     # Extract prompts and target completions for training
     train_prompts = [ex['prompt'] for ex in training_examples]
     train_target_completions = [ex['target_completion'] for ex in training_examples]
     
     # Evaluation dataset removed – optimisation now relies solely on training loss.
-    eval_prompts = [ex['prompt'] for ex in eval_examples] if 'eval_examples' in locals() and eval_examples else None
-    eval_target_completions = [ex['target_completion'] for ex in eval_examples] if 'eval_examples' in locals() and eval_examples else None
+    eval_prompts = None
+    eval_target_completions = None
     
     # Store results for each learning rate
     all_results = {}
@@ -796,22 +651,18 @@ def main():
                 lr=lr,
                 max_iters=args.max_iters,
                 optim_minibatch_size=args.optim_minibatch_size,
-                base_gen_minibatch_size=args.base_gen_minibatch_size,
                 warmup_steps=args.warmup_iters,
                 min_lr=args.min_lr,
                 starting_norm=1,
                 max_norm=None,
                 grad_clip=args.grad_clip,
-                early_stopping_patience=10,
-                early_stopping_min_delta=0.001,
+                early_stopping_patience=5,
+                early_stopping_min_delta=0.01,
                 return_info=True,
                 return_loss_history=True,
                 steering_token_window=args.steering_token_window,
-                include_base_objective=True,
                 wandb_run=None,
-                static_vectors=[bias_vector] if bias_vector is not None else None,
-                eval_prompts=eval_prompts,
-                eval_target_completions=eval_target_completions
+                static_vectors=[bias_vector] if bias_vector is not None else None
             )
             
             # Store results
@@ -882,7 +733,6 @@ def main():
         "vector_norm": best_result['vector'].norm().item(),
         "grad_clip": args.grad_clip,
         "optim_minibatch_size": args.optim_minibatch_size,
-        "base_gen_minibatch_size": args.base_gen_minibatch_size,
         "steering_token_window": args.steering_token_window
     }
     # Use "bias" instead of steering_vector_idx in hyperparams filename
@@ -902,14 +752,12 @@ def main():
     losses_path = f"{losses_dir}/losses_{model_name_short}_{vector_id}.pt"
     
     # Prepare loss data in the format expected by visualize_vector_losses.py
-    best_loss_info = best_result['loss_info']
-    record = {
-        'train_losses': best_loss_info['loss_history'],
-        'final_loss': best_loss_info['final_loss']
+    loss_data = {
+        best_lr: [{
+            'train_losses': best_result['loss_info']['loss_history'],
+            'final_loss': best_result['final_loss']
+        }]
     }
-    if best_loss_info.get('eval_loss_history') is not None:
-        record['eval_losses'] = best_loss_info['eval_loss_history']
-    loss_data = { best_lr: [record] }
     
     torch.save(loss_data, losses_path)
     print(f"\nSaved training losses for best learning rate {best_lr} to {losses_path}")
