@@ -67,6 +67,10 @@ parser.add_argument("--use_activation_perplexity_selection", action="store_true"
                     help="If set, use activation/perplexity-based selection. If not set, use random sampling over the full set.")
 parser.add_argument("--use_synthetic_examples", action="store_true", default=False,
                     help="If set, use synthetic training examples from synthetic_training_examples.json instead of generated responses")
+parser.add_argument("--steering_type", type=str, choices=["linear", "lora"], default="linear",
+                    help="Type of steering to optimize: 'linear' steering vector or 'lora' low-rank adapter")
+parser.add_argument("--lora_rank", type=int, default=1,
+                    help="Rank r for LoRA adapter when --steering_type=lora")
 args, _ = parser.parse_known_args()
 
 # At module level
@@ -431,7 +435,7 @@ def get_sorted_categories(responses_data):
     
     return sorted(list(categories), key=extract_idx)
 
-def test_on_example(model, tokenizer, vector, layer, test_example, max_new_tokens=50, steering_token_window=None, additional_vectors=None):
+def test_on_example(model, tokenizer, vector, layer, test_example, max_new_tokens=50, steering_token_window=None, additional_vectors=None, steering_type: str = "linear"):
     """Test the optimized vector on an example.
 
     Parameters
@@ -478,10 +482,22 @@ def test_on_example(model, tokenizer, vector, layer, test_example, max_new_token
     
     # Generate with steering
 
-    hooks = [(layer, steering_opt.make_steering_hook_hf(vector, token=steering_token_slice))]
+    hooks = []
+    if steering_type == "linear":
+        hooks.append((layer, steering_opt.make_steering_hook_hf(vector, token=steering_token_slice)))
+    elif steering_type == "lora":
+        assert isinstance(vector, dict) and 'A' in vector and 'B' in vector and 'alpha' in vector, "LoRA steering expects a dict with 'A', 'B', and 'alpha'"
+        hooks.append((layer, steering_opt.make_lora_hook_hf(vector['A'], vector['B'], vector['alpha'], token=steering_token_slice)))
+    else:
+        raise ValueError(f"Unknown steering_type: {steering_type}")
+
     for extra_v in additional_vectors:
         if extra_v is not None:
-            hooks.append((layer, steering_opt.make_steering_hook_hf(extra_v, token=steering_token_slice)))
+            if steering_type == "linear":
+                hooks.append((layer, steering_opt.make_steering_hook_hf(extra_v, token=steering_token_slice)))
+            elif steering_type == "lora":
+                assert isinstance(extra_v, dict) and 'A' in extra_v and 'B' in extra_v and 'alpha' in extra_v, "Extra LoRA must have A, B, alpha"
+                hooks.append((layer, steering_opt.make_lora_hook_hf(extra_v['A'], extra_v['B'], extra_v['alpha'], token=steering_token_slice)))
 
     with steering_opt.hf_hooks_contextmanager(model, hooks): 
         generated_tokens = model.generate(
@@ -712,6 +728,7 @@ def main():
         raise ValueError(f"Invalid steering_vector_idx: {args.steering_vector_idx}. Must be between -1 and {len(all_categories)-1}")
     
     bias_vector = None  # may be populated later
+    bias_lora = None    # may be populated later
 
     # Handle general bias vector case
     if args.steering_vector_idx == -1:
@@ -753,18 +770,25 @@ def main():
                 model
             )
 
-        # --- Load bias vector (if available) to attach during optimisation ---
+        # --- Load bias steering (vector or lora) to attach during optimisation ---
         bias_vector = None
-        bias_path = os.path.join(args.save_path, f"{model_name_short}_bias.pt")
+        bias_lora = None
+        bias_path = os.path.join(args.save_path, f"{model_name_short}_bias_{args.steering_type}.pt")
         if os.path.exists(bias_path):
             try:
                 bias_dict = torch.load(bias_path, map_location=model.device)
-                if isinstance(bias_dict, dict):
-                    bias_vector = bias_dict.get("bias", None)
-                elif isinstance(bias_dict, torch.Tensor):
-                    bias_vector = bias_dict
+                if args.steering_type == "linear":
+                    if isinstance(bias_dict, dict):
+                        bias_vector = bias_dict.get("bias", None) if "bias" in bias_dict else None
+                    elif isinstance(bias_dict, torch.Tensor):
+                        bias_vector = bias_dict
+                else:
+                    if isinstance(bias_dict, dict):
+                        candidate = bias_dict.get("bias", bias_dict)
+                        if all(k in candidate for k in ("A","B","alpha")):
+                            bias_lora = candidate
             except Exception as e:
-                print(f"Warning: failed to load bias vector from {bias_path}: {e}")
+                print(f"Warning: failed to load bias steering from {bias_path}: {e}")
 
     # Proceed even if no separate test examples are available.
         
@@ -787,11 +811,17 @@ def main():
     for lr in tqdm(learning_rates, desc="Optimizing with learning rates"):
         print(f"\nOptimizing with learning rate: {lr}")
         try:
-            vector, loss_info = steering_opt.optimize_vector_simple(
-                model, 
+            static_vecs = None
+            if args.steering_type == "linear" and bias_vector is not None:
+                static_vecs = [bias_vector]
+            elif args.steering_type == "lora" and bias_lora is not None:
+                static_vecs = [bias_lora]
+
+            params, loss_info = steering_opt.optimize_vector_simple(
+                model,
                 tokenizer,
-                train_prompts, 
-                train_target_completions, 
+                train_prompts,
+                train_target_completions,
                 args.layer,
                 lr=lr,
                 max_iters=args.max_iters,
@@ -809,19 +839,32 @@ def main():
                 steering_token_window=args.steering_token_window,
                 include_base_objective=False,
                 wandb_run=None,
-                static_vectors=[bias_vector] if bias_vector is not None else None,
+                static_vectors=static_vecs,
+                steering_type=args.steering_type,
+                rank=args.lora_rank,
                 eval_prompts=eval_prompts,
                 eval_target_completions=eval_target_completions
             )
+
+            if args.steering_type == "linear":
+                vect_to_store = params.detach().cpu()
+            else:
+                vect_to_store = {
+                    'A': params['A'].detach().cpu(),
+                    'B': params['B'].detach().cpu(),
+                    'alpha': params['alpha'].detach().cpu(),
+                    'rank': args.lora_rank,
+                }
+            final_loss_val = loss_info['final_loss']
             
             # Store results
             if lr not in all_results:
                 all_results[lr] = []
             
             all_results[lr].append({
-                'vector': vector.detach().cpu(),
+                'vector': vect_to_store,
                 'loss_info': loss_info,
-                'final_loss': loss_info['final_loss']
+                'final_loss': final_loss_val
             })
             
         except Exception as e:
@@ -857,8 +900,9 @@ def main():
     # Initialize wandb
     wandb_run = None
     lrs_str = "-".join([str(lr) for lr in learning_rates])
-    # Use "bias" instead of -1 in run names and file paths
-    vector_id = "bias" if args.steering_vector_idx == -1 else f"idx{args.steering_vector_idx}"
+    # Use "bias" instead of -1 in run names and file paths; append steering type
+    vector_id_base = "bias" if args.steering_vector_idx == -1 else f"idx{args.steering_vector_idx}"
+    vector_id = f"{vector_id_base}_{args.steering_type}"
     run_name = f"{model_name_short}_{vector_id}_lr{lrs_str}_n{args.n_training_examples}"
     if args.use_wandb:
         if wandb is None:
@@ -871,6 +915,15 @@ def main():
         )
 
     # Save hyperparameters for this vector
+    # Norm summary depends on steering type
+    if args.steering_type == "linear":
+        vector_norm_value = best_result['vector'].norm().item()
+    else:
+        vA = best_result['vector']['A']
+        vB = best_result['vector']['B']
+        vAlpha = best_result['vector']['alpha']
+        vector_norm_value = float(vA.norm().item() + vB.norm().item())
+
     hyperparams = {
         "layer": args.layer,
         "max_iters": args.max_iters,
@@ -879,11 +932,13 @@ def main():
         "context_sentences": args.context_sentences,
         "seed": args.seed,
         "n_training_examples": len(training_examples),
-        "vector_norm": best_result['vector'].norm().item(),
+        "vector_norm": vector_norm_value,
         "grad_clip": args.grad_clip,
         "optim_minibatch_size": args.optim_minibatch_size,
         "base_gen_minibatch_size": args.base_gen_minibatch_size,
-        "steering_token_window": args.steering_token_window
+        "steering_token_window": args.steering_token_window,
+        "steering_type": args.steering_type,
+        "lora_rank": args.lora_rank if args.steering_type == "lora" else None,
     }
     # Use "bias" instead of steering_vector_idx in hyperparams filename
     save_hyperparameters(hyperparams, model_name_short, vector_id, target_category)
@@ -926,7 +981,12 @@ def main():
             train_example,
             max_new_tokens=args.test_max_tokens,
             steering_token_window=args.steering_token_window,
-            additional_vectors=[bias_vector] if bias_vector is not None else None
+            additional_vectors=(
+                [bias_lora] if (args.steering_type == "lora" and bias_lora is not None) else (
+                    [bias_vector] if bias_vector is not None else None
+                )
+            ),
+            steering_type=args.steering_type
         )
     
     # Free memory

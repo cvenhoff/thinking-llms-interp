@@ -69,6 +69,30 @@ def make_steering_hook_hf(vector: torch.Tensor,
 
 
 # =============================================================
+# 2b.  LoRA steering‑hook factory
+# =============================================================
+
+def make_lora_hook_hf(A: torch.Tensor,
+                      B: torch.Tensor,
+                      alpha: torch.Tensor,
+                      token: Optional[Union[int, slice]] = None):
+    if token is None:
+        token = slice(None)
+
+    def hook_fn(_module, args):
+        (x,) = args
+        d_model = x.shape[-1]
+        assert A.shape[0] == d_model and B.shape[1] == d_model, "A and B must map d_model -> r -> d_model"
+        Al = A.to(x)
+        Bl = B.to(x)
+        al = alpha.to(x)
+        xs = x[:, token]
+        x[:, token] = xs + al * ((xs @ Al) @ Bl)
+        return (x,)
+
+    return hook_fn
+
+# =============================================================
 # 3.  Generic cosine‑anneal scheduler (optionally disabled)
 # =============================================================
 
@@ -120,19 +144,40 @@ def optimize_vector_simple(
     eps: float = 1e-6,
     eval_prompts: Optional[list[str]] = None,
     eval_target_completions: Optional[list[str]] = None,
+    # Unified steering controls
+    steering_type: str = "linear",  # "linear" or "lora"
+    rank: int = 1,
 ):
-    """One‑stop promotion‑steering optimiser matching the paper’s details."""
+    """One‑stop promotion‑steering optimiser matching the paper’s details.
+
+    Supports two parameterisations under one API:
+      - steering_type == "linear": train a 1-D vector added to hidden states
+      - steering_type == "lora":   train a rank-r residual LoRA: x += alpha * ((x @ A) @ B)
+    """
 
     # ---------------- Pre‑flight checks ---------------- #
     if len(prompts) != len(target_completions):
         raise ValueError("Prompts and completions length mismatch.")
     # Evaluation logic removed; optimisation now relies only on training loss.
 
-    # ---------------- Vector initialisation ------------- #
+    # ---------------- Parameter initialisation ----------- #
     d_model = model.config.hidden_size
-    vector = torch.randn(d_model, device=model.device)
-    vector = starting_norm * vector / vector.norm()
-    vector.requires_grad_(True)
+    if steering_type == "linear":
+        vector = torch.randn(d_model, device=model.device)
+        vector = starting_norm * vector / vector.norm()
+        vector.requires_grad_(True)
+        params_to_opt = [vector]
+    elif steering_type == "lora":
+        assert rank >= 1 and rank <= d_model, "Invalid LoRA rank"
+        A = torch.randn(d_model, rank, device=model.device) / math.sqrt(d_model)
+        B = torch.randn(rank, d_model, device=model.device) / math.sqrt(d_model)
+        alpha_param = torch.tensor(1.0, device=model.device)
+        A.requires_grad_(True)
+        B.requires_grad_(True)
+        alpha_param.requires_grad_(True)
+        params_to_opt = [A, B, alpha_param]
+    else:
+        raise ValueError("steering_type must be 'linear' or 'lora'")
 
     # ---------------- Tokenisation helpers -------------- #
     def tok_batch(strs):
@@ -258,13 +303,18 @@ def optimize_vector_simple(
     eval_hist = []
 
     # ---------------- Optimiser & LR schedule ----------- #
-    optim = torch.optim.Adam([vector], lr=lr)
+    optim = torch.optim.Adam(params_to_opt, lr=lr)
 
     # Ensure static_vectors is a list of tensors on correct device
     if static_vectors is None:
-        static_vectors_local: list[torch.Tensor] = []
+        static_vectors_local: list = []
     else:
-        static_vectors_local = [sv.to(model.device).detach() for sv in static_vectors]
+        static_vectors_local = [sv.to(model.device).detach() if isinstance(sv, torch.Tensor) else sv for sv in static_vectors]
+
+    if steering_type == "lora" and static_vectors_local:
+        # Expect dicts with A,B,alpha for LoRA static adapters
+        for sv in static_vectors_local:
+            assert isinstance(sv, dict) and all(k in sv for k in ("A","B","alpha")), "LoRA static_vectors must be dicts with A,B,alpha"
 
     # ---- learning-rate schedule ----
     # We want the scheduler to advance *once per optimiser step* (i.e. per minibatch).
@@ -279,7 +329,7 @@ def optimize_vector_simple(
     )
 
     # ---------------- Training loop --------------------- #
-    best_vec, best_loss = None, float("inf")
+    best_vec, best_lora, best_loss = None, None, float("inf")
     loss_hist = []
     patience = 0
 
@@ -315,25 +365,38 @@ def optimize_vector_simple(
                 steering_slices.append(slice(start, L))
 
             # Hook for this batch
-            def batch_hook(_m, args, slices=steering_slices, stat_vecs=static_vectors_local):
-                (x,) = args
-                v_local = vector.to(x)
-                
-                stat_vecs_on_device = [sv.to(x.device) for sv in stat_vecs]
-
-                for row, sl in enumerate(slices):
-                    if projection_clamp:
+            if steering_type == "linear":
+                def batch_hook(_m, args, slices=steering_slices, stat_vecs=static_vectors_local):
+                    (x,) = args
+                    v_local = vector.to(x)
+                    stat_vecs_on_device = [sv.to(x.device) for sv in stat_vecs]
+                    for row, sl in enumerate(slices):
+                        if projection_clamp:
+                            seg = x[row, sl]
+                            coef = (seg @ v_local) / (v_local.norm() ** 2)
+                            x[row, sl] = seg - coef.unsqueeze(-1) * v_local + v_local
+                        else:
+                            x[row, sl] += v_local
+                        if stat_vecs_on_device:
+                            for sv in stat_vecs_on_device:
+                                x[row, sl] += sv
+                    return (x,)
+            else:
+                def batch_hook(_m, args, slices=steering_slices, A_param=A, B_param=B, alpha_p=alpha_param, stat_loras=static_vectors_local):
+                    (x,) = args
+                    Al = A_param.to(x)
+                    Bl = B_param.to(x)
+                    al = alpha_p.to(x)
+                    for row, sl in enumerate(slices):
                         seg = x[row, sl]
-                        coef = (seg @ v_local) / (v_local.norm() ** 2)
-                        x[row, sl] = seg - coef.unsqueeze(-1) * v_local + v_local
-                    else:
-                        x[row, sl] += v_local
-
-                    # Add static vectors (always additive, no projection-clamp)
-                    if stat_vecs_on_device:
-                        for sv in stat_vecs_on_device:
-                            x[row, sl] += sv
-                return (x,)
+                        x[row, sl] = seg + al * ((seg @ Al) @ Bl)
+                        if stat_loras:
+                            for l in stat_loras:
+                                Al_s = l['A'].to(x)
+                                Bl_s = l['B'].to(x)
+                                al_s = l['alpha'].to(x)
+                                x[row, sl] = x[row, sl] + al_s * ((x[row, sl] @ Al_s) @ Bl_s)
+                    return (x,)
 
             with hf_hooks_contextmanager(model, [(layer, batch_hook)]):
                 out = model(input_ids=input_ids, attention_mask=attn_mask)
@@ -374,21 +437,38 @@ def optimize_vector_simple(
                     )
                     steering_slices_b.append(slice(start_b, Lb))
 
-                def batch_hook_base(_m, args, slices=steering_slices_b, stat_vecs=static_vectors_local):
-                    (x,) = args
-                    v_local = vector.to(x)
-                    stat_vecs_on_device = [sv.to(x.device) for sv in stat_vecs]
-                    for row, sl in enumerate(slices):
-                        if projection_clamp:
+                if steering_type == "linear":
+                    def batch_hook_base(_m, args, slices=steering_slices_b, stat_vecs=static_vectors_local):
+                        (x,) = args
+                        v_local = vector.to(x)
+                        stat_vecs_on_device = [sv.to(x.device) for sv in stat_vecs]
+                        for row, sl in enumerate(slices):
+                            if projection_clamp:
+                                seg = x[row, sl]
+                                coef = (seg @ v_local) / (v_local.norm() ** 2)
+                                x[row, sl] = seg - coef.unsqueeze(-1) * v_local + v_local
+                            else:
+                                x[row, sl] += v_local
+                            if stat_vecs_on_device:
+                                for sv in stat_vecs_on_device:
+                                    x[row, sl] += sv
+                        return (x,)
+                else:
+                    def batch_hook_base(_m, args, slices=steering_slices_b, A_param=A, B_param=B, alpha_p=alpha_param, stat_loras=static_vectors_local):
+                        (x,) = args
+                        Al = A_param.to(x)
+                        Bl = B_param.to(x)
+                        al = alpha_p.to(x)
+                        for row, sl in enumerate(slices):
                             seg = x[row, sl]
-                            coef = (seg @ v_local) / (v_local.norm() ** 2)
-                            x[row, sl] = seg - coef.unsqueeze(-1) * v_local + v_local
-                        else:
-                            x[row, sl] += v_local
-                        if stat_vecs_on_device:
-                            for sv in stat_vecs_on_device:
-                                x[row, sl] += sv
-                    return (x,)
+                            x[row, sl] = seg + al * ((seg @ Al) @ Bl)
+                            if stat_loras:
+                                for l in stat_loras:
+                                    Al_s = l['A'].to(x)
+                                    Bl_s = l['B'].to(x)
+                                    al_s = l['alpha'].to(x)
+                                    x[row, sl] = x[row, sl] + al_s * ((x[row, sl] @ Al_s) @ Bl_s)
+                        return (x,)
 
                 with hf_hooks_contextmanager(model, [(layer, batch_hook_base)]):
                     out_b = model(input_ids=input_ids_b, attention_mask=attn_mask_b)
@@ -424,7 +504,7 @@ def optimize_vector_simple(
             loss.backward()
 
             if grad_clip:
-                torch.nn.utils.clip_grad_norm_([vector], grad_clip)
+                torch.nn.utils.clip_grad_norm_(params_to_opt, grad_clip)
 
             optim.step()
 
@@ -432,9 +512,23 @@ def optimize_vector_simple(
             if sched:
                 sched.step()
 
-            if max_norm is not None and vector.norm() > max_norm:
-                with torch.no_grad():
-                    vector.mul_(max_norm / vector.norm())
+            if max_norm is not None:
+                if steering_type == "linear":
+                    if vector.norm() > max_norm:
+                        with torch.no_grad():
+                            vector.mul_(max_norm / vector.norm())
+                else:
+                    # Enforce a joint norm constraint over (A, B, alpha)
+                    with torch.no_grad():
+                        A_norm = A.norm()
+                        B_norm = B.norm()
+                        a_norm = alpha_param.abs()
+                        combined = torch.sqrt(A_norm * A_norm + B_norm * B_norm + a_norm * a_norm)
+                        if combined > max_norm:
+                            scale = max_norm / combined
+                            A.mul_(scale)
+                            B.mul_(scale)
+                            alpha_param.mul_(scale)
 
             running_loss += loss.item()
             batches += 1
@@ -598,7 +692,10 @@ def optimize_vector_simple(
         metric = train_loss
         if metric + early_stopping_min_delta < best_loss:
             best_loss = metric
-            best_vec = vector.detach().clone()
+            if steering_type == "linear":
+                best_vec = vector.detach().clone()
+            else:
+                best_lora = (A.detach().clone(), B.detach().clone(), alpha_param.detach().clone())
             patience = 0
         else:
             patience += 1
@@ -620,22 +717,43 @@ def optimize_vector_simple(
 
     pbar.close()
 
-    if best_vec is not None:
-        vector.data.copy_(best_vec)
+    if steering_type == "linear":
+        if best_vec is not None:
+            vector.data.copy_(best_vec)
+    else:
+        if best_lora is not None:
+            A.data.copy_(best_lora[0])
+            B.data.copy_(best_lora[1])
+            alpha_param.data.copy_(best_lora[2])
 
     if wandb_run is not None:
-        wandb_run.log({'final_vector_norm': vector.norm().item()})
+        if steering_type == "linear":
+            wandb_run.log({'final_vector_norm': vector.norm().item()})
+        else:
+            wandb_run.log({'final_A_norm': A.norm().item(), 'final_B_norm': B.norm().item(), 'final_alpha': float(alpha_param.item())})
 
     if return_info:
-        info = dict(
-            iters=len(loss_hist),
-            final_loss=best_loss,
-            norm=vector.norm().item(),
-            loss_history=loss_hist if return_loss_history else None,
-            eval_loss_history=eval_hist if (return_loss_history and have_eval) else None,
-        )
-        return vector, info
-    return vector
+        if steering_type == "linear":
+            info = dict(
+                iters=len(loss_hist),
+                final_loss=best_loss,
+                norm=vector.norm().item(),
+                loss_history=loss_hist if return_loss_history else None,
+                eval_loss_history=eval_hist if (return_loss_history and have_eval) else None,
+            )
+            return vector, info
+        else:
+            info = dict(
+                iters=len(loss_hist),
+                final_loss=best_loss,
+                A_norm=A.norm().item(),
+                B_norm=B.norm().item(),
+                alpha=float(alpha_param.item()),
+                loss_history=loss_hist if return_loss_history else None,
+                eval_loss_history=eval_hist if (return_loss_history and have_eval) else None,
+            )
+            return {'A': A, 'B': B, 'alpha': alpha_param}, info
+    return vector if steering_type == "linear" else {'A': A, 'B': B, 'alpha': alpha_param}
 
 
 # Evaluation helper removed.
