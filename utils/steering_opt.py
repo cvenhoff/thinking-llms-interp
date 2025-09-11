@@ -72,7 +72,7 @@ def make_steering_hook_hf(vector: torch.Tensor,
 # 2b.  LoRA steering‑hook factory
 # =============================================================
 
-def make_lora_hook_hf(A: torch.Tensor,
+def make_resid_lora_hook_hf(A: torch.Tensor,
                       B: torch.Tensor,
                       alpha: torch.Tensor,
                       token: Optional[Union[int, slice]] = None):
@@ -145,14 +145,14 @@ def optimize_vector_simple(
     eval_prompts: Optional[list[str]] = None,
     eval_target_completions: Optional[list[str]] = None,
     # Unified steering controls
-    steering_type: str = "linear",  # "linear" or "lora"
+    steering_type: str = "linear",  # "linear" or "resid_lora"
     rank: int = 1,
 ):
     """One‑stop promotion‑steering optimiser matching the paper’s details.
 
     Supports two parameterisations under one API:
       - steering_type == "linear": train a 1-D vector added to hidden states
-      - steering_type == "lora":   train a rank-r residual LoRA: x += alpha * ((x @ A) @ B)
+      - steering_type == "resid_lora":   train a rank-r residual LoRA: x += alpha * ((x @ A) @ B)
     """
 
     # ---------------- Pre‑flight checks ---------------- #
@@ -167,7 +167,7 @@ def optimize_vector_simple(
         vector = starting_norm * vector / vector.norm()
         vector.requires_grad_(True)
         params_to_opt = [vector]
-    elif steering_type == "lora":
+    elif steering_type == "resid_lora":
         assert rank >= 1 and rank <= d_model, "Invalid LoRA rank"
         A = torch.randn(d_model, rank, device=model.device) / math.sqrt(d_model)
         B = torch.randn(rank, d_model, device=model.device) / math.sqrt(d_model)
@@ -177,7 +177,7 @@ def optimize_vector_simple(
         alpha_param.requires_grad_(True)
         params_to_opt = [A, B, alpha_param]
     else:
-        raise ValueError("steering_type must be 'linear' or 'lora'")
+        raise ValueError("steering_type must be 'linear' or 'resid_lora'")
 
     # ---------------- Tokenisation helpers -------------- #
     def tok_batch(strs):
@@ -311,7 +311,7 @@ def optimize_vector_simple(
     else:
         static_vectors_local = [sv.to(model.device).detach() if isinstance(sv, torch.Tensor) else sv for sv in static_vectors]
 
-    if steering_type == "lora" and static_vectors_local:
+    if steering_type == "resid_lora" and static_vectors_local:
         # Expect dicts with A,B,alpha for LoRA static adapters
         for sv in static_vectors_local:
             assert isinstance(sv, dict) and all(k in sv for k in ("A","B","alpha")), "LoRA static_vectors must be dicts with A,B,alpha"
@@ -365,7 +365,7 @@ def optimize_vector_simple(
                 steering_slices.append(slice(start, L))
 
             # Hook for this batch
-            if steering_type == "linear":
+            if steering_type == "resid_lora":
                 def batch_hook(_m, args, slices=steering_slices, stat_vecs=static_vectors_local):
                     (x,) = args
                     v_local = vector.to(x)
@@ -453,7 +453,7 @@ def optimize_vector_simple(
                                 for sv in stat_vecs_on_device:
                                     x[row, sl] += sv
                         return (x,)
-                else:
+                elif steering_type == "resid_lora":
                     def batch_hook_base(_m, args, slices=steering_slices_b, A_param=A, B_param=B, alpha_p=alpha_param, stat_loras=static_vectors_local):
                         (x,) = args
                         Al = A_param.to(x)
@@ -469,6 +469,8 @@ def optimize_vector_simple(
                                     al_s = l['alpha'].to(x)
                                     x[row, sl] = x[row, sl] + al_s * ((x[row, sl] @ Al_s) @ Bl_s)
                         return (x,)
+                else:
+                    raise ValueError(f"Unknown steering_type: {steering_type}")
 
                 with hf_hooks_contextmanager(model, [(layer, batch_hook_base)]):
                     out_b = model(input_ids=input_ids_b, attention_mask=attn_mask_b)
@@ -517,7 +519,7 @@ def optimize_vector_simple(
                     if vector.norm() > max_norm:
                         with torch.no_grad():
                             vector.mul_(max_norm / vector.norm())
-                else:
+                elif steering_type == "resid_lora":
                     # Enforce a joint norm constraint over (A, B, alpha)
                     with torch.no_grad():
                         A_norm = A.norm()
@@ -529,6 +531,8 @@ def optimize_vector_simple(
                             A.mul_(scale)
                             B.mul_(scale)
                             alpha_param.mul_(scale)
+                else:
+                    raise ValueError(f"Unknown steering_type: {steering_type}")
 
             running_loss += loss.item()
             batches += 1

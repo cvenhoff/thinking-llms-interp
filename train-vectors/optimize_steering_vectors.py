@@ -67,8 +67,8 @@ parser.add_argument("--use_activation_perplexity_selection", action="store_true"
                     help="If set, use activation/perplexity-based selection. If not set, use random sampling over the full set.")
 parser.add_argument("--use_synthetic_examples", action="store_true", default=False,
                     help="If set, use synthetic training examples from synthetic_training_examples.json instead of generated responses")
-parser.add_argument("--steering_type", type=str, choices=["linear", "lora"], default="linear",
-                    help="Type of steering to optimize: 'linear' steering vector or 'lora' low-rank adapter")
+parser.add_argument("--steering_type", type=str, choices=["linear", "resid_lora"], default="linear",
+                    help="Type of steering to optimize: 'linear' steering vector or 'resid_lora' low-rank adapter")
 parser.add_argument("--lora_rank", type=int, default=1,
                     help="Rank r for LoRA adapter when --steering_type=lora")
 args, _ = parser.parse_known_args()
@@ -485,9 +485,9 @@ def test_on_example(model, tokenizer, vector, layer, test_example, max_new_token
     hooks = []
     if steering_type == "linear":
         hooks.append((layer, steering_opt.make_steering_hook_hf(vector, token=steering_token_slice)))
-    elif steering_type == "lora":
+    elif steering_type == "resid_lora":
         assert isinstance(vector, dict) and 'A' in vector and 'B' in vector and 'alpha' in vector, "LoRA steering expects a dict with 'A', 'B', and 'alpha'"
-        hooks.append((layer, steering_opt.make_lora_hook_hf(vector['A'], vector['B'], vector['alpha'], token=steering_token_slice)))
+        hooks.append((layer, steering_opt.make_resid_lora_hook_hf(vector['A'], vector['B'], vector['alpha'], token=steering_token_slice)))
     else:
         raise ValueError(f"Unknown steering_type: {steering_type}")
 
@@ -495,9 +495,9 @@ def test_on_example(model, tokenizer, vector, layer, test_example, max_new_token
         if extra_v is not None:
             if steering_type == "linear":
                 hooks.append((layer, steering_opt.make_steering_hook_hf(extra_v, token=steering_token_slice)))
-            elif steering_type == "lora":
+            elif steering_type == "resid_lora":
                 assert isinstance(extra_v, dict) and 'A' in extra_v and 'B' in extra_v and 'alpha' in extra_v, "Extra LoRA must have A, B, alpha"
-                hooks.append((layer, steering_opt.make_lora_hook_hf(extra_v['A'], extra_v['B'], extra_v['alpha'], token=steering_token_slice)))
+                hooks.append((layer, steering_opt.make_resid_lora_hook_hf(extra_v['A'], extra_v['B'], extra_v['alpha'], token=steering_token_slice)))
 
     with steering_opt.hf_hooks_contextmanager(model, hooks): 
         generated_tokens = model.generate(
@@ -814,7 +814,7 @@ def main():
             static_vecs = None
             if args.steering_type == "linear" and bias_vector is not None:
                 static_vecs = [bias_vector]
-            elif args.steering_type == "lora" and bias_lora is not None:
+            elif args.steering_type == "resid_lora" and bias_lora is not None:
                 static_vecs = [bias_lora]
 
             params, loss_info = steering_opt.optimize_vector_simple(
@@ -938,7 +938,7 @@ def main():
         "base_gen_minibatch_size": args.base_gen_minibatch_size,
         "steering_token_window": args.steering_token_window,
         "steering_type": args.steering_type,
-        "lora_rank": args.lora_rank if args.steering_type == "lora" else None,
+        "lora_rank": args.lora_rank if args.steering_type == "resid_lora" else None,
     }
     # Use "bias" instead of steering_vector_idx in hyperparams filename
     save_hyperparameters(hyperparams, model_name_short, vector_id, target_category)
@@ -982,7 +982,7 @@ def main():
             max_new_tokens=args.test_max_tokens,
             steering_token_window=args.steering_token_window,
             additional_vectors=(
-                [bias_lora] if (args.steering_type == "lora" and bias_lora is not None) else (
+                [bias_lora] if (args.steering_type == "resid_lora" and bias_lora is not None) else (
                     [bias_vector] if bias_vector is not None else None
                 )
             ),
