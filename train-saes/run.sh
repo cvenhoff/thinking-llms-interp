@@ -9,6 +9,10 @@ MODELS="deepseek-ai/DeepSeek-R1-Distill-Llama-8B deepseek-ai/DeepSeek-R1-Distill
 
 REPETITIONS=5
 
+# Rationale for selecting `--layers` per model:
+# - We pick 6 layer indices per model, roughly evenly spaced through depth, to keep runs comparable and avoid training/evaluation over every layer.
+# - The implicit pattern used below is a constant step size per model, approximately
+# step ≈ (total_layers / 8), rounded to an integer, with indices chosen to stay in-range.
 get_layers() {
     local model=$1
     case "$model" in
@@ -18,6 +22,10 @@ get_layers() {
         "qwen/QwQ-32B") echo "9 18 27 36 45 54" ;; # Total layers: 64
         "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B") echo "9 18 27 36 45 54" ;; # Total layers: 64
         "deepseek-ai/DeepSeek-R1-Distill-Llama-70B") echo "11 22 33 44 55 66" ;; # Total layers: 80
+        "Open-Reasoner-Zero/Open-Reasoner-Zero-0.5B") echo "5 8 11 14 17 20" ;; # Total layers: 24
+        "Open-Reasoner-Zero/Open-Reasoner-Zero-1.5B") echo "4 8 12 16 20 24" ;; # Total layers: 28
+        "Open-Reasoner-Zero/Open-Reasoner-Zero-7B") echo "4 8 12 16 20 24" ;; # Total layers: 28
+        "Open-Reasoner-Zero/Open-Reasoner-Zero-32B") echo "9 18 27 36 45 54" ;; # Total layers: 64
         *) echo "" ;;
     esac
 }
