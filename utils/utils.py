@@ -379,6 +379,9 @@ def process_saved_responses(model_name, n_examples, model, tokenizer, layer_or_l
     # Save results for each newly processed layer
     for layer in uncached_layers:
         print(f"Found {len(activations_by_layer[layer])} sentences with activations for layer {layer} across {count_by_layer[layer]} examples")
+        if len(activations_by_layer[layer]) == 0:
+            raise ValueError(f"No activations found for layer {layer} across {count_by_layer[layer]} examples")
+
         overall_running_mean = mean_by_layer[layer].cpu().numpy()
 
         # Center and normalize activations
