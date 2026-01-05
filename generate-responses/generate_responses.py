@@ -12,7 +12,7 @@ from messages import messages
 import utils.utils as utils
 from tqdm import tqdm
 
-MAX_TOKENS_IN_INPUT = 5000
+MAX_TOKENS_IN_INPUT = 6000
 
 # Parse arguments
 parser = argparse.ArgumentParser(description="Generate responses from models without steering vectors")
