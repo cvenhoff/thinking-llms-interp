@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 python optimize_steering_vectors.py \
     --model meta-llama/Llama-3.1-8B \
     --max_iters 50 \

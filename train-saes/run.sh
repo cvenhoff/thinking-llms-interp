@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 CLUSTERS="5 10 15 20 25 30 35 40 45 50" # 5 10 15 20 25 30 35 40 45 50
 N_EXAMPLES=100000  # all responses
 

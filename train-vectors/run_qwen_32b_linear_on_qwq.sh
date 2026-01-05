@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 python optimize_steering_vectors.py \
     --model Qwen/Qwen2.5-32B \
     --thinking_model Qwen/QwQ-32B \
