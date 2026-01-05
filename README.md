@@ -25,7 +25,7 @@ To generate responses from thinking models on MMLU-Pro:
 
 ```bash
 cd generate-responses
-./run.sh
+uv run ./run.sh
 ```
 
 This will generate responses from multiple thinking models (DeepSeek-R1 variants and QwQ) with their reasoning traces.
@@ -36,7 +36,7 @@ To train and evaluate taxonomies:
 
 ```bash
 cd train-saes
-./run.sh
+uv run ./run.sh
 ```
 
 This will:
@@ -52,7 +52,7 @@ To annotate thinking traces using a given taxonomy (specific layer and cluster s
 
 ```bash
 cd generate-responses
-./run_annotation.sh
+uv run ./run_annotation.sh
 ```
 
 This will annotate the thinking traces for each model using the selected taxonomy.
@@ -65,11 +65,11 @@ To train steering vectors for the models used in the paper:
 cd train-vectors
 
 # For each model, run the corresponding script:
-./run_qwen_1.5b.sh
-./run_llama_8b.sh
-./run_qwen_14b.sh
-./run_qwen_32b_linear_on_deepseek.sh
-./run_qwen_32b_linear_on_qwq.sh
+uv run ./run_qwen_1.5b.sh
+uv run ./run_llama_8b.sh
+uv run ./run_qwen_14b.sh
+uv run ./run_qwen_32b_linear_on_deepseek.sh
+uv run ./run_qwen_32b_linear_on_qwq.sh
 ```
 
 ## Running hybrid model
@@ -80,16 +80,16 @@ To run hybrid model experiments:
 cd hybrid
 
 # Run experiments for different models:
-./run_qwen_1.5b.sh
-./run_llama_8b.sh
-./run_qwen_14b.sh
-./run_qwen_32b_on_deepseek.sh
-./run_qwen_32b_on_qwq.sh
+uv run ./run_qwen_1.5b.sh
+uv run ./run_llama_8b.sh
+uv run ./run_qwen_14b.sh
+uv run ./run_qwen_32b_on_deepseek.sh
+uv run ./run_qwen_32b_on_qwq.sh
 
 # Additional ablation experiments:
-./run_qwen_32b_only_bias.sh
-./run_qwen_32b_random_firing.sh
-./run_qwen_32b_random_vectors.sh
+uv run ./run_qwen_32b_only_bias.sh
+uv run ./run_qwen_32b_random_firing.sh
+uv run ./run_qwen_32b_random_vectors.sh
 ```
 
 ## Citation
