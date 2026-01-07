@@ -10,3 +10,9 @@ python annotate_thinking.py --model deepseek-ai/DeepSeek-R1-Distill-Qwen-14B --l
 python annotate_thinking.py --model deepseek-ai/DeepSeek-R1-Distill-Qwen-32B --layer 27 --n_clusters 15
 
 python annotate_thinking.py --model deepseek-ai/DeepSeek-R1-Distill-Llama-70B --layer 11 --n_clusters 10
+
+python annotate_thinking.py --model Open-Reasoner-Zero/Open-Reasoner-Zero-0.5B --layer 8 --n_clusters 30
+
+python annotate_thinking.py --model Open-Reasoner-Zero/Open-Reasoner-Zero-1.5B --layer 16 --n_clusters 35
+
+python annotate_thinking.py --model Open-Reasoner-Zero/Open-Reasoner-Zero-7B --layer 8 --n_clusters 20
