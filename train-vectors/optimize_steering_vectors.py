@@ -758,8 +758,8 @@ def main():
             if i < len(annotated_responses_data):
                 annotated_resp = annotated_responses_data[i]
                 # Verify that the responses match by question_id and dataset_name
-                if (resp['question_id'] == annotated_resp['question_id'] and 
-                    resp['dataset_name'] == annotated_resp['dataset_name'] and
+                if (resp.get('question_id') == annotated_resp.get('question_id') and 
+                    resp.get('dataset_name') == annotated_resp.get('dataset_name') and
                     annotated_resp.get('annotated_thinking')):
                     # Create merged response with annotated_thinking
                     merged_resp = resp.copy()
@@ -767,7 +767,17 @@ def main():
                     merged_resp['thinking_process'] = extract_thinking_process(resp["full_response"])
                     valid_responses.append(merged_resp)
                 else:
-                    print(f"Warning: Mismatch at index {i} - response question_id: {resp['question_id']}, annotated question_id: {annotated_resp.get('question_id')}")
+                    q_id = resp.get('question_id')
+                    ann_q_id = annotated_resp.get('question_id')
+                    if q_id != ann_q_id:
+                        print(f"Warning: Mismatch at index {i} - question_id mismatch: response={q_id}, annotated={ann_q_id}")
+                    elif resp.get('dataset_name') != annotated_resp.get('dataset_name'):
+                        print(f"Warning: Mismatch at index {i} (q_id: {q_id}) - dataset_name mismatch: response='{resp.get('dataset_name')}', annotated='{annotated_resp.get('dataset_name')}'")
+                    elif not annotated_resp.get('annotated_thinking'):
+                        print(f"Warning: Mismatch at index {i} (q_id: {q_id}) - missing 'annotated_thinking' in annotated response.")
+                    else:
+                        # Fallback for any other unexpected mismatch
+                        print(f"Warning: Mismatch at index {i} - response question_id: {q_id}, annotated question_id: {ann_q_id}")
         
         print(f"Found {len(valid_responses)} responses with annotations out of {len(responses_data)} total responses")
         
