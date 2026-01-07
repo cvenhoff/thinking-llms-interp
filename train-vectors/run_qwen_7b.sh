@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 python optimize_steering_vectors.py \
-    --model Qwen/Qwen2.5-1.5B \
+    --model Qwen/Qwen2.5-7B \
     --max_iters 50 \
     --n_training_examples 2048 \
     --n_eval_examples 512 \
@@ -9,10 +9,10 @@ python optimize_steering_vectors.py \
     --steering_vector_idx -1 \
     --lr "1e-2"
 
-for cluster in {0..34}; do  
+for cluster in {0..19}; do  
     echo "Processing cluster: $cluster"
     python optimize_steering_vectors.py \
-        --model Qwen/Qwen2.5-1.5B \
+        --model Qwen/Qwen2.5-7B \
         --max_iters 50 \
         --n_training_examples 2048 \
         --n_eval_examples 512 \
@@ -23,4 +23,4 @@ for cluster in {0..34}; do
         --use_activation_perplexity_selection
 done
 
-python evaluate_steering_vectors.py --model Qwen/Qwen2.5-1.5B --steering_strategy linear
+python evaluate_steering_vectors.py --model Qwen/Qwen2.5-7B --steering_strategy linear

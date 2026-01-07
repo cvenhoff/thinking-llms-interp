@@ -608,7 +608,10 @@ If the last sentence is not finished, do not include it in the annotations.
 
 model_mapping = {
     "meta-llama/Llama-3.1-8B":"deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+    "Qwen/Qwen2.5-0.5B":"Open-Reasoner-Zero/Open-Reasoner-Zero-0.5B",
+    "Qwen/Qwen2.5-1.5B":"Open-Reasoner-Zero/Open-Reasoner-Zero-1.5B",
     "Qwen/Qwen2.5-Math-1.5B":"deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+    "Qwen/Qwen2.5-7B":"Open-Reasoner-Zero/Open-Reasoner-Zero-7B",
     "Qwen/Qwen2.5-14B":"deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
     "Qwen/Qwen2.5-32B":"Qwen/QwQ-32B",
     "meta-llama/Llama-3.3-70B-Instruct": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
