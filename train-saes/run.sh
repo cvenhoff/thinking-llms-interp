@@ -5,7 +5,7 @@ N_EXAMPLES=100000  # all responses
 # CLUSTERING_METHODS="gmm pca_gmm spherical_kmeans pca_kmeans agglomerative pca_agglomerative sae_topk"
 CLUSTERING_METHODS="sae_topk"
 
-MODELS="deepseek-ai/DeepSeek-R1-Distill-Llama-8B deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B deepseek-ai/DeepSeek-R1-Distill-Qwen-14B qwen/QwQ-32B deepseek-ai/DeepSeek-R1-Distill-Qwen-32B deepseek-ai/DeepSeek-R1-Distill-Llama-70B Open-Reasoner-Zero/Open-Reasoner-Zero-0.5B Open-Reasoner-Zero/Open-Reasoner-Zero-1.5B Open-Reasoner-Zero/Open-Reasoner-Zero-7B"
+MODELS="deepseek-ai/DeepSeek-R1-Distill-Llama-8B deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B deepseek-ai/DeepSeek-R1-Distill-Qwen-14B qwen/QwQ-32B deepseek-ai/DeepSeek-R1-Distill-Qwen-32B deepseek-ai/DeepSeek-R1-Distill-Llama-70B Open-Reasoner-Zero/Open-Reasoner-Zero-0.5B Open-Reasoner-Zero/Open-Reasoner-Zero-1.5B Open-Reasoner-Zero/Open-Reasoner-Zero-7B Open-Reasoner-Zero/Open-Reasoner-Zero-32B"
 
 REPETITIONS=5
 
