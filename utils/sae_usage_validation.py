@@ -26,6 +26,7 @@ import os
 import pickle
 import random
 import sys
+from bisect import bisect_right
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 
@@ -318,23 +319,58 @@ def _extract_sentence_token_span(full_response: str, sentence: str) -> tuple[int
     return int(token_start), int(token_end)
 
 
-def _forward_layer_output(full_response: str) -> torch.Tensor:
+def _charpos_to_token_idx(offset_mapping: list[tuple[int, int]], pos: int) -> int | None:
+    """
+    Return token index i such that offset_mapping[i][0] <= pos < offset_mapping[i][1], else None.
+
+    This is a lightweight alternative to `get_char_to_token_map` that avoids building an O(len(text))
+    dictionary. It relies on tokenizer `offset_mapping` produced by fast tokenizers.
+    """
+    # NOTE: offset_mapping often contains (0, 0) for special tokens; those will never match.
+    starts = [s for (s, _e) in offset_mapping]
+    i = bisect_right(starts, pos) - 1
+    if i < 0:
+        return None
+    s, e = offset_mapping[i]
+    if s <= pos < e and e > s:
+        return i
+    return None
+
+
+def _tokenize_with_offsets(full_response: str):
+    """
+    Single tokenization call that provides:
+      - input_ids (torch.LongTensor [1, seq])
+      - attention_mask (torch.LongTensor [1, seq])
+      - offset_mapping (list[(start,end)] length seq)
+    """
+    enc = tokenizer(
+        full_response,
+        return_tensors="pt",
+        return_offsets_mapping=True,
+    )
+    # `offset_mapping` is a (1, seq, 2) tensor for fast tokenizers.
+    offset_t = enc["offset_mapping"][0]
+    offset_mapping = [(int(s.item()), int(e.item())) for (s, e) in offset_t]
+    input_ids = enc["input_ids"].to(model.device)
+    attention_mask = enc["attention_mask"].to(model.device)
+    return input_ids, attention_mask, offset_mapping
+
+
+def _forward_layer_output(input_ids: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
     """
     Match `utils.utils.process_saved_responses`:
-      - tokenize via tokenizer.encode(full_response, return_tensors="pt")
       - trace with attention_mask
       - read `model.model.layers[LAYER].output`
 
     Returns layer output on CPU float32 with shape (1, seq_len, d_model).
     """
-    input_ids = tokenizer.encode(full_response, return_tensors="pt").to(model.device)
-    attention_mask = (input_ids != tokenizer.pad_token_id).long()
     with torch.no_grad():
         with model.trace({"input_ids": input_ids, "attention_mask": attention_mask}) as _tracer:
             saved_output = model.model.layers[LAYER].output.save()
     out = saved_output.detach().cpu().to(torch.float32)
     assert out.ndim == 3 and out.shape[0] == 1 and out.shape[2] == hidden_size, f"Bad out shape: {tuple(out.shape)}"
-    del input_ids, attention_mask, saved_output
+    del saved_output
     return out
 
 
@@ -377,7 +413,8 @@ if os.path.exists(mean_cache_path):
         assert sentences, "Response used for a sampled sentence has no sentences; unexpected."
         sentences_set = set(sentences)
 
-        layer_out = _forward_layer_output(full_response)  # (1, seq, d_model) on CPU
+        input_ids, attention_mask, _offsets = _tokenize_with_offsets(full_response)
+        layer_out = _forward_layer_output(input_ids, attention_mask)  # (1, seq, d_model) on CPU
         for target_sentence in occ_by_resp[resp_idx]:
             assert target_sentence in sentences_set, (
                 "Sampled sentence is not present in this response's extracted thinking sentences; "
@@ -391,6 +428,7 @@ if os.path.exists(mean_cache_path):
             raw_sentence_vecs[target_sentence] = raw_vec
 
         del layer_out
+        del input_ids, attention_mask, _offsets
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
@@ -409,8 +447,8 @@ else:
             continue
 
         # Match `process_saved_responses` min/max span logic over all sentences in the response
-        layer_out = _forward_layer_output(full_response)  # (1, seq, d_model) on CPU
-        char_to_token = get_char_to_token_map(full_response, tokenizer)
+        input_ids, attention_mask, offsets = _tokenize_with_offsets(full_response)
+        layer_out = _forward_layer_output(input_ids, attention_mask)  # (1, seq, d_model) on CPU
 
         min_token_start = float("inf")
         max_token_end = -float("inf")
@@ -420,8 +458,8 @@ else:
             text_pos = full_response.find(s)
             if text_pos < 0:
                 continue
-            token_start = char_to_token.get(text_pos, None)
-            token_end = char_to_token.get(text_pos + len(s), None)
+            token_start = _charpos_to_token_idx(offsets, text_pos)
+            token_end = _charpos_to_token_idx(offsets, text_pos + len(s))
             if token_start is None or token_end is None or token_start >= token_end:
                 continue
             min_token_start = min(min_token_start, token_start)
@@ -448,7 +486,7 @@ else:
                 assert raw_vec.shape == (hidden_size,)
                 raw_sentence_vecs[target_sentence] = raw_vec
 
-        del layer_out, char_to_token
+        del layer_out, input_ids, attention_mask, offsets
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
