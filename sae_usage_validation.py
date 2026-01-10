@@ -53,7 +53,7 @@ ACTIVATIONS_CACHE_N_EXAMPLES_TAG = 100000
 N_CLUSTERS = 15
 
 # Sampling + determinism
-N_SENTENCES = 100
+N_SENTENCES = 5000
 SEED = 0
 
 # Strict alignment check:
