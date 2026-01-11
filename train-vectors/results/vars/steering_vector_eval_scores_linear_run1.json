@@ -1,298 +1,448 @@
 {
   "bias": {
     "idx": -1,
-    "layer": 24,
+    "layer": 10,
     "flip_rate": 0.0,
     "n_examples": 8,
     "baseline_preds": [
-      "idx7",
-      "idx8",
-      "idx6",
-      "idx5",
-      "idx5",
-      "idx7",
-      "idx5",
-      "idx7"
+      "idx12",
+      "idx10",
+      "idx4",
+      "idx4",
+      "idx1",
+      "idx14",
+      "idx17",
+      "idx4"
     ],
     "steered_preds": [
-      "idx7",
-      "idx8",
-      "idx6",
-      "idx5",
-      "idx5",
-      "idx7",
-      "idx5",
-      "idx7"
+      "idx12",
+      "idx10",
+      "idx4",
+      "idx4",
+      "idx1",
+      "idx14",
+      "idx17",
+      "idx4"
     ],
     "baseline_target_rate": 0.0
   },
   "idx0": {
     "idx": 0,
-    "layer": 24,
+    "layer": 10,
     "flip_rate": 0.0,
     "n_examples": 8,
     "baseline_preds": [
-      "idx1",
-      "idx1",
-      "idx6",
-      "idx6",
-      "idx1",
-      "idx6",
-      "idx5",
-      "idx6"
+      "idx16",
+      "idx16",
+      "idx4",
+      "idx4",
+      "idx8",
+      "idx4",
+      "idx9",
+      "idx9"
     ],
     "steered_preds": [
-      "idx1",
-      "idx1",
-      "idx6",
-      "idx6",
-      "idx1",
-      "idx6",
-      "idx5",
-      "idx6"
+      "idx16",
+      "idx16",
+      "idx4",
+      "idx4",
+      "idx8",
+      "idx4",
+      "idx9",
+      "idx9"
     ],
     "baseline_target_rate": 0.0
   },
   "idx1": {
     "idx": 1,
-    "layer": 24,
+    "layer": 10,
     "flip_rate": 0.0,
     "n_examples": 8,
     "baseline_preds": [
-      "idx6",
-      "idx2",
-      "idx0",
-      "idx2",
-      "idx7",
-      "idx7",
-      "idx6",
-      "idx6"
+      "idx15",
+      "idx17",
+      "idx8",
+      "idx8",
+      "idx17",
+      "idx8",
+      "idx11",
+      "idx19"
     ],
     "steered_preds": [
-      "idx6",
-      "idx2",
-      "idx0",
-      "idx2",
-      "idx7",
-      "idx7",
-      "idx6",
-      "idx6"
+      "idx15",
+      "idx17",
+      "idx8",
+      "idx8",
+      "idx17",
+      "idx8",
+      "idx11",
+      "idx19"
     ],
     "baseline_target_rate": 0.0
   },
   "idx2": {
     "idx": 2,
-    "layer": 24,
+    "layer": 10,
     "flip_rate": 0.0,
     "n_examples": 8,
     "baseline_preds": [
+      "idx17",
+      "idx4",
       "idx1",
-      "idx0",
-      "idx1",
-      "idx6",
-      "idx5",
-      "idx6",
-      "idx3",
-      "idx6"
+      "idx10",
+      "idx4",
+      "idx9",
+      "idx10",
+      "idx1"
     ],
     "steered_preds": [
+      "idx17",
+      "idx4",
       "idx1",
-      "idx0",
-      "idx1",
-      "idx6",
-      "idx5",
-      "idx6",
-      "idx3",
-      "idx6"
+      "idx10",
+      "idx4",
+      "idx9",
+      "idx10",
+      "idx1"
     ],
     "baseline_target_rate": 0.0
   },
   "idx3": {
     "idx": 3,
-    "layer": 24,
+    "layer": 10,
     "flip_rate": 0.0,
     "n_examples": 8,
     "baseline_preds": [
       "idx1",
-      "idx6",
-      "idx3",
-      "idx6",
-      "idx1",
-      "idx1",
-      "idx7",
-      "idx1"
+      "idx9",
+      "idx8",
+      "idx4",
+      "idx8",
+      "idx4",
+      "idx10",
+      "idx4"
     ],
     "steered_preds": [
       "idx1",
-      "idx6",
-      "idx3",
-      "idx6",
-      "idx1",
-      "idx1",
-      "idx7",
-      "idx1"
+      "idx9",
+      "idx8",
+      "idx4",
+      "idx8",
+      "idx4",
+      "idx10",
+      "idx4"
     ],
-    "baseline_target_rate": 0.125
+    "baseline_target_rate": 0.0
   },
   "idx4": {
     "idx": 4,
-    "layer": 24,
+    "layer": 10,
     "flip_rate": 0.0,
     "n_examples": 8,
     "baseline_preds": [
+      "idx1",
+      "idx11",
+      "idx19",
       "idx2",
-      "idx7",
-      "idx3",
-      "idx5",
-      "idx2",
-      "idx6",
-      "idx6",
-      "idx1"
+      "idx8",
+      "idx15",
+      "idx1",
+      "idx6"
     ],
     "steered_preds": [
+      "idx1",
+      "idx11",
+      "idx19",
       "idx2",
-      "idx7",
-      "idx3",
-      "idx5",
-      "idx2",
-      "idx6",
-      "idx6",
-      "idx1"
+      "idx8",
+      "idx15",
+      "idx1",
+      "idx6"
     ],
     "baseline_target_rate": 0.0
   },
   "idx5": {
     "idx": 5,
-    "layer": 24,
+    "layer": 10,
     "flip_rate": 0.0,
     "n_examples": 8,
     "baseline_preds": [
-      "idx1",
-      "idx6",
-      "idx6",
-      "idx6",
-      "idx7",
-      "idx6",
-      "idx7",
-      "idx6"
+      "idx9",
+      "idx8",
+      "idx9",
+      ""
     ],
     "steered_preds": [
-      "idx1",
-      "idx6",
-      "idx6",
-      "idx6",
-      "idx7",
-      "idx6",
-      "idx7",
-      "idx6"
+      "idx9",
+      "idx8",
+      "idx9",
+      ""
     ],
     "baseline_target_rate": 0.0
   },
   "idx6": {
     "idx": 6,
-    "layer": 24,
+    "layer": 10,
     "flip_rate": 0.0,
     "n_examples": 8,
     "baseline_preds": [
-      "idx9",
-      "idx7",
-      "idx5",
-      "idx7",
-      "idx0",
-      "idx7",
-      "idx7",
-      "idx5"
+      "idx10",
+      "idx19",
+      "idx19",
+      "idx10"
     ],
     "steered_preds": [
-      "idx9",
-      "idx7",
-      "idx5",
-      "idx7",
-      "idx0",
-      "idx7",
-      "idx7",
-      "idx5"
+      "idx10",
+      "idx19",
+      "idx19",
+      "idx10"
     ],
     "baseline_target_rate": 0.0
   },
   "idx7": {
     "idx": 7,
-    "layer": 24,
+    "layer": 10,
     "flip_rate": 0.0,
     "n_examples": 8,
     "baseline_preds": [
-      "idx1",
-      "idx6",
-      "idx6",
-      "idx6",
-      "idx6",
-      "idx1",
-      "idx1",
-      "idx1"
+      "idx9",
+      "idx8",
+      "idx9",
+      ""
     ],
     "steered_preds": [
-      "idx1",
-      "idx6",
-      "idx6",
-      "idx6",
-      "idx6",
-      "idx1",
-      "idx1",
+      "idx9",
+      "idx8",
+      "idx9",
       "idx1"
     ],
     "baseline_target_rate": 0.0
   },
   "idx8": {
     "idx": 8,
-    "layer": 24,
+    "layer": 10,
     "flip_rate": 0.0,
     "n_examples": 8,
     "baseline_preds": [
       "idx1",
-      "idx7",
-      "idx6",
-      "idx0",
-      "idx1",
-      "idx0",
-      "idx7",
-      "idx1"
+      "idx19",
+      "idx9",
+      "idx2"
     ],
     "steered_preds": [
       "idx1",
-      "idx7",
-      "idx6",
-      "idx0",
-      "idx1",
-      "idx0",
-      "idx7",
-      "idx1"
+      "idx19",
+      "idx9",
+      "idx2"
     ],
     "baseline_target_rate": 0.0
   },
   "idx9": {
     "idx": 9,
-    "layer": 24,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx17",
+      "idx8",
+      "idx1",
+      ""
+    ],
+    "steered_preds": [
+      "idx17",
+      "idx8",
+      "idx1",
+      "idx19"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx10": {
+    "idx": 10,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx19",
+      "idx2",
+      "idx18",
+      ""
+    ],
+    "steered_preds": [
+      "idx19",
+      "idx2",
+      "idx18",
+      "idx9"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx11": {
+    "idx": 11,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx15",
+      "idx8",
+      "idx19",
+      "idx14"
+    ],
+    "steered_preds": [
+      "idx15",
+      "idx8",
+      "idx19",
+      "idx14"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx12": {
+    "idx": 12,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx2",
+      "idx1",
+      "idx1",
+      "idx17"
+    ],
+    "steered_preds": [
+      "idx2",
+      "idx1",
+      "idx1",
+      ""
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx13": {
+    "idx": 13,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx8",
+      "idx17",
+      "idx17",
+      "idx8"
+    ],
+    "steered_preds": [
+      "idx8",
+      "idx17",
+      "idx17",
+      "idx8"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx14": {
+    "idx": 14,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx1",
+      "idx17",
+      "idx17",
+      "idx17"
+    ],
+    "steered_preds": [
+      "idx1",
+      "idx17",
+      "idx17",
+      "idx17"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx15": {
+    "idx": 15,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx8",
+      "idx10",
+      "idx10",
+      "idx17"
+    ],
+    "steered_preds": [
+      "idx8",
+      "idx10",
+      "idx10",
+      ""
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx16": {
+    "idx": 16,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx1",
+      "idx1",
+      "idx17",
+      "idx17"
+    ],
+    "steered_preds": [
+      "idx1",
+      "idx1",
+      "idx17",
+      "idx17"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx17": {
+    "idx": 17,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx15",
+      "idx19",
+      "idx18",
+      "idx4"
+    ],
+    "steered_preds": [
+      "idx15",
+      "idx19",
+      "idx18",
+      "idx4"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx18": {
+    "idx": 18,
+    "layer": 10,
     "flip_rate": 0.0,
     "n_examples": 8,
     "baseline_preds": [
       "idx1",
       "idx1",
       "idx1",
-      "idx1",
-      "idx1",
-      "idx0",
-      "idx7",
-      "idx2"
+      "idx17"
     ],
     "steered_preds": [
       "idx1",
       "idx1",
       "idx1",
-      "idx1",
-      "idx1",
-      "idx0",
-      "idx7",
-      "idx2"
+      "idx17"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx19": {
+    "idx": 19,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx8",
+      "idx8",
+      "idx8",
+      ""
+    ],
+    "steered_preds": [
+      "idx8",
+      "idx8",
+      "idx8",
+      "idx8"
     ],
     "baseline_target_rate": 0.0
   }

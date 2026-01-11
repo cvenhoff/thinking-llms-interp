@@ -72,10 +72,10 @@
       ]
     },
     "baseline_target_rate": {
-      "mean": 0.125,
+      "mean": 0.0,
       "ci_95": 0.0,
       "runs": [
-        0.125
+        0.0
       ]
     }
   },
@@ -160,6 +160,166 @@
     }
   },
   "idx9": {
+    "flip_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    },
+    "baseline_target_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  "idx10": {
+    "flip_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    },
+    "baseline_target_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  "idx11": {
+    "flip_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    },
+    "baseline_target_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  "idx12": {
+    "flip_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    },
+    "baseline_target_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  "idx13": {
+    "flip_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    },
+    "baseline_target_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  "idx14": {
+    "flip_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    },
+    "baseline_target_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  "idx15": {
+    "flip_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    },
+    "baseline_target_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  "idx16": {
+    "flip_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    },
+    "baseline_target_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  "idx17": {
+    "flip_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    },
+    "baseline_target_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  "idx18": {
+    "flip_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    },
+    "baseline_target_rate": {
+      "mean": 0.0,
+      "ci_95": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  "idx19": {
     "flip_rate": {
       "mean": 0.0,
       "ci_95": 0.0,
