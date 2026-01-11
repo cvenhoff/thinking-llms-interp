@@ -6,7 +6,7 @@ import sys
 import torch
 import json
 from utils.sae import load_sae
-from utils.utils import load_model
+from utils.utils import load_model, center_and_l2_normalize_torch
 from utils.clustering import get_latent_descriptions
 from utils.utils import chat, chat_batch
 from utils.utils import load_steering_vectors as _load_all_steering_vectors
@@ -220,7 +220,8 @@ def hybrid_generate_sentence(
         activation_curr = activation_curr.detach().clone()
 
         # Project through SAE to obtain latent activations
-        latent_acts = sae.encoder(activation_curr.to(torch.float32) - sae.b_dec)
+        x_norm = center_and_l2_normalize_torch(activation_curr, sae.activation_mean)
+        latent_acts = sae.encoder(x_norm - sae.b_dec)
         del activation_curr
         torch.cuda.empty_cache()
 

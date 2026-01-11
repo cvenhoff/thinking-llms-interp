@@ -1,6 +1,7 @@
 import torch.nn as nn
 import os
 import torch
+import pickle
 
 def load_sae(model_id, layer, n_clusters, load_base_decoder=False):
     sae_path = f'../train-saes/results/vars/saes/sae_{model_id}_layer{layer}_clusters{n_clusters}.pt'
@@ -17,6 +18,53 @@ def load_sae(model_id, layer, n_clusters, load_base_decoder=False):
     sae.encoder.bias.data = checkpoint['encoder_bias']
     sae.W_dec.data = checkpoint['decoder_weight']
     sae.b_dec.data = checkpoint['b_dec']
+
+    # Require activation mean for downstream parity with SAE training.
+    assert "activation_mean" in checkpoint, (
+        "SAE checkpoint is missing 'activation_mean'. This repo now requires SAE checkpoints to embed the "
+        "centering mean used for activation-cache construction so downstream usage can reproduce "
+        "centered+L2-normalized activations. You indicated it's OK to drop previously trained SAEs."
+    )
+    activation_mean = checkpoint["activation_mean"]
+    assert isinstance(activation_mean, torch.Tensor), f"activation_mean must be torch.Tensor, got {type(activation_mean)}"
+    assert activation_mean.ndim == 1, f"activation_mean must be 1D, got shape {tuple(activation_mean.shape)}"
+    assert activation_mean.shape == (int(checkpoint["input_dim"]),), (
+        f"activation_mean shape mismatch: {tuple(activation_mean.shape)} vs expected {(int(checkpoint['input_dim']),)}"
+    )
+    assert torch.isfinite(activation_mean).all(), "Non-finite values in activation_mean"
+    sae.activation_mean.copy_(activation_mean.to(dtype=torch.float32, device=sae.activation_mean.device))
+
+    # Sanity-check metadata when present.
+    if "activation_mean_model_id" in checkpoint:
+        assert checkpoint["activation_mean_model_id"] == model_id, (
+            f"activation_mean_model_id mismatch: {checkpoint['activation_mean_model_id']} vs {model_id}"
+        )
+    if "activation_mean_layer" in checkpoint:
+        assert int(checkpoint["activation_mean_layer"]) == int(layer), (
+            f"activation_mean_layer mismatch: {checkpoint['activation_mean_layer']} vs {layer}"
+        )
+
+    # Extra safety: if a mean file exists alongside the cached activations, assert it matches the checkpoint.
+    # (This catches accidental mismatches when multiple cache builds exist for the same model/layer.)
+    if "activation_mean_n_examples" in checkpoint:
+        n_examples = int(checkpoint["activation_mean_n_examples"])
+        mean_pkl = f"../generate-responses/results/vars/activations_{model_id}_{n_examples}_{layer}_mean.pkl"
+        if os.path.exists(mean_pkl):
+            with open(mean_pkl, "rb") as f:
+                payload = pickle.load(f)
+            assert isinstance(payload, dict), f"Bad mean payload type: {type(payload)}"
+            mean_file = payload.get("activation_mean", None)
+            assert mean_file is not None, f"Mean payload missing 'activation_mean': keys={list(payload.keys())}"
+            mean_file_t = torch.as_tensor(mean_file, dtype=torch.float32, device="cpu").reshape(-1)
+            mean_ckpt_t = activation_mean.detach().cpu().to(torch.float32).reshape(-1)
+            assert mean_file_t.shape == mean_ckpt_t.shape, (
+                f"Mean shape mismatch: file {tuple(mean_file_t.shape)} vs ckpt {tuple(mean_ckpt_t.shape)}"
+            )
+            assert torch.equal(mean_file_t, mean_ckpt_t), (
+                "Activation mean mismatch between mean file and SAE checkpoint.\n"
+                f"mean_file={mean_pkl}\n"
+                f"sae_ckpt={sae_path}"
+            )
     
     print(f"Loaded SAE model from {sae_path}")
 
@@ -29,6 +77,8 @@ class SAE(nn.Module):
         self.encoder.bias.data.zero_()
         self.W_dec = nn.Parameter(self.encoder.weight.data.clone())
         self.b_dec = nn.Parameter(torch.zeros(d_in))
+        # Mean used for centering before L2-normalization (persisted in SAE checkpoints).
+        self.register_buffer("activation_mean", torch.zeros(d_in, dtype=torch.float32), persistent=False)
         self.k = k
         self.set_decoder_norm_to_unit_norm()
         

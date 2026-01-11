@@ -238,6 +238,71 @@ def get_char_to_token_map(text, tokenizer):
             
     return char_to_token
 
+
+def _activation_cache_paths(model_id: str, n_examples: int, layer: int) -> tuple[str, str]:
+    """
+    Returns (activations_pkl_path, mean_pkl_path) for the given cache key.
+
+    NOTE: These paths intentionally mirror `process_saved_responses`'s cache layout.
+    """
+    activations_pkl = f"../generate-responses/results/vars/activations_{model_id}_{n_examples}_{layer}.pkl"
+    mean_pkl = f"../generate-responses/results/vars/activations_{model_id}_{n_examples}_{layer}_mean.pkl"
+    return activations_pkl, mean_pkl
+
+
+def load_activation_mean(model_id: str, n_examples: int, layer: int) -> np.ndarray:
+    """
+    Load the centering mean vector used to build the cached activations for (model_id, n_examples, layer).
+
+    Returns:
+        mean: np.ndarray shape (d_model,) dtype float32
+    """
+    _acts_pkl, mean_pkl = _activation_cache_paths(model_id=model_id, n_examples=n_examples, layer=layer)
+    assert os.path.exists(mean_pkl), (
+        f"Missing activation mean file: {mean_pkl}\n"
+        "Expected this to be produced by `utils.utils.process_saved_responses` and uploaded alongside the "
+        "cached activations."
+    )
+    with open(mean_pkl, "rb") as f:
+        payload = pickle.load(f)
+    assert isinstance(payload, dict), f"Bad mean payload type: {type(payload)}"
+    assert payload.get("model_id") == model_id, f"Mean model_id mismatch: {payload.get('model_id')} vs {model_id}"
+    assert int(payload.get("layer")) == int(layer), f"Mean layer mismatch: {payload.get('layer')} vs {layer}"
+    assert int(payload.get("n_examples")) == int(n_examples), f"Mean n_examples mismatch: {payload.get('n_examples')} vs {n_examples}"
+    mean = np.asarray(payload.get("activation_mean"))
+    assert mean.ndim == 1, f"Expected 1D mean, got shape {mean.shape}"
+    mean = mean.astype(np.float32, copy=False)
+    assert np.isfinite(mean).all(), "Non-finite values in activation mean"
+    return mean
+
+
+def center_and_l2_normalize_torch(x: torch.Tensor, mean: torch.Tensor) -> torch.Tensor:
+    """
+    Center and L2-normalize activations using a precomputed mean.
+
+    Supported shapes:
+      - x: (d_model,)
+      - x: (..., d_model)
+    mean:
+      - (d_model,)
+    Returns:
+      - same shape as x, float32
+    """
+    assert isinstance(x, torch.Tensor), f"x must be torch.Tensor, got {type(x)}"
+    assert isinstance(mean, torch.Tensor), f"mean must be torch.Tensor, got {type(mean)}"
+    assert mean.ndim == 1, f"Expected mean.ndim==1, got {mean.ndim}"
+    assert x.ndim >= 1, f"Expected x.ndim>=1, got {x.ndim}"
+    assert x.shape[-1] == mean.shape[0], f"Bad shapes: x.shape={tuple(x.shape)} mean.shape={tuple(mean.shape)}"
+
+    x_f32 = x.to(dtype=torch.float32)
+    mean_f32 = mean.to(device=x_f32.device, dtype=torch.float32)
+    centered = x_f32 - mean_f32
+
+    denom = torch.norm(centered, dim=-1, keepdim=True)
+    assert torch.isfinite(denom).all(), "Non-finite norm in center_and_l2_normalize_torch"
+    assert torch.all(denom > 0), "Zero-norm encountered in center_and_l2_normalize_torch"
+    return centered / denom
+
 def center_and_normalize_activations(all_activations, overall_mean):
     """Centers and normalizes activations."""
     
@@ -269,7 +334,7 @@ def process_saved_responses(model_name, n_examples, model, tokenizer, layer_or_l
     # Check for cached files for each layer
     uncached_layers = []
     for layer in layers_to_process:
-        pickle_filename = f"../generate-responses/results/vars/activations_{model_id}_{n_examples}_{layer}.pkl"
+        pickle_filename, _mean_filename = _activation_cache_paths(model_id=model_id, n_examples=n_examples, layer=layer)
         if os.path.exists(pickle_filename):
             print(f"Loading cached activations for layer {layer} from {pickle_filename}...")
             with open(pickle_filename, 'rb') as f:
@@ -383,6 +448,25 @@ def process_saved_responses(model_name, n_examples, model, tokenizer, layer_or_l
             raise ValueError(f"No activations found for layer {layer} across {count_by_layer[layer]} examples")
 
         overall_running_mean = mean_by_layer[layer].cpu().numpy()
+        overall_running_mean = np.asarray(overall_running_mean).reshape(-1).astype(np.float32, copy=False)
+        assert overall_running_mean.shape == (model.config.hidden_size,), (
+            f"Bad mean shape: {overall_running_mean.shape} vs expected {(model.config.hidden_size,)}"
+        )
+
+        # Persist the mean used for centering (required for downstream SAE usage parity).
+        _pickle_filename, mean_filename = _activation_cache_paths(model_id=model_id, n_examples=n_examples, layer=layer)
+        with open(mean_filename, "wb") as f:
+            pickle.dump(
+                {
+                    "model_id": model_id,
+                    "layer": int(layer),
+                    "n_examples": int(n_examples),
+                    "count_vectors": int(count_by_layer[layer]),
+                    "activation_mean": overall_running_mean,
+                },
+                f,
+            )
+        print(f"Saved activation mean for layer {layer} to {mean_filename}")
 
         # Center and normalize activations
         activations_by_layer[layer] = center_and_normalize_activations(activations_by_layer[layer], overall_running_mean)
@@ -390,7 +474,7 @@ def process_saved_responses(model_name, n_examples, model, tokenizer, layer_or_l
         result = (activations_by_layer[layer], texts_by_layer[layer])
         results_by_layer[layer] = result
         
-        pickle_filename = f"../generate-responses/results/vars/activations_{model_id}_{n_examples}_{layer}.pkl"
+        pickle_filename, _mean_filename = _activation_cache_paths(model_id=model_id, n_examples=n_examples, layer=layer)
         with open(pickle_filename, 'wb') as f:
             pickle.dump(result, f)
         print(f"Saved activations for layer {layer} to {pickle_filename}")

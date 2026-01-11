@@ -35,6 +35,7 @@ from datasets import load_dataset
 from utils.sae import load_sae
 from utils.utils import (
     load_model,
+    center_and_l2_normalize_torch,
     load_steering_vectors as _load_all_steering_vectors,
 )
 from utils.clustering import get_latent_descriptions
@@ -141,7 +142,8 @@ def thinking_generate_sentence(
     avg_activation = torch.mean(stacked, dim=0)
 
     # SAE latent vector
-    latent_acts = sae.encoder(avg_activation.to(torch.float32) - sae.b_dec)
+    x_norm = center_and_l2_normalize_torch(avg_activation, sae.activation_mean)
+    latent_acts = sae.encoder(x_norm - sae.b_dec)
 
     return "".join(sentence_tokens), latent_acts, input_ids
 
@@ -227,7 +229,8 @@ def compute_sentence_activation(
 
     stacked = torch.stack(token_activations, dim=0)
     avg_act = torch.mean(stacked, dim=0)
-    latent_acts = sae.encoder(avg_act.to(torch.float32) - sae.b_dec)
+    x_norm = center_and_l2_normalize_torch(avg_act, sae.activation_mean)
+    latent_acts = sae.encoder(x_norm - sae.b_dec)
     return latent_acts
 
 # -----------------------------------------------------------------------------

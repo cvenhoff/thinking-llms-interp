@@ -6,7 +6,7 @@ import re
 import torch
 from tqdm import tqdm
 import dotenv
-from utils.utils import load_model, get_char_to_token_map
+from utils.utils import load_model, get_char_to_token_map, center_and_l2_normalize_torch
 from utils.sae import load_sae
 from utils.responses import extract_thinking_process
 
@@ -97,9 +97,9 @@ def process_responses(responses_file, model, tokenizer, sae, layer, output_file,
             # Average the activations across all tokens in the sentence first
             avg_sentence_activation = torch.mean(sentence_activations, dim=0)
             
-            # Apply SAE to the average activation
-            avg_activation = avg_sentence_activation - sae.b_dec
-            latent_activation = sae.encoder(avg_activation.unsqueeze(0))
+            # Match SAE training: center by the cached mean and L2-normalize before encoding.
+            x_norm = center_and_l2_normalize_torch(avg_sentence_activation, sae.activation_mean)
+            latent_activation = sae.encoder((x_norm - sae.b_dec).unsqueeze(0))
         
             # Find the latent with highest activation
             top_latent_idx = torch.argmax(latent_activation.squeeze(0)).item()

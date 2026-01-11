@@ -6,7 +6,7 @@ import sys
 import torch
 import json
 from utils.sae import load_sae
-from utils.utils import load_model
+from utils.utils import load_model, center_and_l2_normalize_torch
 from utils.clustering import get_latent_descriptions
 from utils.utils import chat, chat_batch
 from utils.utils import load_steering_vectors as _load_all_steering_vectors
@@ -189,7 +189,8 @@ def compute_sentence_activation(
     else:
         avg_act_cpu = sum_acts_cpu / num_acts
     avg_act_gpu = avg_act_cpu.to(sae.b_dec.device, dtype=torch.float32)
-    latent_acts = sae.encoder(avg_act_gpu - sae.b_dec)
+    x_norm = center_and_l2_normalize_torch(avg_act_gpu, sae.activation_mean)
+    latent_acts = sae.encoder(x_norm - sae.b_dec)
     
     # Clean up
     del sum_acts_cpu, avg_act_cpu, avg_act_gpu, seq_ids
@@ -389,7 +390,8 @@ def hybrid_generate_sentence(
         del sum_acts_cpu, avg_activation_cpu
         torch.cuda.empty_cache()
 
-        latent_acts = sae.encoder(avg_activation.to(torch.float32) - sae.b_dec)
+        x_norm = center_and_l2_normalize_torch(avg_activation, sae.activation_mean)
+        latent_acts = sae.encoder(x_norm - sae.b_dec)
         del avg_activation
         torch.cuda.empty_cache()
 

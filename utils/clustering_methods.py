@@ -8,6 +8,7 @@ from sklearn.mixture import GaussianMixture
 from sklearn.decomposition import PCA
 import time
 from utils.utils import print_and_flush
+from utils.utils import load_activation_mean
 from utils.sae import SAE
 
 def clustering_agglomerative(activations, n_clusters, args):
@@ -616,6 +617,16 @@ def clustering_sae_topk(activations, n_clusters, args, topk=3):
     model_id = args.model.split('/')[-1].lower()
     os.makedirs('results/vars/saes', exist_ok=True)
     sae_save_path = f'results/vars/saes/sae_{model_id}_layer{args.layer}_clusters{n_clusters}.pt'
+
+    # Embed the centering mean used for activation-cache construction so downstream can
+    # reproduce the training activation space:
+    #   x_norm = (x_raw - mean) / ||x_raw - mean||
+    activation_mean_np = load_activation_mean(model_id=model_id, n_examples=int(args.n_examples), layer=int(args.layer))
+    assert activation_mean_np.shape == (input_dim,), (
+        f"activation_mean shape mismatch: {activation_mean_np.shape} vs expected {(input_dim,)}"
+    )
+    activation_mean_t = torch.from_numpy(activation_mean_np).to(torch.float32).cpu()
+
     torch.save({
         'encoder_weight': sae.encoder.weight.data.clone().cpu(),
         'encoder_bias': sae.encoder.bias.data.clone().cpu(),
@@ -626,7 +637,11 @@ def clustering_sae_topk(activations, n_clusters, args, topk=3):
         'topk': topk,
         'loss': best_loss,
         'cluster_labels': cluster_labels,
-        'cluster_centers': cluster_centers
+        'cluster_centers': cluster_centers,
+        'activation_mean': activation_mean_t,
+        'activation_mean_model_id': model_id,
+        'activation_mean_layer': int(args.layer),
+        'activation_mean_n_examples': int(args.n_examples),
     }, sae_save_path)
     print_and_flush(f"Saved SAE model to {sae_save_path}")
     
