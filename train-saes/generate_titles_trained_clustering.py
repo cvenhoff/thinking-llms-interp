@@ -6,7 +6,7 @@ import os
 from utils.utils import print_and_flush
 from utils.clustering_batched import check_batch_status
 from utils.clustering import (
-    load_trained_clustering_data, predict_clusters, 
+    load_trained_clustering_data, predict_clusters,
     generate_representative_examples,
     generate_cluster_descriptions
 )
@@ -19,6 +19,51 @@ import gc
 import torch
 import time
 import random
+
+
+def is_valid_cluster_description(title, description):
+    """Check if a cluster description is valid (not a placeholder)."""
+    return title != "Unnamed Cluster" and description != "No description available"
+
+
+def get_missing_clusters(existing_results, cluster_size, rep_idx, n_clusters):
+    """
+    Determine which clusters need descriptions for a given cluster size and repetition.
+
+    Returns:
+    --------
+    list of int : cluster indices that need descriptions
+    """
+    cluster_results = existing_results.get("results_by_cluster_size", {}).get(str(cluster_size), {})
+    all_results = cluster_results.get("all_results", [])
+
+    # If we don't have this repetition yet, all clusters need generation
+    if rep_idx >= len(all_results):
+        return list(range(n_clusters))
+
+    rep_data = all_results[rep_idx]
+    categories = rep_data.get("categories", [])
+
+    # If no categories, all clusters need generation
+    if not categories:
+        return list(range(n_clusters))
+
+    # Check which clusters have invalid/missing descriptions
+    missing_clusters = []
+    existing_clusters_dict = {int(cat[0]): (cat[1], cat[2]) for cat in categories}
+
+    for cluster_idx in range(n_clusters):
+        if cluster_idx not in existing_clusters_dict:
+            # Cluster not in results at all
+            missing_clusters.append(cluster_idx)
+        else:
+            title, description = existing_clusters_dict[cluster_idx]
+            if not is_valid_cluster_description(title, description):
+                # Cluster has placeholder description
+                missing_clusters.append(cluster_idx)
+
+    return missing_clusters
+
 
 # %%
 
@@ -103,33 +148,44 @@ def create_empty_results_json(clustering_method, model_id, layer, clusters):
     return results_data
 
 
-def _prepare_cluster_examples(n_clusters, representative_examples, description_examples):
-    """Prepares a list of examples for each cluster, sampled for diversity."""
+def _prepare_cluster_examples(n_clusters, representative_examples, description_examples, cluster_indices=None):
+    """
+    Prepares a list of examples for each cluster, sampled for diversity.
+
+    Parameters:
+    -----------
+    cluster_indices : list of int, optional
+        If provided, only prepare examples for these cluster indices.
+        If None, prepare for all clusters.
+    """
+    if cluster_indices is None:
+        cluster_indices = range(n_clusters)
+
     cluster_examples_list = []
-    for cluster_idx in range(n_clusters):
+    for cluster_idx in cluster_indices:
         print_and_flush(f"Preparing examples for cluster {cluster_idx}:")
 
         if len(representative_examples[cluster_idx]) == 0:
             print_and_flush(f"WARNING: Skipping empty cluster {cluster_idx}")
             continue
-        
+
         cluster_examples = representative_examples[cluster_idx]
         total_examples = len(cluster_examples)
-        
+
         if total_examples <= description_examples:
             examples = cluster_examples
         else:
             # Pick half from the top, half randomly from the rest
             n_top = description_examples // 2
             n_random = description_examples - n_top
-            
+
             top_examples = cluster_examples[:n_top]
             print_and_flush(f"Top examples:")
             for example in top_examples:
                 print_and_flush(f"  {example}")
-            
+
             remaining_examples = cluster_examples[n_top:]
-            
+
             if len(remaining_examples) < n_random:
                 random_examples = remaining_examples
             else:
@@ -138,9 +194,9 @@ def _prepare_cluster_examples(n_clusters, representative_examples, description_e
             print_and_flush(f"Random examples:")
             for example in random_examples:
                 print_and_flush(f"  {example}")
-            
+
             examples = top_examples + random_examples
-        
+
         # Shuffle examples for diversity
         random.shuffle(examples)
         cluster_examples_list.append((cluster_idx, examples))
@@ -232,34 +288,61 @@ def submit_description_batches():
                     clustering_data=clustering_data, model_id=model_id, layer=args.layer, n_clusters=n_clusters
                 )
                 
-                # Prepare examples for batch processing
-                cluster_examples_list = _prepare_cluster_examples(
-                    n_clusters, representative_examples, args.description_examples
-                )
-                
                 # Submit batches for multiple repetitions (different category sets)
                 cluster_size_batches = {}
-                
+
+                # Load existing results to check which clusters need generation
+                results_json_path = f'results/vars/{method}_results_{model_id}_layer{args.layer}.json'
+                if os.path.exists(results_json_path):
+                    with open(results_json_path, 'r') as f:
+                        existing_results_for_check = json.load(f)
+                else:
+                    existing_results_for_check = existing_results
+
                 for rep_idx in range(args.repetitions):
+                    # Check which clusters need generation for this repetition
+                    missing_clusters = get_missing_clusters(
+                        existing_results_for_check, cluster_size, rep_idx, n_clusters
+                    )
+
+                    if not missing_clusters:
+                        print_and_flush(f"  Repetition {rep_idx + 1}/{args.repetitions}: All clusters already have valid descriptions. Skipping.")
+                        continue
+
                     print_and_flush(f"  Submitting repetition {rep_idx + 1}/{args.repetitions}...")
-                    
+                    print_and_flush(f"    Generating descriptions for {len(missing_clusters)} clusters: {missing_clusters}")
+
+                    # Prepare examples only for missing clusters
+                    cluster_examples_list = _prepare_cluster_examples(
+                        n_clusters, representative_examples, args.description_examples,
+                        cluster_indices=missing_clusters
+                    )
+
+                    if not cluster_examples_list:
+                        print_and_flush(f"    No valid examples to submit for repetition {rep_idx + 1}. Skipping.")
+                        continue
+
                     # Submit batch for this repetition
                     batch_id, cluster_indices = generate_cluster_descriptions_batch(
                         args.model, cluster_examples_list, model=args.evaluator_model,
                         n_trace_examples=args.n_trace_examples,
                         n_categories_examples=args.n_categories_examples
                     )
-                    
+
                     cluster_size_batches[f"rep_{rep_idx}"] = {
                         "batch_id": batch_id,
                         "cluster_indices": cluster_indices,
                         "n_clusters": n_clusters,
-                        "method": method
+                        "method": method,
+                        "missing_clusters": missing_clusters  # Track which clusters this batch is for
                     }
-                    
+
                     print_and_flush(f"  Submitted batch {batch_id} for repetition {rep_idx + 1}")
-                
-                method_batches[cluster_size] = cluster_size_batches
+
+                if cluster_size_batches:
+                    method_batches[cluster_size] = cluster_size_batches
+                else:
+                    print_and_flush(f"No batches needed for {method} with {n_clusters} clusters - all descriptions already exist")
                 
                 print_and_flush(f"Submitted all repetition batches for {method} with {n_clusters} clusters")
                 
@@ -268,16 +351,22 @@ def submit_description_batches():
                 import traceback
                 traceback.print_exc()
                 continue
-        
-        batch_info[method] = method_batches
-    
-    # Save batch information
-    batch_info_file = f"batch_info_titles_{model_id}_layer{args.layer}.json"
-    with open(batch_info_file, 'w') as f:
-        json.dump(batch_info, f, indent=2)
-    
-    print_and_flush(f"\nBatch information saved to {batch_info_file}")
-    print_and_flush("All batches submitted successfully!")
+
+        if method_batches:
+            batch_info[method] = method_batches
+        else:
+            print_and_flush(f"No batches submitted for {method} - all descriptions already exist")
+
+    # Save batch information only if there are batches
+    if batch_info:
+        batch_info_file = f"batch_info_titles_{model_id}_layer{args.layer}.json"
+        with open(batch_info_file, 'w') as f:
+            json.dump(batch_info, f, indent=2)
+
+        print_and_flush(f"\nBatch information saved to {batch_info_file}")
+        print_and_flush("All batches submitted successfully!")
+    else:
+        print_and_flush("\nNo batches needed - all cluster descriptions already exist!")
 
 
 def process_description_batches():
@@ -356,60 +445,74 @@ def process_description_batches():
         # Process each cluster size
         for cluster_size, cluster_data in method_batches.items():
             n_clusters = None
-            all_categories = []  # Store categories from all repetitions
-            
+
             print_and_flush(f"Processing batches for {cluster_size} clusters...")
-            
+
+            # Get existing cluster results to preserve valid descriptions
+            cluster_results = existing_results.get("results_by_cluster_size", {}).get(cluster_size, {})
+            all_results = cluster_results.get("all_results", [])
+
+            # Ensure we have enough repetitions in the results
+            while len(all_results) < args.repetitions:
+                all_results.append({"categories": []})
+
             # Process each repetition
             for rep_idx in range(args.repetitions):
                 rep_key = f"rep_{rep_idx}"
                 if rep_key not in cluster_data:
-                    print_and_flush(f"Missing repetition {rep_idx} for {method} {cluster_size}. Skipping.")
+                    print_and_flush(f"  Repetition {rep_idx + 1}: No batch submitted (already had valid descriptions). Skipping.")
                     continue
-                
+
                 rep_data = cluster_data[rep_key]
                 batch_id = rep_data["batch_id"]
                 cluster_indices = rep_data["cluster_indices"]
+                missing_clusters = rep_data.get("missing_clusters", cluster_indices)
                 if n_clusters is None:
                     n_clusters = rep_data["n_clusters"]
-                
+
                 print_and_flush(f"  Processing repetition {rep_idx + 1} batch {batch_id}...")
-                
+                print_and_flush(f"    This batch covers clusters: {missing_clusters}")
+
                 # Check batch status before processing
                 status = check_batch_status(batch_id)
                 if status not in ["completed", "expired", "cancelled"]:
                     print_and_flush(f"  Batch {batch_id} not completed (status: {status}). Skipping.")
                     continue
-                
+
                 # Process batch results
-                categories = process_cluster_descriptions_batch(batch_id, cluster_indices)
-                
-                if categories:
-                    print_and_flush(f"  Generated descriptions for {len(categories)} clusters:")
-                    for cluster_id, title, description in categories:
+                new_categories = process_cluster_descriptions_batch(batch_id, cluster_indices)
+
+                if new_categories:
+                    print_and_flush(f"  Generated descriptions for {len(new_categories)} clusters:")
+                    for cluster_id, title, description in new_categories:
                         print_and_flush(f"    Cluster {cluster_id}: {title}")
                         print_and_flush(f"      {description}")
-                    
-                    all_categories.append(categories)
-                    print_and_flush(f"  Successfully processed repetition {rep_idx + 1}")
+
+                    # Merge new categories with existing ones for this repetition
+                    existing_categories = all_results[rep_idx].get("categories", [])
+
+                    # Create dict of existing categories
+                    existing_dict = {int(cat[0]): cat for cat in existing_categories}
+
+                    # Update with new categories (only for the clusters in this batch)
+                    new_dict = {int(cat[0]): cat for cat in new_categories}
+                    existing_dict.update(new_dict)
+
+                    # Convert back to list, sorted by cluster ID
+                    merged_categories = [existing_dict[i] for i in sorted(existing_dict.keys())]
+
+                    all_results[rep_idx]["categories"] = merged_categories
+                    print_and_flush(f"  Successfully updated repetition {rep_idx + 1} with {len(new_categories)} new descriptions")
                 else:
                     print_and_flush(f"  No categories generated for batch {batch_id}. It may have failed or had no content.")
 
-            # Update existing results with category information
-            if all_categories and "results_by_cluster_size" in existing_results:
-                cluster_results = existing_results["results_by_cluster_size"].get(cluster_size, {})
-                
-                # Create empty all_results structure with correct number of repetitions
-                if len(all_categories) > 0:
-                    cluster_results["all_results"] = []
-                    for rep_idx, categories in enumerate(all_categories):
-                        cluster_results["all_results"].append({"categories": categories})
-                    
-                    existing_results["results_by_cluster_size"][cluster_size] = cluster_results
-                    print_and_flush(f"Updated results with {len(all_categories)} different category sets for {n_clusters} clusters")
-                else:
-                    print_and_flush(f"No valid categories generated for {cluster_size} clusters")
-            
+            # Update existing results
+            if "results_by_cluster_size" not in existing_results:
+                existing_results["results_by_cluster_size"] = {}
+
+            cluster_results["all_results"] = all_results
+            existing_results["results_by_cluster_size"][cluster_size] = cluster_results
+
             print_and_flush(f"Completed processing for {cluster_size} clusters")
         
         # Save updated results
@@ -501,49 +604,75 @@ def generate_descriptions_direct():
                     clustering_data=clustering_data, model_id=model_id, layer=args.layer, n_clusters=n_clusters
                 )
                 
-                # Prepare examples for description generation
-                cluster_examples_list = _prepare_cluster_examples(
-                    n_clusters, representative_examples, args.description_examples
-                )
-                
+                # Get existing cluster results to preserve valid descriptions
+                cluster_results = existing_results.get("results_by_cluster_size", {}).get(cluster_size, {})
+                all_results = cluster_results.get("all_results", [])
+
+                # Ensure we have enough repetitions in the results
+                while len(all_results) < args.repetitions:
+                    all_results.append({"categories": []})
+
                 # Generate descriptions for multiple repetitions
-                all_categories = []
-                
                 for rep_idx in range(args.repetitions):
+                    # Check which clusters need generation for this repetition
+                    missing_clusters = get_missing_clusters(
+                        existing_results, cluster_size, rep_idx, n_clusters
+                    )
+
+                    if not missing_clusters:
+                        print_and_flush(f"  Repetition {rep_idx + 1}/{args.repetitions}: All clusters already have valid descriptions. Skipping.")
+                        continue
+
                     print_and_flush(f"  Generating repetition {rep_idx + 1}/{args.repetitions}...")
-                    
+                    print_and_flush(f"    Generating descriptions for {len(missing_clusters)} clusters: {missing_clusters}")
+
+                    # Prepare examples only for missing clusters
+                    cluster_examples_list = _prepare_cluster_examples(
+                        n_clusters, representative_examples, args.description_examples,
+                        cluster_indices=missing_clusters
+                    )
+
+                    if not cluster_examples_list:
+                        print_and_flush(f"    No valid examples to generate for repetition {rep_idx + 1}. Skipping.")
+                        continue
+
                     # Generate cluster descriptions directly
-                    categories = generate_cluster_descriptions(
-                        args.model, 
-                        cluster_examples_list, 
+                    new_categories = generate_cluster_descriptions(
+                        args.model,
+                        cluster_examples_list,
                         args.evaluator_model,
                         n_trace_examples=args.n_trace_examples,
                         n_categories_examples=args.n_categories_examples
                     )
-                    
-                    print_and_flush(f"  Generated descriptions for {len(categories)} clusters:")
-                    for cluster_id, title, description in categories:
+
+                    print_and_flush(f"  Generated descriptions for {len(new_categories)} clusters:")
+                    for cluster_id, title, description in new_categories:
                         print_and_flush(f"    Cluster {cluster_id}: {title}")
                         print_and_flush(f"      {description}")
-                    
-                    all_categories.append(categories)
-                    print_and_flush(f"  Successfully completed repetition {rep_idx + 1}")
-                
-                # Update existing results with category information
-                if all_categories and "results_by_cluster_size" in existing_results:
-                    cluster_results = existing_results["results_by_cluster_size"].get(cluster_size, {})
-                    
-                    # Create all_results structure with generated categories
-                    if len(all_categories) > 0:
-                        cluster_results["all_results"] = []
-                        for rep_idx, categories in enumerate(all_categories):
-                            cluster_results["all_results"].append({"categories": categories})
-                        
-                        existing_results["results_by_cluster_size"][cluster_size] = cluster_results
-                        print_and_flush(f"Updated results with {len(all_categories)} different category sets for {n_clusters} clusters")
-                    else:
-                        print_and_flush(f"No valid categories generated for {cluster_size} clusters")
-                
+
+                    # Merge new categories with existing ones for this repetition
+                    existing_categories = all_results[rep_idx].get("categories", [])
+
+                    # Create dict of existing categories
+                    existing_dict = {int(cat[0]): cat for cat in existing_categories}
+
+                    # Update with new categories (only for the clusters we just generated)
+                    new_dict = {int(cat[0]): cat for cat in new_categories}
+                    existing_dict.update(new_dict)
+
+                    # Convert back to list, sorted by cluster ID
+                    merged_categories = [existing_dict[i] for i in sorted(existing_dict.keys())]
+
+                    all_results[rep_idx]["categories"] = merged_categories
+                    print_and_flush(f"  Successfully completed repetition {rep_idx + 1} with {len(new_categories)} new descriptions")
+
+                # Update existing results
+                if "results_by_cluster_size" not in existing_results:
+                    existing_results["results_by_cluster_size"] = {}
+
+                cluster_results["all_results"] = all_results
+                existing_results["results_by_cluster_size"][cluster_size] = cluster_results
+
                 print_and_flush(f"Completed processing for {cluster_size} clusters")
                 
             except Exception as e:
