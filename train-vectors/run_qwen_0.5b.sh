@@ -9,7 +9,7 @@ python optimize_steering_vectors.py \
     --steering_vector_idx -1 \
     --lr "1e-2"
 
-for cluster in {0..24}; do  
+for cluster in {0..9}; do  
     echo "Processing cluster: $cluster"
     python optimize_steering_vectors.py \
         --model Qwen/Qwen2.5-0.5B \
