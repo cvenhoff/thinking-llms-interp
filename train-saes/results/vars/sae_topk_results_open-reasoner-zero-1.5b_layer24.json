@@ -4,17 +4,506 @@
   "layer": 24,
   "results_by_cluster_size": {
     "5": {
-      "all_results": [],
+      "all_results": [
+        {
+          "categories": [
+            [
+              "0",
+              "Recording Computation Outputs",
+              "These sentences serve to log the quantitative results of intermediate or final calculations within the reasoning trace. They typically take the form of \u201cVariable = Value,\u201d cost breakdowns, ratios, rounded figures, or data\u2010field assignments (for example, \u201cAdjusted GNP = 1406.91 billion dollars\u201d or \u201cQuick Asset Ratio = $68,600 / $58,500\u201d). Included are any bullet\u2010listed numeric entries, cost computations, unit conversions, and rounding operations. This category does not include conceptual explanations, hypothesis generation, expressions of uncertainty, planning steps, or the invocation of definitions or legal\u2010doctrinal reasoning."
+            ],
+            [
+              "1",
+              "Unnamed Cluster",
+              "No description available"
+            ],
+            [
+              "2",
+              "Unnamed Cluster",
+              "No description available"
+            ],
+            [
+              "3",
+              "Unnamed Cluster",
+              "No description available"
+            ],
+            [
+              "4",
+              "Unnamed Cluster",
+              "No description available"
+            ]
+          ]
+        },
+        {
+          "categories": [
+            [
+              "0",
+              "Reporting Intermediate Calculation Results",
+              "These sentences present explicit numeric outcomes or formula evaluations produced during the reasoning process. They take the form of assignment-like statements or listed values (e.g., \u201cAdjusted GNP = 1406.91 billion dollars,\u201d \u201c- Face value: $28,000,\u201d \u201cOutput of country Z = 40000 units\u201d) that record the results of arithmetic or data-retrieval steps. They function solely to communicate computed data for use in subsequent reasoning. They do not propose hypotheses, express uncertainty, lay out future steps, or define concepts."
+            ],
+            [
+              "1",
+              "Substitution and Simplification Steps",
+              "These sentences carry out the concrete work of plugging given numbers or intermediate expressions into previously introduced formulas or equations and then simplifying or evaluating the result. They typically begin with phrases such as \u201cSubstituting these values into the formula,\u201d \u201cPlugging this into the equation,\u201d \u201cNow, we substitute,\u201d or \u201cSimplify the expression,\u201d and proceed to perform algebraic or arithmetic manipulations. This category does not include higher-level moves like choosing which method to use, stating assumptions, recalling definitions, or expressing uncertainty\u2014it is purely the execution of computation."
+            ],
+            [
+              "2",
+              "Symbolic Computation Steps",
+              "These sentences perform the actual algebraic and calculus operations\u2014integrations, differentiations, limits, substitutions of bounds, and arithmetic simplifications\u2014that advance a mathematical or physical derivation. Included are lines like \u201c\u222b\u2080\u00b9 x\u2009cos(n\u03c0x) dx = \u2026,\u201d \u201cy\u2032 = \u2026,\u201d or \u201c[\u2013x\u00b2/(n\u03c0) cos(n\u03c0x)]\u2080\u00b9 = \u2026,\u201d where formal rules (product rule, chain rule, antiderivatives) are applied and numeric or symbolic results are produced. Not included are high-level strategic moves (planning next steps, stating assumptions, recalling definitions, or expressing uncertainty): these lines strictly execute the step-by-step computations of the solution."
+            ],
+            [
+              "3",
+              "Concept Definition and Elaboration",
+              "This cluster consists of sentences that supply background knowledge by defining concepts, detailing their features or functions, and offering illustrative examples. They typically employ phrases such as \u201cThis is\u2026,\u201d \u201cThese structures\u2026,\u201d \u201cFor example,\u201d or \u201cIn summary\u201d to present straightforward, factual information about a domain. They do not introduce uncertainty, generate hypotheses, plan future steps, or state assumptions; instead, they simply articulate the essential information and characteristics that underpin further reasoning."
+            ],
+            [
+              "4",
+              "Solution substeps",
+              "These sentences break a complex problem into a sequence of concrete intermediate tasks, each announcing a specific calculation, conversion, variable definition, or measurement. They typically begin with imperatives or markers\u2014\u201cCalculate,\u201d \u201cDetermine,\u201d \u201cIdentify,\u201d \u201cConvert,\u201d \u201cLet,\u201d or \u201cFirst\u201d\u2014and name the exact quantity or formula to handle next (e.g. pH, molar mass, volume fraction). This category does not include speculative hypotheses, expressions of uncertainty, or abstract recall of definitions without an immediate operational goal; it is solely devoted to declaring the next actionable subgoal in the chain of thought."
+            ]
+          ]
+        },
+        {
+          "categories": [
+            [
+              "0",
+              "Unnamed Cluster",
+              "No description available"
+            ],
+            [
+              "1",
+              "Applying Formulas",
+              "These sentences perform the mechanical step of taking a general equation or expression and instantiating it with concrete values or previously derived symbols to compute a result. They are marked by phrases like \u201cSubstituting these values into the formula,\u201d \u201cPlugging in the numbers,\u201d \u201cNow substitute this into the equation,\u201d or \u201cSimplify the expression to get,\u201d immediately followed by a numeric or algebraic outcome. Included here are any statements that carry out direct computation via substitution, simplification, or evaluation. This category excludes higher-level moves such as choosing which formula to use, justifying why it applies, planning future steps, or interpreting the significance of the result."
+            ],
+            [
+              "2",
+              "Symbolic Computation Steps",
+              "These sentences carry out the mechanical mathematical work of the solution by applying algebraic and calculus rules\u2014integrating functions with limits, differentiating expressions, simplifying radicals or rational forms, evaluating limits, and substituting numeric or symbolic bounds. They feature explicit notation (\u222b, d/dx, [ ]\u2080\u1d43, =\u2026) and intermediate algebraic or analytic results. They do not propose what to do next, express uncertainty, frame assumptions, or outline high-level strategy; rather, they execute a concrete symbolic operation that advances the numerical or functional derivation."
+            ],
+            [
+              "3",
+              "Unnamed Cluster",
+              "No description available"
+            ],
+            [
+              "4",
+              "Defining Variables and Recalling Formulas",
+              "These sentences function to establish notation, introduce and define all symbols or parameters, and restate standard relationships or constants that the solution will use. They include \u201cLet V\u2081 and V\u2082 be\u2026,\u201d \u201cwhere n is the number of moles\u2026,\u201d \u201cthe marginal revenue product (MRP) is\u2026,\u201d and \u201cto convert liters to cubic meters, use\u2026.\u201d What is included here is not actual computation, hypothesis generation, or high-level planning, but purely the act of naming quantities and recalling well-known formulas or definitions. These sentences do not perform algebraic manipulation, propose new steps, or express uncertainty\u2014they simply set the groundwork by defining the pieces needed for the later reasoning."
+            ]
+          ]
+        }
+      ],
       "avg_final_score": 0.0,
       "statistics": {}
     },
     "10": {
-      "all_results": [],
+      "all_results": [
+        {
+          "categories": [
+            [
+              "0",
+              "Rule Application",
+              "These sentences perform the cognitive operation of taking a specific legal rule or principle and directly applying it to the case facts to produce a definitive outcome. They typically assert conclusions about liability, admissibility, enforcement, remedies, or procedural rulings (often signaled by labels like \u201cLiability:,\u201d \u201cMotion to Dismiss:,\u201d or \u201cConclusion:\u201d). This category includes any declarative assertion that the court should grant or deny relief, that a party is or is not liable, or that evidence is or is not admissible. It does not include sentences that plan future steps, state general definitions, express uncertainty, or merely introduce assumptions."
+            ],
+            [
+              "1",
+              "Formula Substitution and Simplification",
+              "This category captures steps where the reasoner takes a previously established formula or equation and directly replaces its variables with given numbers or expressions, then carries out the ensuing algebraic or arithmetic simplification. Included are phrases like \u201csubstituting these values into the formula,\u201d \u201cplugging in the values,\u201d \u201csimplify the expression,\u201d \u201cdivide both sides,\u201d and \u201cwe get.\u201d Not included are steps that recall definitions, state assumptions, propose next steps, introduce new concepts, or express uncertainty; this category is strictly about the concrete execution of substitution and simplification."
+            ],
+            [
+              "2",
+              "Asserting Domain Knowledge",
+              "These sentences serve to introduce or recall established factual information\u2014definitions, roles, and mechanisms\u2014about biological, chemical, or medical entities. They include declarative statements such as \u201cThe kidneys filter blood and remove waste products,\u201d \u201cParietal cells secrete intrinsic factor,\u201d or module-style labels (\u201c**Adrenal Glands**: \u2026\u201d). What\u2019s included are clear, content-rich facts or standard terminology invoked to ground later reasoning. What\u2019s not included are speculative hypotheses, planning directives, expressions of uncertainty, or step-by-step problem-solving calculations."
+            ],
+            [
+              "3",
+              "Recalling Economic Principles",
+              "These sentences serve to retrieve and state well-known economic and financial concepts, definitions, and relationships (for example, \u201cthe MPC is the ratio\u2026,\u201d \u201cproducer surplus is the difference\u2026,\u201d or \u201cwhen the money supply increases, the money multiplier increases\u201d). They supply the factual groundwork\u2014standard formulas, curve-shifting rules, equilibrium conditions\u2014that later calculations or arguments build upon. They do not propose new hypotheses, express uncertainty, plan procedural steps, or introduce assumptions; rather, they simply present established domain knowledge."
+            ],
+            [
+              "4",
+              "Announcing the Conclusion",
+              "These sentences mark the end of the inferential process by delivering the resolved result or judgment derived from prior analysis. They typically begin with framing words such as \u201cTherefore,\u201d \u201cSo,\u201d \u201cBased on the above analysis,\u201d \u201cThe final answer is,\u201d or appear within an <answer> tag, followed by the specific solution, truth\u2010value assignment, or boxed response. They do not introduce new reasoning steps, questions, or assumptions but simply report the outcome of work already done. Not included are tentative hypotheses, uncertainty acknowledgments, planning directives, or definition recalls."
+            ],
+            [
+              "5",
+              "Concept Explanation",
+              "These sentences supply established information about concepts, theories, or phenomena by stating definitions, describing characteristics, or summarizing models. They often start with pronouns or labelled headings (e.g. \u201cThis involves\u2026,\u201d \u201cThey can\u2026,\u201d \u201c**Term**: \u2026\u201d) and present factual or conceptual content that underlies subsequent reasoning. Included are generalizations about how things work, the roles of entities, and the components of frameworks. Not included are speculative hypotheses, admissions of uncertainty, plans for future steps, or explicit assumptions."
+            ],
+            [
+              "6",
+              "Arithmetic Expression Evaluation",
+              "These sentences carry out concrete numeric computations\u2014sums, differences, products, quotients, exponentiations, percentages, unit conversions, and rounding\u2014to produce intermediate or final values in a solution. Each sentence explicitly shows an arithmetic or conversion operation alongside its evaluated result (often with approximation). This category includes straightforward calculation steps given prior variables or formulas. It does not include conceptual reasoning, planning next steps, stating assumptions, or expressing uncertainty."
+            ],
+            [
+              "7",
+              "Arithmetic and Algebraic Computation",
+              "These sentences carry out explicit computation or symbolic manipulation\u2014evaluating expressions, simplifying formulas, substituting numbers, performing dimensional analysis, and boxing intermediate or final numeric/symbolic results. They typically involve arithmetic operations (e.g. addition, multiplication, exponentiation), algebraic rearrangements (e.g. isolating variables, expanding or factoring), integral or derivative evaluations, and unit or dimension checks. What is included are steps that mechanically transform one expression into another or compute a value without explanation, justification, or planning. This category does not include conceptual statements (definitions, explanations, or hypotheses), planning steps, or expressions of uncertainty."
+            ],
+            [
+              "8",
+              "Decomposing Into Subtasks",
+              "These lines function as structural markers that break the overall problem into discrete pieces or labeled sections. They appear as step indicators (\u201cStep 1: \u2026\u201d, \u201c### Part (a): \u2026\u201d), directive headings (\u201cCalculate the total tax:\u201d, \u201cNatural Gas Bill:\u201d), or answer\u2010choice labels (\u201cOption M: Freedom of Speech and Press\u201d). Their role is purely organizational\u2014they set up which sub\u2010goal, formula, or case will be tackled next without performing any actual computation, evaluation, or argument. They do not include hypothesis\u2010generation, uncertainty acknowledgments, or detailed reasoning steps."
+            ],
+            [
+              "9",
+              "Specifying Calculation Steps",
+              "These sentences break the larger problem into individual computational subgoals by announcing exactly which quantity to compute next (e.g., \u201cTo calculate the ratio\u2026,\u201d \u201cConvert the diameter to meters,\u201d \u201cUse the ideal gas law to find\u2026\u201d). They function as micro-planning markers, often in infinitive or imperative form, that guide the sequence of algebraic or numeric operations. This category includes only forward-looking statements that name and frame the next calculation. It does not include recalling definitions, expressing uncertainty, or evaluating results\u2014only the articulation of forthcoming computational actions."
+            ]
+          ]
+        },
+        {
+          "categories": [
+            [
+              "0",
+              "Legal Rule Application",
+              "These sentences state legal standards or issue headings (e.g., \u201cLiability,\u201d \u201cMotion to Dismiss,\u201d \u201cConclusion\u201d), map specific facts onto those rules, and draw intermediate conclusions about case outcomes (such as liability, admissibility, or remedy). Included are articulations of legal tests or elements, factual determinations tied to those elements, and concise judgments about whether legal criteria are met. Not included are expressions of uncertainty, planning or next-step statements, speculative hypotheses, or purely definitional recalls unconnected to applying law to facts."
+            ],
+            [
+              "1",
+              "Formula Substitution",
+              "These sentences enact the step of taking a previously established formula or equation and instantiating it with specific values. Typical markers include phrases like \u201csubstituting these values into the formula,\u201d \u201cplugging in the values,\u201d \u201cnow substitute this value,\u201d followed immediately by the simplified result or next expression. This category covers only the operational insertion of numbers or expressions into an equation and the straightforward arithmetic or algebraic simplification that follows. It does not include deriving the formula itself, stating assumptions, planning which formula to use, or interpreting the result."
+            ],
+            [
+              "2",
+              "Factual Knowledge Recall",
+              "These sentences function to retrieve and state established domain facts\u2014definitions, properties, structures, and standard processes\u2014from fields like physiology, biochemistry, genetics, and anatomy. Included are declarative descriptions (often introduced by bolded headings or simple statements) of organs, enzymes, hormones, metabolic pathways, and clinical presentations. What is not included are sentences that outline reasoning steps (plans or next actions), propose or test hypotheses, express uncertainty, or draw inferences or conclusions beyond stating background information."
+            ],
+            [
+              "3",
+              "Retrieving Definitions and Formulas",
+              "These sentences serve to bring in and state the canonical economic and financial definitions, variables, formulas, and standard theoretical relationships that underpin the subsequent calculations or arguments. They include explicit definitions of terms (e.g. \u201cDisposable income (DI) is\u2026,\u201d \u201cProducer surplus is\u2026\u201d), reminders of formulaic relationships (e.g. \u201cTotal Revenue (TR) is price times quantity\u201d), labeled prompts for computation (\u201cCalculate the annual premium:\u201d), and restatements of well-known supply-and-demand effects."
+            ],
+            [
+              "4",
+              "Answer Framing",
+              "These sentences serve as discourse markers that structure the problem\u2010solving process and signal its conclusion. They either (a) introduce the specific goal or analysis plan for a subproblem (\u201cTo determine which statement\u2026, let\u2019s analyze each option step by step\u201d) or (b) announce the final result (\u201cTherefore, the answer is:\u201d, \u201cThe final answer is:\u201d). They do not themselves perform computations, state assumptions, recall definitions, express uncertainty, or propose hypotheses; instead, they organize the reasoning into clearly signposted steps and mark the delivery of the solution."
+            ],
+            [
+              "5",
+              "Explanatory Elaboration",
+              "These sentences function to define, describe, or elaborate on concepts, theories, or phenomena by stating their characteristics, roles, or implications. They often use framing phrases such as \u201cThis involves\u2026\u201d, \u201cIt refers to\u2026\u201d, \u201cThese include\u2026\u201d, or bolded headings naming a topic, and they supply background knowledge or domain\u2010specific details. Included are definitional statements, component listings, illustrative examples, and descriptions of how something operates or influences its context. Not included are tentative hypotheses, planning steps, acknowledgments of uncertainty, or goal\u2010directed procedural moves."
+            ],
+            [
+              "6",
+              "Arithmetic Computation",
+              "These sentences carry out explicit numeric operations\u2014adding, subtracting, multiplying, dividing, converting units, and rounding\u2014to produce a concrete numeric result. They are typically formatted as expressions with an equals sign or approximation symbol (e.g. \u201c14.60 + 1.95 = 16.55\u201d or \u201c\u2248 1275.00\u201d). This category includes any step where the model is executing a calculation on given numbers. It does not include higher-level reasoning moves such as stating assumptions, planning steps, expressing uncertainty, or recalling abstract definitions."
+            ],
+            [
+              "7",
+              "Algebraic Computation",
+              "This cluster consists of lines where the model carries out direct mathematical work\u2014writing down formulas, substituting numerical values, simplifying expressions, computing integrals or derivatives, performing arithmetic, and boxing intermediate or final results. Included are dimension analyses, binomial\u2010probability formulas, evaluations of simple functions (e.g. f(5)=25), multiplications, additions, and algebraic rearrangements that advance the numeric or symbolic solution. What is not included are metacognitive remarks, planning statements, uncertainty expressions, hypothesis proposals, or declarative assumptions about the problem setup."
+            ],
+            [
+              "8",
+              "Unnamed Cluster",
+              "No description available"
+            ],
+            [
+              "9",
+              "Unnamed Cluster",
+              "No description available"
+            ]
+          ]
+        },
+        {
+          "categories": [
+            [
+              "0",
+              "Rule Application to Facts",
+              "These sentences synthesize specific factual details with relevant legal standards or doctrines to draw a concrete judgment about liability, admissibility, or remedy. They include explicit markers of application\u2014words like \u201cTherefore,\u201d \u201cGiven these factors,\u201d \u201cif\u2026then,\u201d or section headings such as **Liability**, **Conclusion**, and they refer to legal elements (e.g. proximate cause, duty, privity) to conclude which party prevails or which motion should be granted. This category does not cover planning future steps, expressing uncertainty, hypothesizing without rule use, or merely recalling legal definitions without applying them to facts."
+            ],
+            [
+              "1",
+              "Applying Formulas",
+              "These sentences execute the mechanical step of taking a known equation or formula, inserting the given numeric or symbolic values, and then algebraically or numerically simplifying to produce a result. They are characterized by phrases such as \u201csubstituting these values,\u201d \u201cplugging in the values,\u201d \u201csimplify,\u201d \u201crearrange,\u201d \u201csolve for,\u201d and \u201ccalculate.\u201d This category does not include choosing which formula to use, stating assumptions, recalling a definition, planning next steps, or interpreting outcomes\u2014it is purely the instantiation and evaluation of formulas."
+            ],
+            [
+              "2",
+              "Domain Knowledge Recall",
+              "These sentences serve to retrieve and state established factual information about biological and biochemical entities, such as enzymes, hormones, organs, and physiological processes. They often present definitions or descriptions (e.g., \u201c**Steroid Hormones**: These hormones are derived from cholesterol\u2026\u201d) and list functions, locations, or roles without drawing inferences or planning further steps. Included are concise statements of functions, structures, or metabolic pathways. Not included are sentences that propose hypotheses, express uncertainty, outline future reasoning steps, or establish assumptions."
+            ],
+            [
+              "3",
+              "Stating Definitions and Formulas",
+              "These sentences retrieve and lay out established economic and financial terms, formulas, and relationships as factual building blocks for the rest of the reasoning. Included are labeled or colon-led statements that define concepts such as total revenue, marginal cost, MPC, zero economic profit, or describe general price-quantity effects (e.g., \u201cTotal Revenue (TR): \u2026\u201d, \u201cWhen the price level rises, the real value of money decreases.\u201d). Not included are forward-looking plan statements, hypothetical scenarios, expressions of uncertainty, or step-by-step solution plans."
+            ],
+            [
+              "4",
+              "Answer Announcement",
+              "These sentences serve to close the reasoning by explicitly stating the final result or chosen option. They typically begin with transition words or phrases such as \u201cTherefore,\u201d \u201cSo, the answer is,\u201d \u201cThus,\u201d or the tag \u201c<answer>,\u201d and then present the conclusive response (a value, a statement choice, or a boxed result). This category includes any formulation that switches from analysis to the final answer. It does not include planning steps, hypothesis proposals, definitions, or intermediate calculations."
+            ],
+            [
+              "5",
+              "Recalling Background Knowledge",
+              "These sentences retrieve and articulate established facts, definitions, or theoretical perspectives from various domains to serve as premises in the reasoning process. They often begin with demonstratives (\u201cThis,\u201d \u201cThese\u201d) or topic labels (e.g., \u201cCultural and Social Norms,\u201d \u201cPersonification\u201d) and describe concepts, models, mechanisms, or general characteristics. Included are explanations of frameworks (e.g., economic cosmopolitanism, social theory models), descriptions of processes (e.g., how media shapes attitudes), and definitions of key terms. Excluded are steps outlining future actions, expressions of uncertainty, stated assumptions, or speculative hypothesis-generation."
+            ],
+            [
+              "6",
+              "Arithmetic Evaluation",
+              "These sentences carry out direct numerical computations by plugging values into expressions or formulas and simplifying them to intermediate results. They include straightforward operations such as addition, subtraction, multiplication, division, unit conversions, and rounding (e.g., \u201c14.60 + 1.95 = 16.55,\u201d \u201cd = 2762.92/157080 \u2248 0.0176 km\u201d). This category does not include conceptual explanations, hypothesis statements, planning steps, or declarative reasoning about definitions or assumptions."
+            ],
+            [
+              "7",
+              "Intermediate calculations",
+              "These sentences carry out specific mathematical manipulations or numeric evaluations that advance the solution. They include algebraic simplifications, substitutions into formulas, integrals, derivatives, numeric multiplications or evaluations, and boxed or equivalent expressions of results. Each sentence records the direct outcome of a computation step\u2014often signaled by \u201c=\u201d, \u201c\u2248\u201d, or \u201cboxed\u201d\u2014and serves to move the argument forward by concretely transforming expressions. They do not propose high-level strategies, state assumptions, express uncertainty, or outline future plans; instead, they perform the mechanical execution of arithmetic or symbolic operations."
+            ],
+            [
+              "8",
+              "Subtask Declaration",
+              "These sentences label and delimit individual problem components or solution phases within the reasoning process. They include headings like \u201cStep 1: Calculate Total Revenue,\u201d imperative prompts such as \u201cDetermine the shunt-field circuit resistance,\u201d and option identifiers like \u201cOption R: Freedom of the Press.\u201d They serve to break down a complex problem into named subgoals or sections. They do not perform calculations, present evidence, express uncertainty, or propose hypotheses, but purely organize the reasoning into discrete tasks."
+            ],
+            [
+              "9",
+              "Formula Application Steps",
+              "These sentences specify concrete computational substeps by invoking a known mathematical or physical relationship (e.g. ideal gas law, heat capacity formulas, enthalpy definitions) and naming the target quantity to compute. They typically begin with directive verbs such as \u201ccalculate,\u201d \u201cdetermine,\u201d \u201cuse,\u201d \u201cconvert,\u201d or \u201cfind,\u201d then state the formula or relation and the variable(s) involved. This category captures the operational execution phase where the solver sets up and applies equations for a numerical result. It does not include higher-level strategy statements, uncertainty acknowledgments, or assumption declarations."
+            ]
+          ]
+        }
+      ],
       "avg_final_score": 0.0,
       "statistics": {}
     },
     "15": {
-      "all_results": [],
+      "all_results": [
+        {
+          "categories": [
+            [
+              "0",
+              "Recalling Equations",
+              "These sentences retrieve and restate established mathematical or physical formulas and define the relationships between variables needed for problem solving. They typically use phrasing such as \u201cis given by,\u201d \u201cis the product of,\u201d \u201cis the reciprocal of,\u201d or cite known laws (e.g. Fourier\u2019s law, Malus\u2019 law) to present ready-to-use equations. They do not propose new hypotheses, express uncertainty, outline future steps, or introduce assumptions."
+            ],
+            [
+              "1",
+              "Intermediate Calculation Steps",
+              "These sentences record the immediate results of individual arithmetic, logical, or enumeration operations\u2014such as summing digits (\u201cThe number 135 has digits summing to 1+3+5=9\u201d), computing distances (\u201cDistance between 10101 and 01010: 4\u201d), listing case values, or identifying successor nodes in a sequence. They serve to document micro-conclusions that feed directly into the larger chain of reasoning. Included are straightforward, one-step derivations or factual checks derived from previously stated premises. Not included are higher-level moves like proposing hypotheses, stating assumptions, expressing uncertainty, planning next steps, or invoking general definitions."
+            ],
+            [
+              "2",
+              "Conceptual Elaboration",
+              "These sentences offer direct definitions or descriptive explanations of theories, models, processes, or phenomena, detailing their features, roles, functions, or implications. They often begin with demonstrative pronouns (\u201cThis perspective\u2026,\u201d \u201cIt helps\u2026,\u201d \u201cBy focusing on\u2026\u201d) or straightforward noun phrases, and they clarify what a concept is or does. Included are elaborative statements presenting properties or applications of a term without advancing an argument, posing questions, planning next steps, or expressing uncertainty. Not included are speculative hypotheses, uncertainty markers, planning directives, or explicit assumptions."
+            ],
+            [
+              "3",
+              "Intermediate Calculation Instructions",
+              "These sentences break down a quantitative problem into discrete numeric operations by naming variables (e.g., principal, discount, face value), stating or recalling the relevant formula, and directing the solver to perform arithmetic steps (e.g., \u201cCalculate the interest,\u201d \u201cSubtract the down payment,\u201d \u201cDetermine the cash inflow\u201d). They function as the operational kernel of a calculation-focused reasoning process. This category includes explicit formula applications, variable identifications, and step-by-step arithmetic directives. It does not include higher-level planning statements, expressions of uncertainty, hypothesis generation, or abstract assumption setting."
+            ],
+            [
+              "4",
+              "Applying Rules to Facts",
+              "These sentences perform the cognitive operation of taking a specific legal rule or principle and mapping it directly onto the facts at hand to yield a concrete legal conclusion or prediction. They often begin with cue phrases like \u201cTherefore,\u201d \u201cGiven these points,\u201d or \u201cIn conclusion,\u201d and end in a determination (e.g., liability, admissibility, grant or denial of a motion). Included are statements that declare whether an element is satisfied, a duty is breached, or a motion is likely to succeed. Not included are definitions of legal terms, expressions of uncertainty, planning steps, or the introduction of new hypotheses."
+            ],
+            [
+              "5",
+              "Section Headings",
+              "These items serve purely as organizational markers that divide the solution into labeled parts, steps, or sub-topics (e.g. \u201c### Part (b)\u201d, \u201cStatement A:\u2026\u201d, \u201cEffect on Consumers:\u201d, bolded titles ending in a colon). They signal transitions or placeholders for content without themselves presenting arguments, calculations, or hypotheses. This category includes any prefatory label, question-part indicator, or outline bullet but excludes sentences that actually convey reasoning, data, or substantive claims."
+            ],
+            [
+              "6",
+              "Mechanistic Explanation",
+              "These sentences serve to articulate specific causal or functional relationships by explaining how a condition, molecule, or process produces particular outcomes or roles (for example, \u201cleads to,\u201d \u201cresults in,\u201d \u201cplays a role in,\u201d \u201cis associated with\u201d). Included are declarative statements of pathophysiology, biochemical pathways, organ system functions, diagnostic findings, or physiological mechanisms. Not included are speculative suggestions, expressions of uncertainty, proposed next steps, or general planning; instead, these are concrete explanations of how or why something works in context."
+            ],
+            [
+              "7",
+              "Outlining Step-by-Step Procedures",
+              "These sentences serve to map out a sequential plan for tackling a problem by announcing a breakdown into ordered steps. They typically start with phrases like \u201cTo determine\u2026, let\u2019s break it down step by step,\u201d \u201cHere\u2019s a step-by-step approach,\u201d or \u201cTo solve this problem, we need to follow these steps.\u201d Included are meta-instructions that organize the forthcoming reasoning into a procedural sequence rather than carrying substantive content or conclusions. Excluded are the actual execution of each step, the presentation of detailed calculations or definitions, expressions of uncertainty, and speculative or assumption-setting statements."
+            ],
+            [
+              "8",
+              "Outlining Solution Steps",
+              "These sentences set up or decompose the immediate calculation or proof into a sequence of subgoals and operations. They typically begin with phrases like \u201cTo find\u2026,\u201d \u201cTo determine\u2026,\u201d \u201cFirst, \u2026 Next, \u2026,\u201d or \u201cWe need to\u2026,\u201d and then state the specific mathematical action to be taken (substitution, applying a definition, using a formula, evaluating at a point, etc.). This category covers all instances where the reasoner is planning or announcing the next procedural moves in a solution. It does not include sentences that merely recall standard definitions without linking them to the upcoming action, express uncertainty, or introduce informal hypotheses."
+            ],
+            [
+              "9",
+              "Performing Calculations",
+              "This cluster represents the cognitive function of executing explicit arithmetic and algebraic operations as discrete steps in the reasoning. Each sentence applies numerical operations (addition, subtraction, multiplication, division, exponentiation), unit conversions (e.g., horsepower to watts, pounds to kilograms), base conversions, or direct formula evaluations to produce an intermediate or final numeric value. Included are any statements of the form \u201cX = computation = result\u201d or \u201cconvert A to B by multiplying/dividing by C.\u201d Not included are higher-level reasoning tasks such as choosing which formula to use, stating assumptions, planning next steps, or interpreting the meaning of the numerical results."
+            ],
+            [
+              "10",
+              "Stating Final Answers",
+              "These sentences serve the cognitive function of delivering the definitive outcome of a reasoning or calculation process. They typically begin with conclusion markers such as \u201cTherefore,\u201d \u201cSo,\u201d or an `<answer>` tag and then present a boxed or highlighted numeric value, choice letter, or categorical label as the solution. Included are only those lines that explicitly state the final result or correct option, without elaborating on the steps, underlying rationale, or uncertainty. This category does not include intermediate calculation steps, hypothesis formation, expressions of doubt, or planning statements."
+            ],
+            [
+              "11",
+              "Deductive Consequence Statements",
+              "These sentences perform direct, model-driven inferences by stating the causal outcomes of hypothetical changes, typically framed with \u201cif \u2026 then \u2026\u201d, \u201cthis leads to\u201d, or \u201ctherefore.\u201d They apply established economic relationships (for example, shifts in supply and demand curves, equilibrium adjustments, price and output effects) to predict precise directional results. Included are explicit cause-and-effect declarations within a given theoretical framework. Excluded are uncertainty acknowledgments, planning or procedural steps, definition recalls, or speculative hypothesis generation."
+            ],
+            [
+              "12",
+              "Unnamed Cluster",
+              "No description available"
+            ],
+            [
+              "13",
+              "Unnamed Cluster",
+              "No description available"
+            ],
+            [
+              "14",
+              "Applying Formulas",
+              "These sentences enact the mechanical computation phase of reasoning by substituting known numeric or symbolic values into previously stated equations or formulas and then simplifying to obtain a result. Included are phrases like \u201cSubstituting these values into the formula,\u201d \u201cPlugging in the values,\u201d \u201cNow substitute into the equation,\u201d and straightforward arithmetic or algebraic simplifications (unit conversions, rounding, root extractions). Not included are higher-level moves such as planning next steps, expressing uncertainty, stating assumptions, or proposing hypotheses\u2014they solely carry out the concrete calculation or algebraic manipulation."
+            ]
+          ]
+        },
+        {
+          "categories": [
+            [
+              "0",
+              "Formulating Computational Steps",
+              "These sentences break the overall problem into concrete calculation tasks by naming a specific physical or mathematical quantity (e.g., heat flux, volume flow rate, pressure drop) and either stating its defining formula or prompting its evaluation. They typically start with phrases like \u201cThe \u2026 is given by,\u201d or directives such as \u201cCalculate\u2026,\u201d \u201cDetermine\u2026,\u201d or \u201c**Calculate the\u2026**,\u201d thereby retrieving and applying known equations. This category does not include speculative reasoning, uncertainty acknowledgments, high-level planning, or broad assumptions\u2014only the setting up of direct, formula-based subcalculations."
+            ],
+            [
+              "1",
+              "Recording Partial Results",
+              "These sentences capture individual numeric or logical outcomes produced during the step-by-step reasoning, such as arithmetic operations (e.g., \u201c48 + 3 = 51\u201d), digit\u2010sum checks (e.g., \u201cThe number 162 has digits summing to 1+6+2=9\u201d), case enumerations (e.g., \u201cTens digit 5: 50, 51, 52\u2026\u201d), simple assignments (e.g., \u201cmy_array[2,1] = 4;\u201d), and list\u2010style counts. They serve to document intermediate values that will be used in later steps of the solution. This category includes standalone calculation results, explicit counts, and enumerations of possible values. It does not include higher\u2010level moves such as stating assumptions, defining concepts, proposing hypotheses, or planning future steps."
+            ],
+            [
+              "2",
+              "Background Elaboration",
+              "These sentences supply descriptive context by defining or explaining domain concepts, theories, models, and processes. They often use framing phrases (\u201cThis perspective\u2026,\u201d \u201cBy focusing on\u2026,\u201d \u201cIn summary,\u201d headings or bullet labels) to list characteristics, functions, or implications without advancing new hypotheses or planning actions. Included are general statements of how things work or why they matter in a given field. Excluded are sentences that express uncertainty, propose experiments or next steps, state assumptions, or recall formal mathematical definitions."
+            ],
+            [
+              "3",
+              "Specifying Computational Steps",
+              "This cluster captures the reasoning process of breaking a quantitative problem into concrete arithmetic or financial operations by (1) naming and defining the variables involved, (2) stating the formulas or relationships to be used, and (3) declaring the precise sub-calculations to perform next. Included are imperative or declarative instructions such as \u201cCalculate the interest,\u201d \u201cDetermine the cash inflow,\u201d \u201cTotal cost per widget = Material cost + Expenses + Labor cost,\u201d and variable definitions like \u201cn is the number of payments.\u201d It does not include high-level planning of overall strategy, expressions of uncertainty, speculative hypotheses, or purely conceptual definitions unconnected to the immediate numerical steps."
+            ],
+            [
+              "4",
+              "Applying Legal Rules",
+              "These sentences perform the cognitive function of mapping established legal principles or statutory requirements onto the particular facts of a case to draw an inference about liability, motion outcomes, or parties\u2019 rights.  They often begin with framing phrases like \u201cTherefore,\u201d \u201cGiven these points,\u201d or bolded labels (e.g., \u201cMotion to Dismiss:\u201d) and culminate in a definite conclusion about what the court will or should do.  Included are explicit determinations that a motion will be granted or denied, that a duty was breached, or that a claim is valid or invalid.  This category does not encompass mere statements of law or definitions, expressions of uncertainty, planning steps, or speculative hypotheses."
+            ],
+            [
+              "5",
+              "Section Labels",
+              "These sentences function purely as organizational markers that divide the reasoning into titled segments or sub\u2010tasks. They typically appear as headings, subheadings, or bullet\u2010point labels (for example, \u201cDefine the variables:\u201d, \u201c### Final Answer\u201d, \u201cStatement A:\u201d). This category includes any line that announces the topic or part of the solution without performing actual analysis, calculation, or inference. It does not include sentences that state assumptions, present data, carry out computations, or draw conclusions."
+            ],
+            [
+              "6",
+              "Stating Domain Propositions",
+              "These sentences supply the core factual building blocks of the model\u2019s reasoning by asserting domain-specific propositions\u2014mechanisms, causality, definitions, characteristic features, and functional roles. Included are statements like \u201cA deficiency in vitamin K can slow wound healing,\u201d \u201cThese mutations lead to cholesterol buildup,\u201d or \u201cThe Cannon-Bard theory proposes emotion generation in the limbic system.\u201d Not included are meta-cognitive moves (e.g., planning next steps, expressing uncertainty, stating assumptions) or explicit control flow sentences; this category is purely the content assertions that ground the chain-of-thought."
+            ],
+            [
+              "7",
+              "Outlining Step-by-Step Plan",
+              "These sentences set up the upcoming reasoning by announcing a structured, sequential approach to solving a problem or answering a question. They typically begin with phrases like \u201cTo determine\u2026,\u201d \u201cTo solve this problem, we need to follow these steps,\u201d or \u201cLet\u2019s break it down step by step,\u201d and they signal that the solution will be delivered as an ordered series of operations. Included are any metareasoning statements that frame the task as a sequence of planned steps without yet executing them. Not included are the actual detailed computations, factual recalls, assumptions being made, or expressions of uncertainty\u2014this category is solely about declaring the plan for the reasoning."
+            ],
+            [
+              "8",
+              "Planning Future Steps",
+              "These sentences outline the immediate subgoals or actions the solver will take next in a mathematical derivation, often signaling a sequence of operations without yet executing them. They commonly begin with directives like \u201cTo find\u2026,\u201d \u201cTo determine\u2026,\u201d \u201cFirst\u2026,\u201d \u201cNext\u2026,\u201d or \u201cSubstitute\u2026,\u201d and specify which formula to use, which values to plug in, or which property to examine. What\u2019s included are statements that break a larger problem into procedural steps or announce the next calculation. What\u2019s not included are sentences that actually carry out the detailed computation, express uncertainty, recall definitions in isolation, or propose speculative hypotheses."
+            ],
+            [
+              "9",
+              "Arithmetic Computation Steps",
+              "These sentences execute straightforward numerical operations\u2014such as multiplication, division, addition, subtraction, reciprocals\u2014and perform unit conversions to produce intermediate or final numeric values. They typically present an expression followed by its evaluated result (often with an \u201c\u2248\u201d for approximations). This category includes any pure calculation step or scaling of units (e.g., \u201c60 lb-ft = 60 \u00d7 1.3558 N\u00b7m = 81.35 N\u00b7m\u201d). It does not include conceptual explanations, formula derivations, planning statements, or expressions of uncertainty."
+            ],
+            [
+              "10",
+              "Presenting final answer",
+              "These sentences serve to declare the outcome of the preceding reasoning by explicitly stating the computed result or choice. They are typically introduced by discourse markers such as \u201cTherefore,\u201d \u201cSo,\u201d \u201cThus,\u201d or \u201cHence,\u201d and often enclose the answer in a box or boldface. This category includes bare final values (numeric, lettered options, or brief declarative conclusions) and does not involve any explanatory detail, intermediate computation, uncertainty, hypothesis generation, or planning."
+            ],
+            [
+              "11",
+              "Causal Deductions in Economic Models",
+              "These sentences perform deterministic, theory-driven reasoning by taking a hypothetical change in one economic variable (e.g. interest rates, input costs, consumer confidence) and explicitly inferring its downstream effects (shifts in supply or demand curves, changes in equilibrium price or output, labor demand, inflation, etc.). They routinely use if-then constructions (\u201cIf X increases, then Y shifts [left/right], leading to Z\u201d) and refer to standard model components (AD, SRAS, labor demand, marginal cost, etc.). This category does not include expressions of uncertainty, planning steps, assumption statements, or purely empirical observations; it focuses strictly on applying economic theory to project causal outcomes."
+            ],
+            [
+              "12",
+              "Stating Intermediate Computational Goals",
+              "These sentences break the overall problem into specific calculation or variable-introduction tasks, each signaling an immediate subgoal in the solution. They typically begin with verbs like \u201ccalculate,\u201d \u201cdetermine,\u201d \u201cuse,\u201d \u201cidentify,\u201d \u201clet x be,\u201d or phrases such as \u201cto compute,\u201d \u201cwe need to,\u201d and set up the next numerical or symbolic step without performing it. They do not include execution of the computation itself, uncertainty expressions, or recalling generic definitions; they simply mark the next focused action needed to progress the solution."
+            ],
+            [
+              "13",
+              "Recalling Mathematical Relations",
+              "These sentences present established formulas, definitions, or symbolic expressions drawn from mathematics, physics, or engineering that the reasoner brings into play as premises for subsequent steps. They include standalone equations or identities (for example, energy or force laws, thermodynamic expressions, algebraic manipulations) without immediately applying them to a concrete numerical instance. They do not involve proposing new conjectures, planning next operations, expressing uncertainty, or performing detailed numeric evaluation\u2014only the retrieval or restatement of known relations."
+            ],
+            [
+              "14",
+              "Unnamed Cluster",
+              "No description available"
+            ]
+          ]
+        },
+        {
+          "categories": [
+            [
+              "0",
+              "Stating standard equations",
+              "These sentences retrieve and present a known physical or mathematical relationship\u2014often introduced with phrases like \u201cis given by,\u201d \u201cis the product of,\u201d \u201cis defined as,\u201d or \u201cis the reciprocal of\u201d\u2014as a premise for subsequent calculation or analysis. They include canonical formulas for quantities such as flow rates, heat transfer, forces, and geometric volumes. They do not perform any computation with the formulas, propose tentative hypotheses, outline planning steps, or acknowledge uncertainty."
+            ],
+            [
+              "1",
+              "Intermediate Result Reporting",
+              "These sentences present discrete, self-contained outcomes of individual calculations or data lookups\u2014such as digit sums, distance measures, unit conversions, percentage figures, or enumerated possibilities\u2014that feed into the larger solution. They often appear as bullet points or standalone factual statements (\u201cThe number 135 has digits summing to 1+3+5=9,\u201d \u201cDistance between 10101 and 01010: 4,\u201d \u201cThe EIA reports \u2026 32%\u201d). They do not propose plans, express uncertainty, state assumptions, or introduce definitions; instead, they simply report the direct outputs of specific arithmetic or retrieval operations."
+            ],
+            [
+              "2",
+              "Conceptual Explanation",
+              "These sentences serve to articulate and clarify domain-specific concepts, theories, and models by detailing their components, characteristics, influences, and applications.  They include descriptive statements that define perspectives (\u201cThis perspective allows\u2026\u201d), outline theoretical frameworks (\u201cThe model emphasizes\u2026\u201d), explain causal roles (\u201cBy focusing on these aspects\u2026\u201d), or summarize disciplinary insights (\u201cIn economics, it could be used\u2026\u201d).  They do not propose new hypotheses, express uncertainty, lay out future procedural steps, or assert working assumptions."
+            ],
+            [
+              "3",
+              "Arithmetic Computation Steps",
+              "These sentences spell out the concrete arithmetic operations or formula\u2010based computations used to derive intermediate numeric results in a multi\u2010step problem. They include statements of the form \u201cX is the sum/difference/product/quotient of \u2026,\u201d \u201ccalculate Y by subtracting the discount,\u201d \u201cconvert pounds to ounces,\u201d and so on, often naming specific variables or rates. This category is limited to the execution of individual calculation substeps (e.g. computing proceeds, interest, balances, ratios, unit conversions). It does not include higher\u2010level planning, assumption\u2010stating, uncertainty expressions, hypothesis generation, or general recall of definitions."
+            ],
+            [
+              "4",
+              "Rule Application",
+              "These sentences perform the cognitive operation of taking an established rule or standard and directly applying it to the facts or premises at hand in order to draw a conclusion. They typically include conclusion markers (\u201cTherefore,\u201d \u201cThus\u201d), causal connectives (\u201cbecause,\u201d \u201csince\u201d), conditional phrasing (\u201cIf \u2026 then \u2026\u201d), or legal labels (\u201cMotion to Dismiss:,\u201d \u201cLiability:,\u201d \u201cConclusion:\u201d). What is included are explicit inferences that bridge from premises and rules to a specific outcome. What is not included are tentative speculations, planning statements, expressions of uncertainty, mere definitions, or the introduction of untested assumptions."
+            ],
+            [
+              "5",
+              "Subgoal Declaration",
+              "This cluster comprises sentences that function as explicit labels or headings for individual subtasks or sections within the overall solution. Each item names a specific sub\u2010problem\u2014e.g. \u201cCalculate the velocity:\u201d, \u201cDetermine the binding energy:\u201d, \u201c### Final Answer\u201d\u2014often signaled by colons, bold or heading syntax, and bullet markers. These lines structure the reasoning by dividing it into discrete, named steps. They do not include actual calculations, derivations, assumptions, or interpretive content, but merely announce the next task or segment."
+            ],
+            [
+              "6",
+              "Asserting Domain Facts",
+              "These sentences present established, background knowledge\u2014mostly medical facts about physiology, pathophysiology, clinical signs, diagnostic findings, and disease mechanisms\u2014to serve as premises in reasoning. They include clear statements of how biological systems function or malfunction (e.g., the role of vitamin K in clotting, features of cystic fibrosis, typical laboratory or imaging findings). This category does not include tentative hypotheses, expressions of uncertainty, planning steps, or explicit assumptions; it is limited to declarative recall of domain\u2010specific information."
+            ],
+            [
+              "7",
+              "Procedural Planning",
+              "These sentences explicitly lay out the upcoming sequence of actions the reasoner will take to solve a problem or analyze information. They often begin with \u201cTo determine\u2026 we need to follow these steps,\u201d \u201cTo analyze\u2026 let\u2019s break it down step by step,\u201d or \u201cHere\u2019s a step-by-step approach,\u201d and they frame the reasoning without yet executing the detailed sub-steps. Included are forward-looking statements that organize the plan of attack. Excluded are statements that introduce assumptions, recall definitions, express uncertainty, or propose hypotheses."
+            ],
+            [
+              "8",
+              "Outlining Solution Steps",
+              "These sentences lay out the sequence of operations or computations the reasoner plans to carry out in order to reach an answer. They characteristically start with phrases like \u201cTo find\u2026 we need to\u2026,\u201d \u201cFirst, substitute\u2026,\u201d \u201cNext, evaluate\u2026,\u201d or use numbered or bullet\u2010point steps. Included are any forward\u2010looking directives that specify which calculation, substitution, or method comes next. Excluded are statements that merely recall definitions or formulas, assert assumptions, express uncertainty, or present conclusions without detailing a next action."
+            ],
+            [
+              "9",
+              "Intermediate Arithmetic Computations",
+              "This cluster consists of sentences that perform concrete numeric operations\u2014multiplications, divisions, additions, subtractions, and unit conversions\u2014to produce intermediate results in service of a larger solution. Included are lines like \u201c60 lb-ft = 60\u00d71.3558179 N\u00b7m = 81.349074 N\u00b7m\u201d or \u201c247.5 million kg \u00f7 1000 = 247.5 million tons,\u201d where the sole function is carrying out or simplifying a calculation. It does not include statements that introduce assumptions, plan next steps, express uncertainty, recall definitions, or propose hypotheses\u2014only the execution of raw arithmetic."
+            ],
+            [
+              "10",
+              "Stating Final Answer",
+              "These sentences serve to articulate the conclusion or solution outcome of a reasoning sequence. They typically begin with markers like \u201cTherefore,\u201d \u201cSo,\u201d \u201cThus,\u201d or include an explicit `<answer>` tag, and immediately present a boxed numeric value, choice letter, or definitive statement without further explanation. This category includes any line that simply declares \u201cthe answer is\u2026\u201d or \u201cthe result is\u2026\u201d based on prior work. It does not include intermediate calculations, justifications, planning steps, or expressions of uncertainty."
+            ],
+            [
+              "11",
+              "Unnamed Cluster",
+              "No description available"
+            ],
+            [
+              "12",
+              "Unnamed Cluster",
+              "No description available"
+            ],
+            [
+              "13",
+              "Unnamed Cluster",
+              "No description available"
+            ],
+            [
+              "14",
+              "Unnamed Cluster",
+              "No description available"
+            ]
+          ]
+        }
+      ],
       "avg_final_score": 0.0,
       "statistics": {}
     },
