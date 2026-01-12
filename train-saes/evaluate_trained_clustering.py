@@ -50,7 +50,7 @@ parser.add_argument("--batch_file", type=str, default=None,
                     help="JSON file containing batch information (for process command)")
 parser.add_argument("--wait-batch-completion", action="store_true", default=False,
                     help="If set, wait for all batches to complete, checking every minute. Otherwise, check once and exit if not complete.")
-parser.add_argument("--repetitions", type=int, default=5,
+parser.add_argument("--repetitions", type=int, default=3,
                     help="Number of repetitions for evaluation")
 parser.add_argument("--clusters", type=int, nargs='+', default=None,
                     help="Specific cluster sizes to process (if None, process all available cluster sizes)")

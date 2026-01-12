@@ -7,7 +7,7 @@ CLUSTERING_METHODS="sae_topk"
 
 MODELS="deepseek-ai/DeepSeek-R1-Distill-Llama-8B deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B deepseek-ai/DeepSeek-R1-Distill-Qwen-14B qwen/QwQ-32B deepseek-ai/DeepSeek-R1-Distill-Qwen-32B deepseek-ai/DeepSeek-R1-Distill-Llama-70B Open-Reasoner-Zero/Open-Reasoner-Zero-0.5B Open-Reasoner-Zero/Open-Reasoner-Zero-1.5B Open-Reasoner-Zero/Open-Reasoner-Zero-7B Open-Reasoner-Zero/Open-Reasoner-Zero-32B"
 
-REPETITIONS=5
+REPETITIONS=3
 
 # Rationale for selecting `--layers` per model:
 # - We pick 6 layer indices per model, roughly evenly spaced through depth, to keep runs comparable and avoid training/evaluation over every layer.

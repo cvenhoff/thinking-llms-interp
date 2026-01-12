@@ -42,7 +42,7 @@ print(f"Clustering method: {CLUSTERING_METHOD}")
 # %%
 
 # Clustering evaluation config
-REPETITIONS = 5
+REPETITIONS = 3
 
 MODEL_NAME_FOR_CATEGORY_DESCRIPTIONS = "o4-mini"
 N_DESCRIPTION_EXAMPLES = 200

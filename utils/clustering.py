@@ -1331,7 +1331,7 @@ def evaluate_clustering_completeness(texts, categories, model, n_test_examples, 
 def evaluate_clustering_scoring_metrics(
     texts, cluster_labels, n_clusters, example_activations, cluster_centers, 
     model_name, n_autograder_examples, n_description_examples, existing_categories, 
-    repetitions=5, model_id=None, layer=None, clustering_data=None,
+    repetitions=3, model_id=None, layer=None, clustering_data=None,
     no_accuracy=False, no_completeness=False, no_sem_orth=False, no_orth=False, existing_results=None,
     target_cluster_percentage=0.2
 ):

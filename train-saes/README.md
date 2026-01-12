@@ -62,7 +62,7 @@ python generate_titles_trained_clustering.py --command process
 - `--command`: Either "submit" or "process"
 - `--evaluator_model`: Model for generating descriptions (default: "gpt-4o")
 - `--description_examples`: Number of examples per cluster for descriptions (default: 200)
-- `--repetitions`: Number of different category sets to generate (default: 5)
+- `--repetitions`: Number of different category sets to generate (default: 3)
 - `--check_status`: Check if all batches are completed before processing
 - `--batch_file`: Specific batch file to process (optional)
 
@@ -87,7 +87,7 @@ python evaluate_trained_clustering.py --command process
 - `--command`: Either "submit" or "process"
 - `--evaluator_model`: Model for evaluations (default: "gpt-4o")
 - `--n_autograder_examples`: Examples per cluster for accuracy testing (default: 100)
-- `--repetitions`: Number of evaluation repetitions (default: 5)
+- `--repetitions`: Number of evaluation repetitions (default: 3)
 - `--re_compute_cluster_labels`: Recompute cluster assignments
 - `--check_status`: Check if all batches are completed before processing
 - `--batch_file`: Specific batch file to process (optional)
