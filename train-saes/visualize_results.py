@@ -134,16 +134,17 @@ def visualize_results(results_json_path, args):
         ax.fill_between(x, min_vals, max_vals, alpha=0.2, color=color, label='Min-Max Range')
         # Plot mean line
         ax.plot(x, mean, 'o-', color=color, linewidth=2, label='Mean')
-        
+
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         ax.set_title(title)
+        ax.set_ylim(0.4, 0.9)  # Set y-axis range to 0.4 - 0.9
         ax.axvline(x=optimal_n_clusters, color='gray', linestyle='--', alpha=0.7, label='Optimal')
-        
+
         # Add vertical grid lines
         for x_line in vertical_lines_x:
             ax.axvline(x=x_line, color='red', linestyle='--', alpha=0.15)
-        
+
         ax.legend()
     
     # Final Score (combined metric) - Top Left
