@@ -513,8 +513,8 @@
           "categories": [
             [
               "0",
-              "Unnamed Cluster",
-              "No description available"
+              "Variable definitions",
+              "These sentences explicitly assign meaning to symbols and parameters in equations or formulas, typically using \u201cwhere X is\u2026\u201d clauses or bullet\u2010point lists (\u201c\u2013 T is the temperature,\u201d \u201c\u2013 n is the number of moles\u201d). They serve to clarify the semantic role, units, or context of each variable before or after applying a mathematical relation. This category includes only symbol\u2010to\u2010description mappings and does not cover assumptions, computational steps, derivations, hypotheses, or uncertainty statements."
             ],
             [
               "1",
@@ -573,8 +573,8 @@
             ],
             [
               "12",
-              "Unnamed Cluster",
-              "No description available"
+              "Calculation Step Announcements",
+              "These sentences function as labels or prompts that introduce a specific intermediate calculation in a procedural solution. They typically name the quantity to be computed\u2014often beginning with verbs like \u201cCalculate,\u201d \u201cDetermine,\u201d \u201cFind,\u201d or by stating \u201cThe <quantity> is:\u201d\u2014and signal that the next operation will compute that variable. Included are headings for sub\u2010steps (e.g. \u201cCalculate the heat lost by the water:\u201d) or simple assignments (e.g. \u201cThe mass flow rate of the water is:\u201d). This category does not include full derivations, explanatory rationale, assumptions, speculative hypotheses, or uncertainty acknowledgments\u2014only the specification of the next computational target."
             ],
             [
               "13",
@@ -588,8 +588,8 @@
             ],
             [
               "15",
-              "Unnamed Cluster",
-              "No description available"
+              "Evaluating Formulas",
+              "These sentences carry out the concrete mathematical work of applying, instantiating, and simplifying equations\u2014writing down formula templates, substituting numbers or symbols, algebraically rearranging terms, and computing intermediate or final numerical results (often displayed as boxed answers). Included are expressions of ratios, sums, definitions of variables in equation form, and direct arithmetic or unit\u2010conversion computations (e.g., \u201cF\u2099 = W\u2099/W_total,\u201d \u201c\u0394H_fus = 422\u00d74.184 J/mol = 1770.048 J/mol,\u201d \u201cTotal mass = 8.0\u00d710\u2077 g + 6.6\u00d710\u2077 g + \u2026\u201d). Not included are higher-level moves such as hypothesizing, planning next steps, stating uncertainties, or introducing conceptual definitions without immediate arithmetic application."
             ],
             [
               "16",
@@ -598,8 +598,8 @@
             ],
             [
               "17",
-              "Unnamed Cluster",
-              "No description available"
+              "Intermediate Results",
+              "These sentences report the immediate outcome of single inference steps or rule applications, often as terse bullet points or brief clauses (e.g. \u201cC (9th base) pairs with G (8th base)\u201d, \u201cSince there is a remainder, 16 is not a multiple of 7\u201d, \u201cT = F, U = T, W = F, X = F\u201d). They serve to log each micro-conclusion or computed value derived during problem solving. They do not introduce new hypotheses, express uncertainty, plan future steps, or state general definitions; rather, they record the moment-to-moment deductions that build toward a larger solution."
             ],
             [
               "18",
@@ -608,8 +608,8 @@
             ],
             [
               "19",
-              "Unnamed Cluster",
-              "No description available"
+              "Subtask Directive",
+              "This cluster represents the decomposition of a larger problem into discrete, immediately actionable operations, each introduced by an imperative phrase (e.g., \u201cCalculate the gross profit,\u201d \u201cDetermine the exit pressure,\u201d \u201cEvaluate the Risk Factors\u201d). Included are bullet-style or bolded headings that name the next computation, measurement, or analysis to perform. Not included are higher-level planning statements (e.g., outlining an overall proof strategy), expressions of uncertainty or hypothesis generation, or the recall of background definitions or assumptions."
             ]
           ]
         },
@@ -1542,8 +1542,8 @@
             ],
             [
               "4",
-              "Unnamed Cluster",
-              "No description available"
+              "Answer Announcement",
+              "These sentences function as concluding cues that introduce the final computed result or solution of a preceding derivation. They typically begin with discourse markers like \u201cSo,\u201d \u201cThus,\u201d or \u201cTherefore,\u201d followed by phrases such as \u201cthe answer is,\u201d \u201cthe final answer is,\u201d \u201cthe probability is,\u201d or \u201cthe solution is.\u201d They do not perform any calculation, propose hypotheses, or set up assumptions\u2014instead, they solely serve to signal and present the outcome of the reasoning process."
             ],
             [
               "5",
@@ -1557,8 +1557,8 @@
             ],
             [
               "7",
-              "Unnamed Cluster",
-              "No description available"
+              "Presenting domain definitions and factual descriptions",
+              "These sentences supply established scientific facts or definitions that serve as background premises in the reasoning. They typically start with a term label or topic (e.g., \u201c**Action Potential**: \u2026,\u201d \u201c**Phloem**: \u2026,\u201d or \u201cIt is primarily found in\u2026\u201d), or describe a process or structure (\u201cThis process involves\u2026,\u201d \u201cThey have a double membrane structure\u2026\u201d). They are included to ground subsequent steps in concrete domain knowledge. They do not propose new hypotheses, express uncertainty, lay out future actions, or state temporary assumptions."
             ],
             [
               "8",
@@ -1637,8 +1637,8 @@
             ],
             [
               "24",
-              "Unnamed Cluster",
-              "No description available"
+              "Deriving Model Implications",
+              "These sentences perform the step of applying established economic relationships to infer the outcome of a change in one variable on another. They typically follow patterns such as \u201cIf X increases/decreases, then Y will \u2026,\u201d or use headings like \u201cEffect on Employment\u201d or \u201cIncrease in the Price of Output.\u201d This category includes direct causal consequence statements based on supply\u2010and\u2010demand rules, aggregate demand\u2010supply analysis, marginal cost\u2013marginal revenue logic, and similar model\u2010based inferences. It does not include tentative hypotheses, expressions of uncertainty, planning steps, or mere recall of definitions."
             ],
             [
               "25",
@@ -3656,8 +3656,8 @@
             ],
             [
               "25",
-              "Unnamed Cluster",
-              "No description available"
+              "Single-step deductions",
+              "These sentences each present the immediate outcome of a single deterministic operation within a reasoning trace, such as a numeric calculation, logical evaluation, base-pair match, node coverage assertion, or simple classification. They include explicit arithmetic results (e.g. f(3,2)=6), algorithmic actions (enqueue/dequeue, edge coverage), or factual lookups (electron counts, chemical balancing) derived directly from prior context. They are not planning future steps, expressing uncertainty, proposing hypotheses, or stating high-level assumptions\u2014instead they record one concrete inferential or computational move at a time."
             ],
             [
               "26",
@@ -3671,58 +3671,58 @@
             ],
             [
               "28",
-              "Unnamed Cluster",
-              "No description available"
+              "Quantity Definition",
+              "These sentences introduce or label a specific numeric quantity that the solution will compute, often by naming it (\u201clet x be\u2026\u201d) or by stating \u201cthe number of\u2026\u201d or \u201ctotal number of\u2026\u201d followed by a colon. They serve as declarative statements that set up the target metric or subexpression for subsequent calculation. Included are all instances where a quantity is defined, named, or its formula is outlined (e.g., \u201cThe number of moles of benzene is:\u201d, \u201cLet x be the number of books sold,\u201d \u201cTotal number of ways:\u201d). Not included are the actual arithmetic computations, numerical results, conceptual explanations, uncertainty acknowledgments, or planning-of-steps statements."
             ],
             [
               "29",
-              "Unnamed Cluster",
-              "No description available"
+              "Concept Explanation",
+              "These sentences supply declarative background knowledge by defining terms, outlining frameworks, or illustrating concepts with examples. They include statements like \u201cPEST stands for\u2026,\u201d \u201cExamples include\u2026,\u201d and \u201cThis involves\u2026,\u201d which read like dictionary entries or textbook descriptions. They are used to ground the reasoning in shared domain definitions rather than to propose hypotheses, plan next steps, or express uncertainty. They do not present tentative causal links, methods for testing, or acknowledgments of gaps in information."
             ],
             [
               "30",
-              "Unnamed Cluster",
-              "No description available"
+              "Conclusion Statements",
+              "These sentences serve to deliver the final answer or decision reached in a reasoning step. They often begin with markers such as \u201c<answer>,\u201d \u201cTherefore,\u201d \u201cAnswer:,\u201d or \u201cThe correct statement is,\u201d and state a resolved finding or verdict. Included are any declarative assertions that present the outcome of analysis without detailing the supporting derivation or uncertainty. Excluded are hypotheses, planning steps, assumptions, definitions, and expressions of uncertainty\u2014only the explicit conclusion is expressed here."
             ],
             [
               "31",
-              "Unnamed Cluster",
-              "No description available"
+              "Arithmetic computation",
+              "This cluster comprises explicit numeric calculation steps in which the reasoner plugs values into formulas, performs arithmetic operations (e.g., addition, subtraction, multiplication, division, exponentiation, logarithms), and reports intermediate or final numeric results. Typical sentences feature equations or expressions with numbers and symbols (e.g., \u201c0.75P = 2.10,\u201d \u201cChange in price level = 0.0336 \u00d7 100% = 3.36%,\u201d \u201c\u03c3_Z\u00b2 = \u03c3_Y\u00b2 + \u03c3_W\u00b2 = 0.0147 + 0.0081 = 0.0228\u201d). It excludes higher-level conceptual explanations, uncertainty or hypothesis statements, planning or next-step directives, and explicit statement of assumptions or definitions."
             ],
             [
               "32",
-              "Unnamed Cluster",
-              "No description available"
+              "Numeric Computation",
+              "This cluster consists of individual steps where the reasoner plugs numerical values into algebraic or physical formulas and simplifies them to get intermediate or final quantitative results. Included are multiplications, divisions, exponent manipulations, unit conversions, and approximate evaluations (e.g., \u201c\\(1.1 \\times 10^8\\) kg = \\(1.1 \\times 10^{11}\\) g,\u201d \u201c\\[F = 6.674\u00d710^{-11}\u00d7(\u2026)\\]\u201d). Not included are purely verbal explanations, hypothesis statements, references to general formulas without substitution, or planning and structural comments. These sentences strictly carry out the arithmetic or algebraic operations of the calculation."
             ],
             [
               "33",
-              "Unnamed Cluster",
-              "No description available"
+              "Stating Applicable Legal Rules",
+              "These sentences retrieve and articulate the specific legal doctrines, constitutional provisions, statutes, evidentiary rules, or precedents that serve as the normative framework for analysis. They often begin with labels such as \u201cLegal Standard,\u201d \u201cRule,\u201d \u201cClause,\u201d or cite constitutional clauses and case names, for example \u201cRule 403 Analysis,\u201d \u201cConfrontation Clause,\u201d or \u201cThe Fourteenth Amendment explicitly prohibits.\u201d Included are any statements that set out what the law is or what standard a court must apply. Not included are sentences that evaluate how facts meet those rules, propose outcomes, outline procedural steps, or express uncertainty."
             ],
             [
               "34",
-              "Unnamed Cluster",
-              "No description available"
+              "Invoking Physics Principles",
+              "These sentences serve to retrieve and state foundational physics laws, definitions, or canonical formulas that underpin the forthcoming calculation. They typically name or invoke a principle (for example, Newton\u2019s Second Law, Coulomb\u2019s Law, conservation of momentum or energy, Bernoulli\u2019s equation, the definition of escape velocity, the formula for centripetal force) and present its standard mathematical form. Such statements establish the theoretical framework but do not carry out numerical substitution or detailed algebra. They do not include speculative hypotheses, expressions of uncertainty, or step-by-step arithmetic manipulations."
             ],
             [
               "35",
-              "Unnamed Cluster",
-              "No description available"
+              "Formula Recall",
+              "These sentences retrieve and state a standard mathematical or physical formula for a named quantity\u2014typically introduced with phrases like \u201cX is given by,\u201d \u201cThe formula for Y is,\u201d or \u201cRecall that Z =.\u201d They serve purely to present a known equation or definition as a premise for later calculation. This category does not include actually carrying out computations with the formula, evaluating its applicability, expressing uncertainty, or outlining procedural steps."
             ],
             [
               "37",
-              "Unnamed Cluster",
-              "No description available"
+              "Answer Declaration",
+              "These sentences serve to announce the final result of the reasoning or calculation already carried out. They typically begin with cues like \u201cTherefore,\u201d \u201cThus,\u201d \u201cSo,\u201d or \u201cThe answer is,\u201d often followed by a boxed or clearly stated numerical or categorical solution. This category includes any sentence that functions purely to present the conclusion. It does not include intermediate calculation steps, explanations, hypotheses, or planning statements."
             ],
             [
               "38",
-              "Unnamed Cluster",
-              "No description available"
+              "Arithmetic Computation Steps",
+              "This cluster consists of sentences that carry out individual numerical or algebraic operations as part of a larger solution. They include straightforward calculations\u2014such as additions, subtractions, multiplications, divisions, modulo reductions, unit conversions, bit flips, and simple equation rearrangements\u2014often written in the form \u201cexpression = result.\u201d They do not propose new ideas, state assumptions, or sketch future steps; they are purely the mechanical execution of micro-calculations."
             ],
             [
               "39",
-              "Unnamed Cluster",
-              "No description available"
+              "Applying given conditions",
+              "These sentences take a specific premise\u2014such as an initial or boundary condition, a parameter value, a previously derived result, or an inequality\u2014and immediately use it to determine constants, simplify expressions, or set up equations. They often begin with connectors like \u201cSince,\u201d \u201cUsing the initial condition,\u201d \u201cGiven,\u201d \u201cWhen,\u201d or \u201cTo find,\u201d and they plug in values or constraints to drive the arithmetic or algebraic next step. This category does not include speculative hypotheses, statements of uncertainty, forward-looking plans, or purely definitional recalls that are not yet applied."
             ],
             [
               "40",
@@ -3731,8 +3731,8 @@
             ],
             [
               "41",
-              "Unnamed Cluster",
-              "No description available"
+              "Causal Mechanism Explanation",
+              "These sentences explicitly set out \u201cif\u2013then\u201d or \u201cwhen\u2013then\u201d links between economic actions, variables, or policies and their consequences, often using phrases like \u201cwhen the money supply increases,\u201d \u201cthis leads to,\u201d \u201can increase in\u2026causes,\u201d or bulleted cause-effect pairs. They function to describe how a change in one factor propagates through the system to produce another change, embodying the chain of reasoning in a rule-based, deductive style. This category includes clear, definitive causal claims grounded in economic theory and observed relationships. It does not include speculative guesses, expressions of uncertainty, step-by-step procedural plans, or mere definitions of terms."
             ],
             [
               "42",

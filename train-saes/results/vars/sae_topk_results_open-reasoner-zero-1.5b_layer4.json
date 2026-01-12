@@ -2065,8 +2065,8 @@
             ],
             [
               "3",
-              "Unnamed Cluster",
-              "No description available"
+              "Mathematical Computation Steps",
+              "These sentences perform direct arithmetic or algebraic operations\u2014substituting numbers into formulas, simplifying fractions and expressions, computing intermediate numerical values, and transforming equations. Included are low-level manipulations like \u201c1/f = 1/40 \u2013 2/40,\u201d \u201c\u03b3 = 2/\u221a3,\u201d or \u201c(1/2)\u00d7(1/2) = 1/4.\u201d Not included are higher-level planning, hypotheses, uncertainty statements, or conceptual explanations; this category is exclusively about executing and recording concrete calculation steps."
             ],
             [
               "4",
@@ -4139,8 +4139,8 @@
             ],
             [
               "23",
-              "Unnamed Cluster",
-              "No description available"
+              "Value Substitution",
+              "This cluster represents the step in which a derived formula or symbolic expression is instantiated with specific numerical or known symbolic values. It includes any sentence that signals taking an existing equation and replacing its variables with given quantities, using phrases such as \u201cSubstituting the values into the formula,\u201d \u201cPlugging in the known values,\u201d or \u201cNow we substitute X back into the equation.\u201d It does not include steps that derive the formula, state assumptions, hypothesize, plan next actions, or interpret the substituted result\u2014it is strictly the operation of inserting known values to continue the calculation."
             ],
             [
               "24",
