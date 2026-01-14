@@ -1,0 +1,57 @@
+{
+  "clustering_method": "sae_topk",
+  "model_id": "Open-Reasoner-Zero/Open-Reasoner-Zero-7B",
+  "layer": 8,
+  "results_by_cluster_size": {
+    "5": {
+      "all_results": [],
+      "avg_final_score": 0.0,
+      "statistics": {}
+    },
+    "10": {
+      "all_results": [],
+      "avg_final_score": 0.0,
+      "statistics": {}
+    },
+    "15": {
+      "all_results": [],
+      "avg_final_score": 0.0,
+      "statistics": {}
+    },
+    "20": {
+      "all_results": [],
+      "avg_final_score": 0.0,
+      "statistics": {}
+    },
+    "25": {
+      "all_results": [],
+      "avg_final_score": 0.0,
+      "statistics": {}
+    },
+    "30": {
+      "all_results": [],
+      "avg_final_score": 0.0,
+      "statistics": {}
+    },
+    "35": {
+      "all_results": [],
+      "avg_final_score": 0.0,
+      "statistics": {}
+    },
+    "40": {
+      "all_results": [],
+      "avg_final_score": 0.0,
+      "statistics": {}
+    },
+    "45": {
+      "all_results": [],
+      "avg_final_score": 0.0,
+      "statistics": {}
+    },
+    "50": {
+      "all_results": [],
+      "avg_final_score": 0.0,
+      "statistics": {}
+    }
+  }
+}
