@@ -81,6 +81,7 @@ cd hybrid
 
 # Run experiments for different models:
 uv run ./run_qwen_1.5b.sh
+uv run ./run_qwen_math_1.5b.sh
 uv run ./run_llama_8b.sh
 uv run ./run_qwen_14b.sh
 uv run ./run_qwen_32b_on_deepseek.sh
