@@ -15,6 +15,6 @@ python annotate_thinking.py --model Open-Reasoner-Zero/Open-Reasoner-Zero-0.5B -
 
 python annotate_thinking.py --model Open-Reasoner-Zero/Open-Reasoner-Zero-1.5B --layer 8 --n_clusters 5
 
-python annotate_thinking.py --model Open-Reasoner-Zero/Open-Reasoner-Zero-7B --layer 8 --n_clusters 20
+python annotate_thinking.py --model Open-Reasoner-Zero/Open-Reasoner-Zero-7B --layer 20 --n_clusters 10
 
 python annotate_thinking.py --model Open-Reasoner-Zero/Open-Reasoner-Zero-32B --layer 27 --n_clusters 15
