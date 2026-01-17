@@ -1,299 +1,569 @@
 {
   "bias": {
     "idx": -1,
-    "layer": 9,
+    "layer": 10,
     "flip_rate": 0.0,
     "n_examples": 8,
     "baseline_preds": [
-      "idx4",
-      "idx5",
-      "idx0",
+      "idx8",
+      "idx2",
+      "idx8",
+      "idx8",
+      "idx6",
       "idx3",
-      "idx1",
-      "idx1",
-      "idx1",
-      "idx1"
+      "idx3",
+      "idx3"
     ],
     "steered_preds": [
-      "idx4",
+      "idx8",
+      "idx2",
+      "idx8",
+      "idx8",
+      "idx6",
+      "idx3",
+      "idx3",
+      "idx3"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx0": {
+    "idx": 0,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
       "idx5",
+      "idx8",
+      "idx8",
+      "idx2",
+      "idx7",
+      "idx6",
+      "idx3",
+      "idx2"
+    ],
+    "steered_preds": [
+      "idx5",
+      "idx8",
+      "idx8",
+      "idx2",
+      "idx7",
+      "idx6",
+      "idx3",
+      "idx2"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx10": {
+    "idx": 10,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx8",
+      "idx6",
       "idx0",
       "idx3",
+      "idx8",
+      "idx3",
+      "idx3",
+      "idx3"
+    ],
+    "steered_preds": [
+      "idx8",
+      "idx6",
+      "idx0",
+      "idx3",
+      "idx8",
+      "idx3",
+      "idx3",
+      "idx3"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx11": {
+    "idx": 11,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx11",
+      "idx0",
+      "idx8",
+      "idx8",
+      "idx3",
+      "idx0",
+      "idx3",
+      "idx3"
+    ],
+    "steered_preds": [
+      "idx8",
+      "idx0",
+      "idx8",
+      "idx8",
+      "idx3",
+      "idx0",
+      "idx3",
+      "idx3"
+    ],
+    "baseline_target_rate": 0.125
+  },
+  "idx12": {
+    "idx": 12,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx8",
+      "idx2",
+      "idx3",
+      "idx0",
+      "idx4",
+      "idx0",
+      "idx2",
+      "idx8"
+    ],
+    "steered_preds": [
+      "idx8",
+      "idx2",
+      "idx3",
+      "idx0",
+      "idx4",
+      "idx0",
+      "idx2",
+      "idx8"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx13": {
+    "idx": 13,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx8",
+      "idx5",
+      "idx3",
+      "idx3",
+      "idx3",
+      "idx0",
+      "idx3",
+      "idx5"
+    ],
+    "steered_preds": [
+      "idx8",
+      "idx5",
+      "idx3",
+      "idx3",
+      "idx3",
+      "idx0",
+      "idx3",
+      "idx5"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx14": {
+    "idx": 14,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx3",
+      "idx8",
+      "idx3",
+      "idx3",
+      "idx3",
+      "idx3",
+      "idx4",
+      "idx3"
+    ],
+    "steered_preds": [
+      "idx3",
+      "idx8",
+      "idx3",
+      "idx3",
+      "idx3",
+      "idx3",
+      "idx4",
+      "idx3"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx15": {
+    "idx": 15,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx3",
+      "idx2",
+      "idx3",
+      "idx8",
+      "idx8",
+      "idx3",
+      "idx3",
+      "idx6"
+    ],
+    "steered_preds": [
+      "idx3",
+      "idx2",
+      "idx3",
+      "idx8",
+      "idx8",
+      "idx3",
+      "idx3",
+      "idx6"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx16": {
+    "idx": 16,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx3",
+      "idx3",
+      "idx0",
+      "idx3",
+      "idx3",
+      "idx8",
+      "idx0",
+      "idx3"
+    ],
+    "steered_preds": [
+      "idx3",
+      "idx3",
+      "idx0",
+      "idx3",
+      "idx3",
+      "idx8",
+      "idx0",
+      "idx3"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx17": {
+    "idx": 17,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx3",
+      "idx4",
+      "idx3",
+      "idx8",
+      "idx3",
+      "idx6",
+      "idx2",
+      "idx3"
+    ],
+    "steered_preds": [
+      "idx3",
+      "idx4",
+      "idx3",
+      "idx8",
+      "idx3",
+      "idx6",
+      "idx2",
+      "idx3"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx18": {
+    "idx": 18,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx6",
+      "idx5",
+      "idx8",
+      "idx0",
+      "idx3",
+      "idx4",
+      "idx3",
+      "idx0"
+    ],
+    "steered_preds": [
+      "idx6",
+      "idx5",
+      "idx8",
+      "idx0",
+      "idx3",
+      "idx4",
+      "idx3",
+      "idx0"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx19": {
+    "idx": 19,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
       "idx1",
+      "idx0",
+      "idx8",
+      "idx6",
+      "idx0",
+      "idx8",
+      "idx0",
+      "idx3"
+    ],
+    "steered_preds": [
       "idx1",
-      "idx1",
-      "idx1"
+      "idx0",
+      "idx8",
+      "idx6",
+      "idx0",
+      "idx8",
+      "idx0",
+      "idx3"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx1": {
+    "idx": 1,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx8",
+      "idx8",
+      "idx6",
+      "idx9",
+      "idx9",
+      "idx6",
+      "idx8",
+      "idx8"
+    ],
+    "steered_preds": [
+      "idx8",
+      "idx8",
+      "idx6",
+      "idx9",
+      "idx9",
+      "idx6",
+      "idx8",
+      "idx8"
     ],
     "baseline_target_rate": 0.0
   },
   "idx2": {
     "idx": 2,
-    "layer": 9,
+    "layer": 10,
     "flip_rate": 0.0,
     "n_examples": 8,
     "baseline_preds": [
-      "idx1",
-      "idx5",
-      "idx5",
-      "idx1",
+      "idx3",
+      "idx7",
+      "idx7",
+      "idx7",
       "idx8",
       "idx8",
-      "idx8",
-      "idx3"
+      "idx3",
+      "idx6"
     ],
     "steered_preds": [
-      "idx1",
-      "idx5",
-      "idx5",
-      "idx1",
+      "idx3",
+      "idx7",
+      "idx7",
+      "idx7",
       "idx8",
       "idx8",
-      "idx8",
-      "idx3"
-    ],
-    "baseline_target_rate": 0.0
-  },
-  "idx3": {
-    "idx": 3,
-    "layer": 9,
-    "flip_rate": 0.0,
-    "n_examples": 8,
-    "baseline_preds": [
-      "idx4",
-      "idx4",
-      "idx8",
-      "idx4",
-      "idx4",
-      "idx4",
-      "idx5",
-      "idx7"
-    ],
-    "steered_preds": [
-      "idx4",
-      "idx4",
-      "idx8",
-      "idx4",
-      "idx4",
-      "idx4",
-      "idx5",
-      "idx7"
+      "idx3",
+      "idx6"
     ],
     "baseline_target_rate": 0.0
   },
   "idx7": {
     "idx": 7,
-    "layer": 9,
-    "flip_rate": 0.125,
-    "n_examples": 8,
-    "baseline_preds": [
-      "idx5",
-      "idx8",
-      "idx4",
-      "idx5",
-      "idx4",
-      "idx8",
-      "idx7",
-      "idx8"
-    ],
-    "steered_preds": [
-      "idx7",
-      "idx8",
-      "idx4",
-      "idx5",
-      "idx4",
-      "idx8",
-      "idx7",
-      "idx8"
-    ],
-    "baseline_target_rate": 0.125
-  },
-  "idx8": {
-    "idx": 8,
-    "layer": 9,
+    "layer": 10,
     "flip_rate": 0.0,
     "n_examples": 8,
     "baseline_preds": [
-      "idx4",
-      "idx1",
-      "idx1",
-      "idx1",
-      "idx1",
-      "idx0",
-      "idx1",
-      "idx1"
+      "idx8",
+      "idx8",
+      "idx8",
+      "idx8",
+      "idx8",
+      "idx6",
+      "idx6",
+      "idx3"
     ],
     "steered_preds": [
-      "idx4",
-      "idx1",
-      "idx1",
-      "idx1",
-      "idx1",
+      "idx8",
+      "idx8",
+      "idx8",
+      "idx8",
+      "idx8",
+      "idx6",
+      "idx6",
+      "idx3"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx8": {
+    "idx": 8,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
       "idx0",
-      "idx1",
-      "idx1"
+      "idx7",
+      "idx3",
+      "idx4",
+      "idx7",
+      "idx3",
+      "idx7",
+      "idx9"
+    ],
+    "steered_preds": [
+      "idx0",
+      "idx7",
+      "idx3",
+      "idx4",
+      "idx7",
+      "idx3",
+      "idx7",
+      "idx9"
     ],
     "baseline_target_rate": 0.0
   },
   "idx9": {
     "idx": 9,
-    "layer": 9,
+    "layer": 10,
     "flip_rate": 0.0,
     "n_examples": 8,
     "baseline_preds": [
+      "idx3",
+      "idx3",
+      "idx0",
+      "idx4",
       "idx8",
-      "idx6",
-      "idx1",
-      "idx8",
-      "idx8",
-      "idx9",
-      "idx8",
-      "idx1"
+      "idx4",
+      "idx2",
+      "idx4"
     ],
     "steered_preds": [
+      "idx3",
+      "idx3",
+      "idx0",
+      "idx4",
       "idx8",
-      "idx6",
-      "idx1",
-      "idx8",
-      "idx8",
-      "idx9",
-      "idx8",
-      "idx1"
+      "idx4",
+      "idx2",
+      "idx4"
     ],
-    "baseline_target_rate": 0.125
+    "baseline_target_rate": 0.0
   },
-  "idx0": {
-    "idx": 0,
-    "layer": 9,
+  "idx3": {
+    "idx": 3,
+    "layer": 10,
     "flip_rate": 0.0,
     "n_examples": 8,
     "baseline_preds": [
-      "idx1",
-      "idx5",
-      "idx4",
       "idx2",
-      "idx3",
+      "idx6",
       "idx8",
-      "idx8",
-      "idx0"
-    ],
-    "steered_preds": [
-      "idx1",
-      "idx5",
       "idx4",
-      "idx2",
-      "idx3",
-      "idx8",
+      "idx6",
+      "idx6",
       "idx8",
       "idx4"
     ],
-    "baseline_target_rate": 0.125
-  },
-  "idx1": {
-    "idx": 1,
-    "layer": 9,
-    "flip_rate": 0.0,
-    "n_examples": 8,
-    "baseline_preds": [
-      "idx8",
-      "idx1",
-      "idx7",
-      "idx8",
-      "idx8",
-      "idx4",
-      "idx4",
-      "idx8"
-    ],
     "steered_preds": [
-      "idx8",
-      "idx1",
-      "idx7",
-      "idx8",
+      "idx2",
+      "idx6",
       "idx8",
       "idx4",
-      "idx4",
-      "idx8"
-    ],
-    "baseline_target_rate": 0.125
-  },
-  "idx5": {
-    "idx": 5,
-    "layer": 9,
-    "flip_rate": 0.0,
-    "n_examples": 8,
-    "baseline_preds": [
-      "idx1",
-      "idx7",
-      "idx4",
+      "idx6",
+      "idx6",
       "idx8",
-      "idx1",
-      "idx1",
-      "idx1",
-      "idx1"
-    ],
-    "steered_preds": [
-      "idx1",
-      "idx7",
-      "idx4",
-      "idx8",
-      "idx1",
-      "idx1",
-      "idx1",
-      "idx1"
+      "idx4"
     ],
     "baseline_target_rate": 0.0
   },
   "idx4": {
     "idx": 4,
-    "layer": 9,
+    "layer": 10,
     "flip_rate": 0.0,
     "n_examples": 8,
     "baseline_preds": [
-      "idx5",
-      "idx8",
-      "idx1",
-      "idx8",
-      "idx8",
-      "idx1",
       "idx3",
-      "idx5"
+      "idx3",
+      "idx7",
+      "idx3",
+      "idx7",
+      "idx3",
+      "idx8",
+      "idx6"
     ],
     "steered_preds": [
-      "idx5",
-      "idx8",
-      "idx1",
-      "idx8",
-      "idx8",
-      "idx1",
       "idx3",
-      "idx5"
+      "idx3",
+      "idx7",
+      "idx3",
+      "idx7",
+      "idx3",
+      "idx8",
+      "idx6"
+    ],
+    "baseline_target_rate": 0.0
+  },
+  "idx5": {
+    "idx": 5,
+    "layer": 10,
+    "flip_rate": 0.0,
+    "n_examples": 8,
+    "baseline_preds": [
+      "idx7",
+      "idx3",
+      "idx8",
+      "idx4",
+      "idx0",
+      "idx4",
+      "idx3",
+      "idx8"
+    ],
+    "steered_preds": [
+      "idx7",
+      "idx3",
+      "idx8",
+      "idx4",
+      "idx0",
+      "idx4",
+      "idx3",
+      "idx8"
     ],
     "baseline_target_rate": 0.0
   },
   "idx6": {
     "idx": 6,
-    "layer": 9,
+    "layer": 10,
     "flip_rate": 0.0,
     "n_examples": 8,
     "baseline_preds": [
-      "idx6",
-      "idx1",
-      "idx8",
-      "idx5",
-      "idx6",
-      "idx6",
       "idx7",
+      "idx2",
+      "idx7",
+      "idx4",
+      "idx5",
+      "idx8",
+      "idx0",
       "idx5"
     ],
     "steered_preds": [
-      "idx6",
-      "idx1",
-      "idx8",
-      "idx5",
-      "idx6",
-      "idx6",
       "idx7",
+      "idx2",
+      "idx7",
+      "idx4",
+      "idx5",
+      "idx8",
+      "idx0",
       "idx5"
     ],
-    "baseline_target_rate": 0.375
+    "baseline_target_rate": 0.0
   }
 }
