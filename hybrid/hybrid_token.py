@@ -1001,19 +1001,21 @@ def _rolling_prefix(args, base_model_id: str, thinking_model_id: str) -> str:
     Splitting/part management is performed by helper functions below, keeping callers agnostic.
     """
     os.makedirs(f"{args.results_dir}/rolling", exist_ok=True)
-    if base_model_id == "qwen2.5-32b" and thinking_model_id == "deepseek-r1-distill-qwen-32b":
-        base_model_id = "qwen2.5-32b-on-deepseek-r1-distill-qwen-32b"
+    base_id_for_files = _normalized_base_id_for_filenames(base_model_id, thinking_model_id)
     suffix = _result_suffix(args)
-    return f"{args.results_dir}/rolling/rolling_{base_model_id}_{args.dataset}{suffix}"
+    return f"{args.results_dir}/rolling/rolling_{base_id_for_files}_{args.dataset}{suffix}"
 
 def _normalized_base_id_for_filenames(base_model_id: str, thinking_model_id: str) -> str:
     """Return base-model id to use in filenames.
 
-    Includes the special "-on-deepseek-r1-distill-qwen-32b" suffix when
-    the base is qwen2.5-32b and the thinking model is deepseek-r1-distill-qwen-32b.
+    Includes the special "-on-<thinking>" suffix when the base is qwen2.5-32b
+    and the thinking model is deepseek-r1-distill-qwen-32b or open-reasoner-zero-32b.
     """
-    if base_model_id == "qwen2.5-32b" and thinking_model_id == "deepseek-r1-distill-qwen-32b":
-        return "qwen2.5-32b-on-deepseek-r1-distill-qwen-32b"
+    if base_model_id == "qwen2.5-32b" and thinking_model_id in (
+        "deepseek-r1-distill-qwen-32b",
+        "open-reasoner-zero-32b",
+    ):
+        return f"{base_model_id}-on-{thinking_model_id}"
     return base_model_id
 
 def _list_rolling_files(prefix: str):
@@ -1224,10 +1226,9 @@ def analyze_hybrid_stats(token_latent_info, steering_selection):
 
 def save_detailed_results(results, args, thinking_model_id, base_model_id):
     os.makedirs(f"{args.results_dir}/detailed", exist_ok=True)
-    if base_model_id == "qwen2.5-32b" and thinking_model_id == "deepseek-r1-distill-qwen-32b":
-        base_model_id = "qwen2.5-32b-on-deepseek-r1-distill-qwen-32b"
+    base_id_for_files = _normalized_base_id_for_filenames(base_model_id, thinking_model_id)
     suffix = _result_suffix(args)
-    filename = f"{args.results_dir}/detailed/hybrid_stats_{base_model_id}_{args.dataset}{suffix}.json"
+    filename = f"{args.results_dir}/detailed/hybrid_stats_{base_id_for_files}_{args.dataset}{suffix}.json"
     avg_steering_stats = {
         "steered_count": sum(stat["steered_count"] for stat in results["steering_stats"]) / len(results["steering_stats"]),
         "unsteered_count": sum(stat["unsteered_count"] for stat in results["steering_stats"]) / len(results["steering_stats"]),
