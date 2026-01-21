@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--judge-model",
         type=str,
-        default="gpt-4.1",
+        default="gpt-5.2",
         help="Judge model to query via OpenAI Batch API.",
     )
     parser.add_argument(
@@ -292,7 +292,6 @@ class BatchEvaluator:
                     "model": self.model_id,
                     "messages": [{"role": "user", "content": prompt}],
                     "max_completion_tokens": self.max_tokens,
-                    "temperature": 0,
                 }
                 requests_list.append({
                     "custom_id": custom_id,
