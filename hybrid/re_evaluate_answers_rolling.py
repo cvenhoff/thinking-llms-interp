@@ -77,6 +77,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Show what would be processed without actually running.",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Debug mode: run the full flow but only evaluate one record per file.",
+    )
     return parser.parse_known_args()[0]
 
 
@@ -444,10 +449,15 @@ class BatchEvaluator:
 
 
 def collect_all_prompts(
-    files: List[Tuple[str, List[str]]]
+    files: List[Tuple[str, List[str]]],
+    max_records_per_file: Optional[int] = None,
 ) -> Tuple[List[str], List[Tuple[str, int, str]]]:
     """
     Collect all prompts from all files.
+
+    Args:
+        files: List of (prefix, paths) tuples
+        max_records_per_file: If set, limit to this many records per file (for debug mode)
 
     Returns:
         prompts: List of all judge prompts
@@ -461,7 +471,13 @@ def collect_all_prompts(
             with open(path, "r", encoding="utf-8") as src:
                 records = [json.loads(line) for line in src if line.strip()]
 
-            for idx, record in enumerate(records):
+            # Limit records in debug mode
+            if max_records_per_file is not None:
+                records_to_process = records[:max_records_per_file]
+            else:
+                records_to_process = records
+
+            for idx, record in enumerate(records_to_process):
                 question = str(record["question"])
                 gold = str(record["gold_answer"])
                 answers = record["answers"]
@@ -587,9 +603,13 @@ def main() -> None:
         print("\n[DRY RUN] Would process the above files. Exiting.")
         return
 
+    if args.debug:
+        print("\n[DEBUG MODE] Processing only 1 record per file.")
+
     # Collect all prompts
     print("\nPhase 1: Collecting all prompts...")
-    prompts, prompt_mapping = collect_all_prompts(files)
+    max_records = 1 if args.debug else None
+    prompts, prompt_mapping = collect_all_prompts(files, max_records_per_file=max_records)
     print(f"Collected {len(prompts)} prompts total")
 
     if not prompts:
