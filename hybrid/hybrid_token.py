@@ -801,13 +801,13 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
     # Build prompts based on dataset type
     if args.dataset == "mbpp":
         test_cases_hint = "\n".join(test_list[:2]) if test_list and len(test_list) >= 2 else ""
-        thinking_prompt = f"Write a Python function to solve the following task.\n\nTask: {question}\n\nExample test cases:\n{test_cases_hint}\n\nProvide only the Python function code."
-        base_prompt = f"Task: Write a Python function for the following problem.\n\nProblem: {question}\n\nExample test cases:\n{test_cases_hint}\n\nPython code:\n```python\n"
+        thinking_prompt = f"Task: {question}\n\nTests:\n{test_cases_hint}\n\nThink step by step, then write a single Python function. No tests or examples in your answer."
+        base_prompt = f"Task: {question}\n\nTests:\n{test_cases_hint}\n\nThink step by step, then write a single Python function. No tests or examples in your answer.\n\n"
     elif args.dataset == "livecodebench":
         test_cases_hint = "\n".join(test_list[:2]) if test_list and len(test_list) >= 2 else ""
         starter_hint = f"\n\nStarter code:\n```python\n{starter_code}\n```" if starter_code else ""
-        thinking_prompt = f"Solve the following programming problem.\n\n{question}{starter_hint}\n\nExample test cases:\n{test_cases_hint}\n\nProvide the complete Python solution."
-        base_prompt = f"Task: Solve the following programming problem.\n\n{question}{starter_hint}\n\nExample test cases:\n{test_cases_hint}\n\nPython code:\n```python\n"
+        thinking_prompt = f"Task: {question}{starter_hint}\n\nTests:\n{test_cases_hint}\n\nThink step by step, then write the solution. No tests or examples in your answer."
+        base_prompt = f"Task: {question}{starter_hint}\n\nTests:\n{test_cases_hint}\n\nThink step by step, then write the solution. No tests or examples in your answer.\n\n"
     else:
         thinking_prompt = question
         base_prompt = f"Task: Answer the question below. Explain your reasoning step by step.\n\n\n\nQuestion:\n{question}\n\nStep by step answer:\n"
@@ -1361,14 +1361,14 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         if args.dataset == "mbpp":
             # Code generation prompt
             test_cases_hint = "\n".join(test_list[:2]) if test_list and len(test_list) >= 2 else ""
-            thinking_prompt = f"Write a Python function to solve the following task.\n\nTask: {question}\n\nExample test cases:\n{test_cases_hint}\n\nProvide only the Python function code."
-            base_prompt = f"Task: Write a Python function for the following problem.\n\nProblem: {question}\n\nExample test cases:\n{test_cases_hint}\n\nPython code:\n```python\n"
+            thinking_prompt = f"Task: {question}\n\nTests:\n{test_cases_hint}\n\nThink step by step, then write a single Python function. No tests or examples in your answer."
+            base_prompt = f"Task: {question}\n\nTests:\n{test_cases_hint}\n\nThink step by step, then write a single Python function. No tests or examples in your answer.\n\n"
         elif args.dataset == "livecodebench":
             # LiveCodeBench prompt
             test_cases_hint = "\n".join(test_list[:2]) if test_list and len(test_list) >= 2 else ""
             starter_hint = f"\n\nStarter code:\n```python\n{starter_code}\n```" if starter_code else ""
-            thinking_prompt = f"Solve the following programming problem.\n\n{question}{starter_hint}\n\nExample test cases:\n{test_cases_hint}\n\nProvide the complete Python solution."
-            base_prompt = f"Task: Solve the following programming problem.\n\n{question}{starter_hint}\n\nExample test cases:\n{test_cases_hint}\n\nPython code:\n```python\n"
+            thinking_prompt = f"Task: {question}{starter_hint}\n\nTests:\n{test_cases_hint}\n\nThink step by step, then write the solution. No tests or examples in your answer."
+            base_prompt = f"Task: {question}{starter_hint}\n\nTests:\n{test_cases_hint}\n\nThink step by step, then write the solution. No tests or examples in your answer.\n\n"
         else:
             # Math problem prompt (original)
             thinking_prompt = question
