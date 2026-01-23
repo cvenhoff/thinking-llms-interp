@@ -5,6 +5,9 @@ dotenv.load_dotenv("../.env")
 import sys
 import torch
 import json
+import zlib
+import base64
+import pickle
 from utils.sae import load_sae
 from utils.utils import load_model, center_and_l2_normalize_torch
 from utils.clustering import get_latent_descriptions
@@ -1374,13 +1377,17 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         elif args.dataset == "livecodebench":
             question = item["question_content"]
             correct_answer = ""  # No reference solution provided
-            # Parse public tests (shown in prompt)
-            public_tests_raw = item.get("public_test_cases", "[]") or "[]"
-            public_tests = json.loads(public_tests_raw) if isinstance(public_tests_raw, str) else (public_tests_raw or [])
+            # Parse public tests (shown in prompt) - stored as JSON string
+            public_tests_raw = item.get("public_test_cases", "[]")
+            public_tests = json.loads(public_tests_raw) if public_tests_raw else []
             public_test_list = [f"Input: {t['input']}\nOutput: {t['output']}" for t in public_tests] if public_tests else []
-            # Parse private tests (for judge only)
-            private_tests_raw = item.get("private_test_cases", "[]") or "[]"
-            private_tests = json.loads(private_tests_raw) if isinstance(private_tests_raw, str) else (private_tests_raw or [])
+            # Parse private tests (for judge only) - stored as base64 -> zlib -> pickle -> JSON
+            private_tests_raw = item.get("private_test_cases", "")
+            if private_tests_raw:
+                decompressed = zlib.decompress(base64.b64decode(private_tests_raw.encode("utf-8")))
+                private_tests = json.loads(pickle.loads(decompressed))
+            else:
+                private_tests = []
             private_test_list = [f"Input: {t['input']}\nOutput: {t['output']}" for t in private_tests] if private_tests else []
             # Combine for judge (public + private)
             test_list = public_test_list + private_test_list
