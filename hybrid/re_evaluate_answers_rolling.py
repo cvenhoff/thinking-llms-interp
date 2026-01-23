@@ -51,7 +51,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--max-judge-tokens",
         type=int,
-        default=100,
+        default=2000,
         help="Maximum tokens returned by the judge model.",
     )
     parser.add_argument(
