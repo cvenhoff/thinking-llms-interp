@@ -152,16 +152,39 @@ def _extract_model_from_filename(filename: str) -> Optional[str]:
     # Handle part numbers like _0, _1
     rest = re.sub(r"_\d+$", "", rest)
     # Extract model name (everything before the first _ that looks like a dataset)
-    # Datasets are: gsm8k, math500, aime, etc.
+    # Datasets are: gsm8k, math500, aime, mbpp, livecodebench
     parts = rest.split("_")
     # Find where the dataset starts
-    datasets = {"gsm8k", "math500", "aime"}
+    datasets = {"gsm8k", "math500", "aime", "mbpp", "livecodebench"}
     model_parts = []
     for part in parts:
         if part in datasets:
             break
         model_parts.append(part)
     return "_".join(model_parts) if model_parts else None
+
+
+def _extract_dataset_from_filename(filename: str) -> Optional[str]:
+    """Extract the dataset name from a rolling filename like rolling_qwen2.5-1.5b_gsm8k.jsonl"""
+    base = os.path.basename(filename)
+    if not base.startswith("rolling_"):
+        return None
+    # Remove rolling_ prefix and .jsonl suffix
+    rest = base[len("rolling_"):]
+    if rest.endswith(".jsonl"):
+        rest = rest[:-6]
+    # Handle part numbers like _0, _1
+    rest = re.sub(r"_\d+$", "", rest)
+    # Find dataset in the parts
+    datasets = {"gsm8k", "math500", "aime", "mbpp", "livecodebench"}
+    parts = rest.split("_")
+    for part in parts:
+        if part in datasets:
+            return part
+    return None
+
+
+CODING_DATASETS = {"mbpp", "livecodebench"}
 
 
 def _matches_filter(filename: str, filter_patterns: List[str], exclude_patterns: Optional[List[str]] = None) -> bool:
@@ -224,16 +247,38 @@ def clean_answer(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def _build_judge_prompt(question: str, correct_answer: str, model_answer: str) -> str:
-    return (
-        "Please evaluate whether the following answer to a math problem is correct.\n\n"
-        f"Question: {question}\n\n"
-        f"Correct answer: {correct_answer}\n\n"
-        f"Model's answer: {model_answer}\n\n"
-        "First, extract the final numerical answer from both the correct answer and model's answer.\n"
-        "Then determine if the model's final numerical answer is equivalent to the correct final numerical answer.\n"
-        "Just answer YES if the model's answer is correct, or NO if it's incorrect. Nothing else.\n"
-    )
+def _build_judge_prompt(
+    question: str,
+    correct_answer: str,
+    model_answer: str,
+    dataset_type: str = "math",
+    test_list: Optional[List[str]] = None,
+) -> str:
+    if dataset_type == "coding":
+        test_cases_str = "\n".join(test_list) if test_list else "No test cases provided"
+        return (
+            "Please evaluate whether the following code solution is functionally correct.\n\n"
+            f"Task description: {question}\n\n"
+            f"Reference solution:\n```python\n{correct_answer}\n```\n\n"
+            f"Model's solution:\n```python\n{model_answer}\n```\n\n"
+            f"Test cases that the solution should pass:\n{test_cases_str}\n\n"
+            "Evaluate if the model's code would produce the same outputs as the reference solution for the given test cases.\n"
+            "Consider:\n"
+            "1. Does the code implement the correct logic?\n"
+            "2. Would it pass the test cases?\n"
+            "3. Are there any bugs or edge cases it would fail?\n\n"
+            "Just answer YES if the model's code is functionally correct, or NO if it's incorrect. Nothing else.\n"
+        )
+    else:
+        return (
+            "Please evaluate whether the following answer to a math problem is correct.\n\n"
+            f"Question: {question}\n\n"
+            f"Correct answer: {correct_answer}\n\n"
+            f"Model's answer: {model_answer}\n\n"
+            "First, extract the final numerical answer from both the correct answer and model's answer.\n"
+            "Then determine if the model's final numerical answer is equivalent to the correct final numerical answer.\n"
+            "Just answer YES if the model's answer is correct, or NO if it's incorrect. Nothing else.\n"
+        )
 
 
 def _get_model_id(model_name: str) -> str:
@@ -470,6 +515,10 @@ def collect_all_prompts(
 
     for prefix, paths in tqdm(files, desc="Collecting prompts", unit="prefix"):
         for path in paths:
+            # Determine dataset type from filename
+            dataset = _extract_dataset_from_filename(path)
+            dataset_type = "coding" if dataset in CODING_DATASETS else "math"
+
             with open(path, "r", encoding="utf-8") as src:
                 records = [json.loads(line) for line in src if line.strip()]
 
@@ -484,9 +533,16 @@ def collect_all_prompts(
                 gold = str(record["gold_answer"])
                 answers = record["answers"]
 
+                # Get test_list for coding datasets (if available in record)
+                test_list = record.get("test_list") if dataset_type == "coding" else None
+
                 for key, _ in MODEL_SPECS:
                     answer_text = clean_answer(str(answers[key]))
-                    prompt = _build_judge_prompt(question, gold, answer_text)
+                    prompt = _build_judge_prompt(
+                        question, gold, answer_text,
+                        dataset_type=dataset_type,
+                        test_list=test_list,
+                    )
                     prompts.append(prompt)
                     prompt_mapping.append((path, idx, key))
 

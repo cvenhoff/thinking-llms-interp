@@ -21,7 +21,6 @@ import argparse
 from typing import List, Optional
 from collections import Counter
 from matplotlib.patches import Rectangle
-from fractions import Fraction
 try:
     from tqdm.auto import tqdm  # progress bar
 except Exception:
@@ -30,10 +29,12 @@ except Exception:
 
 from datasets import load_dataset
 
+CODING_DATASETS = {"mbpp", "livecodebench"}
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Evaluate hybrid model on datasets (token-level steering)')
-    parser.add_argument('--dataset', type=str, choices=['gsm8k', 'math500', "aime"], default='aime',
-                      help='Dataset to evaluate on (gsm8k or math500)')
+    parser.add_argument('--dataset', type=str, choices=['gsm8k', 'math500', "aime", "mbpp", "livecodebench"], default='aime',
+                      help='Dataset to evaluate on (gsm8k, math500, aime, mbpp, or livecodebench)')
     parser.add_argument('--thinking_model', type=str, default='Qwen/QwQ-32B',
                       help='Model for thinking/perplexity')
     parser.add_argument('--base_model', type=str, default='Qwen/Qwen2.5-32B',
@@ -770,21 +771,53 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
                     "question": item["problem"],
                     "answer": item["answer"]
                 }
+            elif args.dataset == "mbpp":
+                example = {
+                    "question": item["text"],
+                    "answer": item["code"],
+                    "test_list": item["test_list"]
+                }
+            elif args.dataset == "livecodebench":
+                # Format public test cases as strings
+                public_tests = item.get("public_test_cases", [])
+                test_list = [f"Input: {t['input']}\nOutput: {t['output']}" for t in public_tests] if public_tests else []
+                starter_code = item.get("starter_code", "")
+                example = {
+                    "question": item["question_content"],
+                    "answer": "",  # No reference solution provided
+                    "test_list": test_list,
+                    "starter_code": starter_code
+                }
             break
 
     question = example["question"]
     answer = example["answer"]
+    test_list = example.get("test_list", None)
+    starter_code = example.get("starter_code", "")
 
     print("\n===== Example =====")
     print(f"Question: {question}")
 
+    # Build prompts based on dataset type
+    if args.dataset == "mbpp":
+        test_cases_hint = "\n".join(test_list[:2]) if test_list and len(test_list) >= 2 else ""
+        thinking_prompt = f"Write a Python function to solve the following task.\n\nTask: {question}\n\nExample test cases:\n{test_cases_hint}\n\nProvide only the Python function code."
+        base_prompt = f"Task: Write a Python function for the following problem.\n\nProblem: {question}\n\nExample test cases:\n{test_cases_hint}\n\nPython code:\n```python\n"
+    elif args.dataset == "livecodebench":
+        test_cases_hint = "\n".join(test_list[:2]) if test_list and len(test_list) >= 2 else ""
+        starter_hint = f"\n\nStarter code:\n```python\n{starter_code}\n```" if starter_code else ""
+        thinking_prompt = f"Solve the following programming problem.\n\n{question}{starter_hint}\n\nExample test cases:\n{test_cases_hint}\n\nProvide the complete Python solution."
+        base_prompt = f"Task: Solve the following programming problem.\n\n{question}{starter_hint}\n\nExample test cases:\n{test_cases_hint}\n\nPython code:\n```python\n"
+    else:
+        thinking_prompt = question
+        base_prompt = f"Task: Answer the question below. Explain your reasoning step by step.\n\n\n\nQuestion:\n{question}\n\nStep by step answer:\n"
+
     thinking_input_ids = thinking_tokenizer.apply_chat_template(
-        [{"role": "user", "content": question}], 
-        add_generation_prompt=True, 
+        [{"role": "user", "content": thinking_prompt}],
+        add_generation_prompt=True,
         return_tensors="pt"
     ).to(thinking_model.device).to(torch.long)
 
-    base_prompt = f"Task: Answer the question below. Explain your reasoning step by step.\n\n\n\nQuestion:\n{question}\n\nStep by step answer:\n"
     base_input_ids = base_tokenizer.encode(
         base_prompt,
         return_tensors="pt"
@@ -913,55 +946,40 @@ def quick_judge_api_test():
     except Exception as e:
         print(f"Judge API test: FAILED ({e}). Check OPENAI_API_KEY/OPENAI_PROJECT.")
 
-def _extract_final_numeric_value(text: str):
-    """Extract the final numeric value from an answer string.
+def evaluate_answer(model_answer, correct_answer, question, model_name, dataset_type="math", test_list=None):
+    """Evaluate model answer using LLM judge."""
 
-    Heuristics:
-    - Prefer a '#### <answer>' marker if present (GSM8K style)
-    - Otherwise, take the last occurrence of a number or fraction in the text
-    Returns a Fraction if parseable, else None.
-    """
-    if not text:
-        return None
-    # Prefer GSM8K final marker
-    m = re.search(r"####\s*([^\n#]+)", text)
-    candidate = None
-    if m:
-        candidate = m.group(1).strip()
+    if dataset_type == "coding":
+        # Code evaluation prompt
+        test_cases_str = "\n".join(test_list) if test_list else "No test cases provided"
+        prompt = f"""Please evaluate whether the following code solution is functionally correct.
+
+Task description: {question}
+
+Reference solution:
+```python
+{correct_answer}
+```
+
+Model's solution:
+```python
+{model_answer}
+```
+
+Test cases that the solution should pass:
+{test_cases_str}
+
+Evaluate if the model's code would produce the same outputs as the reference solution for the given test cases.
+Consider:
+1. Does the code implement the correct logic?
+2. Would it pass the test cases?
+3. Are there any bugs or edge cases it would fail?
+
+Just answer YES if the model's code is functionally correct, or NO if it's incorrect. Nothing else.
+"""
     else:
-        # Find last fraction like a/b or last number (int or decimal)
-        frac_matches = list(re.finditer(r"-?\d[\d,]*\s*/\s*-?\d[\d,]*", text))
-        if frac_matches:
-            candidate = frac_matches[-1].group(0)
-        else:
-            num_matches = list(re.finditer(r"-?\d[\d,]*(?:\.\d+)?", text))
-            if num_matches:
-                candidate = num_matches[-1].group(0)
-    if candidate is None:
-        return None
-    candidate = candidate.strip()
-    # Strip units/words after number for simple cases (e.g., "7 dozen")
-    candidate = re.match(r"(-?\d[\d,]*(?:\.\d+)?(?:\s*/\s*-?\d[\d,]*)?)", candidate).group(1) if re.match(r"(-?\d[\d,]*(?:\.\d+)?(?:\s*/\s*-?\d[\d,]*)?)", candidate) else candidate
-    # Remove commas
-    candidate = candidate.replace(",", "")
-    try:
-        if "/" in candidate:
-            a, b = [p.strip() for p in candidate.split("/", 1)]
-            return Fraction(a) / Fraction(b)
-        return Fraction(candidate)
-    except Exception:
-        return None
-
-def _local_numeric_compare(model_answer: str, correct_answer: str):
-    """Deterministically compare final numeric answers without external APIs."""
-    gold = _extract_final_numeric_value(correct_answer)
-    pred = _extract_final_numeric_value(model_answer)
-    if gold is None or pred is None:
-        return False
-    return gold == pred
-
-def evaluate_answer(model_answer, correct_answer, question, model_name):
-    prompt = f"""Please evaluate whether the following answer to a math problem is correct.
+        # Math evaluation prompt
+        prompt = f"""Please evaluate whether the following answer to a math problem is correct.
 
 Question: {question}
 
@@ -969,29 +987,19 @@ Correct answer: {correct_answer}
 
 Model's answer: {model_answer}
 
-First, extract the final numerical answer from both the correct answer and model's answer. 
+First, extract the final numerical answer from both the correct answer and model's answer.
 Then determine if the model's final numerical answer is equivalent to the correct final numerical answer.
 Just answer YES if the model's answer is correct, or NO if it's incorrect. Nothing else.
 """
-    
-    # Try remote judge first
-    try:
-        response_list = safe_chat_batch([prompt], model_name="openai/gpt-4.1", max_tokens=100)
-        if isinstance(response_list, (list, tuple)) and len(response_list) > 0 and isinstance(response_list[0], str):
-            response = response_list[0]
-            is_correct = "yes" in response.lower()
-            print(f"{model_name} evaluated as: {response}")
-            return is_correct, response
-        else:
-            print("Judge API returned no response; falling back to local numeric comparison.")
-    except Exception as e:
-        print(f"Judge API failed: {e}. Falling back to local numeric comparison.")
 
-    # Fallback: local numeric comparison
-    local_ok = _local_numeric_compare(model_answer, correct_answer)
-    response = "YES" if local_ok else "NO"
-    print(f"{model_name} evaluated locally as: {response}")
-    return local_ok, response
+    response_list = safe_chat_batch([prompt], model_name="openai/gpt-4.1", max_tokens=100)
+    if isinstance(response_list, (list, tuple)) and len(response_list) > 0 and isinstance(response_list[0], str):
+        response = response_list[0]
+        is_correct = "yes" in response.lower()
+        print(f"{model_name} evaluated as: {response}")
+        return is_correct, response
+    else:
+        raise RuntimeError(f"Judge API returned no response for {model_name}")
 
 ROLLING_MAX_BYTES = 90 * 1024 * 1024  # 100 MB hard cap per rolling part file
 
@@ -1318,25 +1326,58 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         if args.dataset == "gsm8k":
             question = item["question"]
             correct_answer = item["answer"]
+            test_list = None
+            starter_code = ""
         elif args.dataset == "aime":
             question = item["problem"]
             correct_answer = item["answer"]
+            test_list = None
+            starter_code = ""
         elif args.dataset == "math500":
             question = item["problem"]
             correct_answer = item["answer"]
-        
-        print(f"Question: {question[:100]}...")
+            test_list = None
+            starter_code = ""
+        elif args.dataset == "mbpp":
+            question = item["text"]
+            correct_answer = item["code"]
+            test_list = item["test_list"]
+            starter_code = ""
+        elif args.dataset == "livecodebench":
+            question = item["question_content"]
+            correct_answer = ""  # No reference solution provided
+            public_tests = item.get("public_test_cases", [])
+            test_list = [f"Input: {t['input']}\nOutput: {t['output']}" for t in public_tests] if public_tests else []
+            starter_code = item.get("starter_code", "")
+
+        print(f"Question: {question}")
         print(f"Correct answer: {correct_answer}")
         results["questions"].append(question)
         results["correct_answers"].append(correct_answer)
-        
+
+        # Build prompts based on dataset type
+        if args.dataset == "mbpp":
+            # Code generation prompt
+            test_cases_hint = "\n".join(test_list[:2]) if test_list and len(test_list) >= 2 else ""
+            thinking_prompt = f"Write a Python function to solve the following task.\n\nTask: {question}\n\nExample test cases:\n{test_cases_hint}\n\nProvide only the Python function code."
+            base_prompt = f"Task: Write a Python function for the following problem.\n\nProblem: {question}\n\nExample test cases:\n{test_cases_hint}\n\nPython code:\n```python\n"
+        elif args.dataset == "livecodebench":
+            # LiveCodeBench prompt
+            test_cases_hint = "\n".join(test_list[:2]) if test_list and len(test_list) >= 2 else ""
+            starter_hint = f"\n\nStarter code:\n```python\n{starter_code}\n```" if starter_code else ""
+            thinking_prompt = f"Solve the following programming problem.\n\n{question}{starter_hint}\n\nExample test cases:\n{test_cases_hint}\n\nProvide the complete Python solution."
+            base_prompt = f"Task: Solve the following programming problem.\n\n{question}{starter_hint}\n\nExample test cases:\n{test_cases_hint}\n\nPython code:\n```python\n"
+        else:
+            # Math problem prompt (original)
+            thinking_prompt = question
+            base_prompt = f"Task: Answer the question below. Explain your reasoning step by step.\n\n\n\nQuestion:\n{question}\n\nStep by step answer:\n"
+
         thinking_input_ids = thinking_tokenizer.apply_chat_template(
-            [{"role": "user", "content": question}], 
-            add_generation_prompt=True, 
+            [{"role": "user", "content": thinking_prompt}],
+            add_generation_prompt=True,
             return_tensors="pt"
         ).to(thinking_model.device).to(torch.long)
 
-        base_prompt = f"Task: Answer the question below. Explain your reasoning step by step.\n\n\n\nQuestion:\n{question}\n\nStep by step answer:\n"
         base_input_ids = base_tokenizer.encode(
             base_prompt,
             return_tensors="pt"
@@ -1456,18 +1497,21 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         clean_thinking_answer = clean_answer(thinking_response)
         clean_base_answer = clean_answer(base_response)
         clean_hybrid_answer = clean_answer(hybrid_response)
-        
+
+        # Determine dataset type for evaluation
+        dataset_type = "coding" if args.dataset in CODING_DATASETS else "math"
+
         # Evaluate answers
         print("\nEvaluating answers...")
         if _is_ablation(args):
             print(f"Ablation: evaluating hybrid only ({_ablation_flags_str(args)})")
             thinking_correct, thinking_judge_raw = False, "SKIPPED"
             base_correct, base_judge_raw = False, "SKIPPED"
-            hybrid_correct, hybrid_judge_raw = evaluate_answer(clean_hybrid_answer, correct_answer, question, "Hybrid Model")
+            hybrid_correct, hybrid_judge_raw = evaluate_answer(clean_hybrid_answer, correct_answer, question, "Hybrid Model", dataset_type=dataset_type, test_list=test_list)
         else:
-            thinking_correct, thinking_judge_raw = evaluate_answer(clean_thinking_answer, correct_answer, question, "Thinking Model")
-            base_correct, base_judge_raw = evaluate_answer(clean_base_answer, correct_answer, question, "Base Model")
-            hybrid_correct, hybrid_judge_raw = evaluate_answer(clean_hybrid_answer, correct_answer, question, "Hybrid Model")
+            thinking_correct, thinking_judge_raw = evaluate_answer(clean_thinking_answer, correct_answer, question, "Thinking Model", dataset_type=dataset_type, test_list=test_list)
+            base_correct, base_judge_raw = evaluate_answer(clean_base_answer, correct_answer, question, "Base Model", dataset_type=dataset_type, test_list=test_list)
+            hybrid_correct, hybrid_judge_raw = evaluate_answer(clean_hybrid_answer, correct_answer, question, "Hybrid Model", dataset_type=dataset_type, test_list=test_list)
         
         if thinking_correct:
             results["thinking_correct"] += 1
@@ -1482,6 +1526,7 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             "dataset": args.dataset,
             "question": question,
             "gold_answer": correct_answer,
+            "test_list": test_list,  # For code benchmarks (MBPP), None for math
             "answers": {
                 "thinking": thinking_response,
                 "base": base_response,
@@ -1674,6 +1719,10 @@ elif args.dataset == "aime":
     dataset = load_dataset("HuggingFaceH4/aime_2024")["train"]  # type: ignore
 elif args.dataset == "math500":
     dataset = load_dataset("HuggingFaceH4/MATH-500")["test"]  # type: ignore
+elif args.dataset == "mbpp":
+    dataset = load_dataset("google-research-datasets/mbpp", "full")["test"]  # type: ignore
+elif args.dataset == "livecodebench":
+    dataset = load_dataset("livecodebench/code_generation_lite", version_tag="release_v5")["test"]  # type: ignore
 
 # %% Load models and SAE
 thinking_model, thinking_tokenizer, base_model, base_tokenizer, sae, steering_vectors, descriptions, thinking_model_id, base_model_id = load_models_and_sae(args)
