@@ -1481,7 +1481,6 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         hybrid_response = f"{cold_start_text}{base_tokenizer.decode(hybrid_output_ids[0][len(base_input_with_cold_start[0]):], skip_special_tokens=True)}"
         del hybrid_output_ids, base_input_with_cold_start, thinking_input_with_cold_start
         clear_gpu_memory()
-        print(hybrid_response)
         results["hybrid_answers"].append(hybrid_response)
         results["hybrid_lengths"].append(len(hybrid_response.split()))
         results["hybrid_eos"].append(bool(hybrid_eos_end))
@@ -1504,6 +1503,29 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
 
         # Determine dataset type for evaluation
         dataset_type = "coding" if args.dataset in CODING_DATASETS else "math"
+
+        # Display all responses clearly before evaluation
+        print("\n" + "=" * 80)
+        print("QUESTION:")
+        print("=" * 80)
+        print(question)
+        print("\n" + "-" * 80)
+        print("CORRECT ANSWER:")
+        print("-" * 80)
+        print(correct_answer)
+        print("\n" + "-" * 80)
+        print("THINKING MODEL RESPONSE:")
+        print("-" * 80)
+        print(thinking_response)
+        print("\n" + "-" * 80)
+        print("BASE MODEL RESPONSE:")
+        print("-" * 80)
+        print(base_response)
+        print("\n" + "-" * 80)
+        print("HYBRID MODEL RESPONSE:")
+        print("-" * 80)
+        print(hybrid_response)
+        print("\n" + "=" * 80)
 
         # Evaluate answers
         print("\nEvaluating answers...")
