@@ -987,9 +987,13 @@ Correct answer: {correct_answer}
 
 Model's answer: {model_answer}
 
-First, extract the final numerical answer from both the correct answer and model's answer.
-Then determine if the model's final numerical answer is equivalent to the correct final numerical answer.
-Just answer YES if the model's answer is correct, or NO if it's incorrect. Nothing else.
+Instructions for evaluation:
+1. Extract the final numerical answer from both the correct answer and model's answer.
+2. IMPORTANT: If the model's answer contains \\boxed{{...}}, the content inside \\boxed{{}} is the model's final answer. Ignore any text that appears after the \\boxed{{}} expression, as it may be repetitive or garbled output.
+3. If there is no \\boxed{{}}, look for the last clearly stated numerical answer or the answer marked with #### or similar markers.
+4. Compare ONLY the final numerical answers. Do NOT evaluate the reasoning or intermediate steps. Even if the reasoning is flawed or contains errors, answer YES if the final numerical answer matches.
+
+Just answer YES if the final numerical answer matches, or NO if it doesn't. Nothing else.
 """
 
     response_list = safe_chat_batch([prompt], model_name="openai/gpt-4.1", max_tokens=100)

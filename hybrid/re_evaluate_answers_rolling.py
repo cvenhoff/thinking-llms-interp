@@ -275,9 +275,14 @@ def _build_judge_prompt(
             f"Question: {question}\n\n"
             f"Correct answer: {correct_answer}\n\n"
             f"Model's answer: {model_answer}\n\n"
-            "First, extract the final numerical answer from both the correct answer and model's answer.\n"
-            "Then determine if the model's final numerical answer is equivalent to the correct final numerical answer.\n"
-            "Just answer YES if the model's answer is correct, or NO if it's incorrect. Nothing else.\n"
+            "Instructions for evaluation:\n"
+            "1. Extract the final numerical answer from both the correct answer and model's answer.\n"
+            "2. IMPORTANT: If the model's answer contains \\boxed{{...}}, the content inside \\boxed{{}} is the model's final answer. "
+            "Ignore any text that appears after the \\boxed{{}} expression, as it may be repetitive or garbled output.\n"
+            "3. If there is no \\boxed{{}}, look for the last clearly stated numerical answer or the answer marked with #### or similar markers.\n"
+            "4. Compare ONLY the final numerical answers. Do NOT evaluate the reasoning or intermediate steps. "
+            "Even if the reasoning is flawed or contains errors, answer YES if the final numerical answer matches.\n\n"
+            "Just answer YES if the final numerical answer matches, or NO if it doesn't. Nothing else.\n"
         )
 
 
