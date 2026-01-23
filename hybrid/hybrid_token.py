@@ -952,7 +952,9 @@ def evaluate_answer(model_answer, correct_answer, question, model_name, dataset_
     if dataset_type == "coding":
         # Code evaluation prompt
         test_cases_str = "\n".join(test_list) if test_list else "No test cases provided"
-        prompt = f"""Please evaluate whether the following code solution is functionally correct.
+        if correct_answer:
+            # Has reference solution (e.g., MBPP)
+            prompt = f"""Please evaluate whether the following code solution is functionally correct.
 
 Task description: {question}
 
@@ -972,6 +974,28 @@ Test cases that the solution should pass:
 Evaluate if the model's code would produce the same outputs as the reference solution for the given test cases.
 Consider:
 1. Does the code implement the correct logic?
+2. Would it pass the test cases?
+3. Are there any bugs or edge cases it would fail?
+
+Just answer YES if the model's code is functionally correct, or NO if it's incorrect. Nothing else.
+"""
+        else:
+            # No reference solution (e.g., LiveCodeBench) - evaluate based on test cases only
+            prompt = f"""Please evaluate whether the following code solution is functionally correct.
+
+Task description: {question}
+
+Model's solution:
+```python
+{model_answer}
+```
+
+Test cases that the solution should pass:
+{test_cases_str}
+
+Evaluate if the model's code would produce the correct outputs for the given test cases.
+Consider:
+1. Does the code implement the correct logic based on the task description?
 2. Would it pass the test cases?
 3. Are there any bugs or edge cases it would fail?
 
@@ -1350,9 +1374,16 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         elif args.dataset == "livecodebench":
             question = item["question_content"]
             correct_answer = ""  # No reference solution provided
+            # Parse public tests (shown in prompt)
             public_tests_raw = item.get("public_test_cases", "[]")
             public_tests = json.loads(public_tests_raw) if isinstance(public_tests_raw, str) else (public_tests_raw or [])
-            test_list = [f"Input: {t['input']}\nOutput: {t['output']}" for t in public_tests] if public_tests else []
+            public_test_list = [f"Input: {t['input']}\nOutput: {t['output']}" for t in public_tests] if public_tests else []
+            # Parse private tests (for judge only)
+            private_tests_raw = item.get("private_test_cases", "[]")
+            private_tests = json.loads(private_tests_raw) if isinstance(private_tests_raw, str) else (private_tests_raw or [])
+            private_test_list = [f"Input: {t['input']}\nOutput: {t['output']}" for t in private_tests] if private_tests else []
+            # Combine for judge (public + private)
+            test_list = public_test_list + private_test_list
             starter_code = item.get("starter_code", "")
 
         results["questions"].append(question)
@@ -1365,8 +1396,8 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             thinking_prompt = f"Task: {question}\n\nTests:\n{test_cases_hint}\n\nThink step by step, then write a single Python function. No tests, examples, or explanations in your answer."
             base_prompt = f"Task: {question}\n\nTests:\n{test_cases_hint}\n\nThink step by step, then write a single Python function. No tests, examples, or explanations in your answer.\n\n"
         elif args.dataset == "livecodebench":
-            # LiveCodeBench prompt
-            test_cases_hint = "\n".join(test_list[:2]) if test_list and len(test_list) >= 2 else ""
+            # LiveCodeBench prompt (only public tests in hint, private tests are for judge only)
+            test_cases_hint = "\n".join(public_test_list[:2]) if public_test_list and len(public_test_list) >= 2 else ""
             starter_hint = f"\n\nStarter code:\n```python\n{starter_code}\n```" if starter_code else ""
             thinking_prompt = f"Task: {question}{starter_hint}\n\nTests:\n{test_cases_hint}\n\nThink step by step, then write the solution. No tests, examples, or explanations in your answer."
             base_prompt = f"Task: {question}{starter_hint}\n\nTests:\n{test_cases_hint}\n\nThink step by step, then write the solution. No tests, examples, or explanations in your answer.\n\n"
@@ -1518,10 +1549,11 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         print("QUESTION:")
         print("=" * 80)
         print(question)
-        print("\n" + "-" * 80)
-        print("CORRECT ANSWER:")
-        print("-" * 80)
-        print(correct_answer)
+        if correct_answer:
+            print("\n" + "-" * 80)
+            print("CORRECT ANSWER:")
+            print("-" * 80)
+            print(correct_answer)
         print("\n" + "-" * 80)
         print(f"THINKING MODEL RESPONSE ({thinking_tokens} tokens):")
         print("-" * 80)
