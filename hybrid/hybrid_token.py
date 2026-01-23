@@ -1354,8 +1354,6 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             test_list = [f"Input: {t['input']}\nOutput: {t['output']}" for t in public_tests] if public_tests else []
             starter_code = item.get("starter_code", "")
 
-        print(f"Question: {question}")
-        print(f"Correct answer: {correct_answer}")
         results["questions"].append(question)
         results["correct_answers"].append(correct_answer)
 
