@@ -1756,7 +1756,8 @@ elif args.dataset == "math500":
 elif args.dataset == "mbpp":
     dataset = load_dataset("google-research-datasets/mbpp", "full")["test"]  # type: ignore
 elif args.dataset == "livecodebench":
-    dataset = load_dataset("livecodebench/code_generation_lite", version_tag="release_v5")["test"]  # type: ignore
+    # Use bzantium/livecodebench - compatible with datasets 4.0+ (uses JSONL instead of deprecated loading script)
+    dataset = load_dataset("bzantium/livecodebench", "release_v5")["test"]  # type: ignore
 
 # %% Load models and SAE
 thinking_model, thinking_tokenizer, base_model, base_tokenizer, sae, steering_vectors, descriptions, thinking_model_id, base_model_id = load_models_and_sae(args)
