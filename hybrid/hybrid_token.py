@@ -1350,7 +1350,8 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         elif args.dataset == "livecodebench":
             question = item["question_content"]
             correct_answer = ""  # No reference solution provided
-            public_tests = item.get("public_test_cases", [])
+            public_tests_raw = item.get("public_test_cases", "[]")
+            public_tests = json.loads(public_tests_raw) if isinstance(public_tests_raw, str) else (public_tests_raw or [])
             test_list = [f"Input: {t['input']}\nOutput: {t['output']}" for t in public_tests] if public_tests else []
             starter_code = item.get("starter_code", "")
 
