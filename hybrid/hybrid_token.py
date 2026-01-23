@@ -1375,11 +1375,11 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             question = item["question_content"]
             correct_answer = ""  # No reference solution provided
             # Parse public tests (shown in prompt)
-            public_tests_raw = item.get("public_test_cases", "[]")
+            public_tests_raw = item.get("public_test_cases", "[]") or "[]"
             public_tests = json.loads(public_tests_raw) if isinstance(public_tests_raw, str) else (public_tests_raw or [])
             public_test_list = [f"Input: {t['input']}\nOutput: {t['output']}" for t in public_tests] if public_tests else []
             # Parse private tests (for judge only)
-            private_tests_raw = item.get("private_test_cases", "[]")
+            private_tests_raw = item.get("private_test_cases", "[]") or "[]"
             private_tests = json.loads(private_tests_raw) if isinstance(private_tests_raw, str) else (private_tests_raw or [])
             private_test_list = [f"Input: {t['input']}\nOutput: {t['output']}" for t in private_tests] if private_tests else []
             # Combine for judge (public + private)
