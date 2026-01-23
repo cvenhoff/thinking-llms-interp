@@ -754,7 +754,7 @@ def load_models_and_sae(args):
             steering_vectors[k] = v.to(device=base_device, dtype=base_dtype, non_blocking=True)
     return thinking_model, thinking_tokenizer, base_model, base_tokenizer, sae, steering_vectors, descriptions, thinking_model_id, base_model_id
 
-CODING_TASK_PREFIX = "Task: Output a single Python function. Do not include tests, examples, or explanations in your output."
+CODING_TASK_PREFIX = "Task: Output a single Python function for the following problem. Do not include tests, examples, or explanations in your output."
 
 def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer, 
                sae, steering_vectors, descriptions, args, dataset):
@@ -785,7 +785,7 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
             elif args.dataset == "livecodebench":
                 # Format public test cases as strings
                 public_tests = item.get("public_test_cases", [])
-                test_list = [f"Input: {t['input']}\nOutput: {t['output']}" for t in public_tests] if public_tests else []
+                test_list = [f"# Test {i+1}:\n- Input:\n{t['input']}\n- Output:\n{t['output']}" for i, t in enumerate(public_tests)] if public_tests else []
                 starter_code = item.get("starter_code", "")
                 example = {
                     "question": item["question_content"],
@@ -810,8 +810,8 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
         thinking_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{tests_section}"
         base_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{tests_section}\n\n"
     elif args.dataset == "livecodebench":
-        test_cases_hint = "\n".join(test_list) if test_list else ""
-        tests_section = f"\n\nPublic Tests:\n{test_cases_hint}" if test_cases_hint else ""
+        test_cases_hint = "\n\n".join(test_list) if test_list else ""
+        tests_section = f"\n\nPublic Tests:\n\n{test_cases_hint}" if test_cases_hint else ""
         starter_hint = f"\n\nStarter code:\n```python\n{starter_code}\n```" if starter_code else ""
         thinking_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{starter_hint}{tests_section}"
         base_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{starter_hint}{tests_section}\n\n"
@@ -958,55 +958,38 @@ def evaluate_answer(model_answer, correct_answer, question, model_name, dataset_
 
     if dataset_type == "coding":
         # Code evaluation prompt
-        test_cases_str = "\n".join(test_list) if test_list else "No test cases provided"
-        if correct_answer:
-            # Has reference solution (e.g., MBPP)
-            prompt = f"""Please evaluate whether the following code solution is functionally correct.
+        test_cases_str = "\n\n".join(test_list) if test_list else "No test cases provided"
 
-Task description: {question}
+        # Reference solution section (only for datasets like MBPP that provide one)
+        if correct_answer:
+            reference_section = f"""
 
 Reference solution:
 ```python
 {correct_answer}
-```
-
-Model's solution:
-```python
-{model_answer}
-```
-
-Test cases that the solution should pass:
-{test_cases_str}
-
-Evaluate if the model's code would produce the same outputs as the reference solution for the given test cases.
-Consider:
-1. Does the code implement the correct logic?
-2. Would it pass the test cases?
-3. Are there any bugs or edge cases it would fail?
-
-Just answer YES if the model's code is functionally correct, or NO if it's incorrect. Nothing else.
-"""
+```"""
         else:
-            # No reference solution (e.g., LiveCodeBench) - evaluate based on test cases only
-            prompt = f"""Please evaluate whether the following code solution is functionally correct.
+            reference_section = ""
 
-Task description: {question}
+        prompt = f"""Please evaluate whether the following Python function correctly solves the problem.
 
-Model's solution:
+Problem: {question}
+
+Code:
 ```python
 {model_answer}
-```
+```{reference_section}
 
-Test cases that the solution should pass:
+Test cases that the code should pass:
 {test_cases_str}
 
-Evaluate if the model's code would produce the correct outputs for the given test cases.
+Evaluate if the code would produce the correct outputs for the given test cases.
 Consider:
-1. Does the code implement the correct logic based on the task description?
+1. Does the code implement the correct logic based on the problem description?
 2. Would it pass the test cases?
 3. Are there any bugs or edge cases it would fail?
 
-Just answer YES if the model's code is functionally correct, or NO if it's incorrect. Nothing else.
+Just answer YES if the code is functionally correct, or NO if it's incorrect. Nothing else.
 """
     else:
         # Math evaluation prompt
@@ -1384,7 +1367,7 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             # Parse public tests (shown in prompt) - stored as JSON string
             public_tests_raw = item.get("public_test_cases", "[]")
             public_tests = json.loads(public_tests_raw) if public_tests_raw else []
-            public_test_list = [f"Input: {t['input']}\nOutput: {t['output']}" for t in public_tests] if public_tests else []
+            public_test_list = [f"# Test {i+1}:\n- Input:\n{t['input']}\n- Output:\n{t['output']}" for i, t in enumerate(public_tests)] if public_tests else []
             # Parse private tests (for judge only) - stored as base64 -> zlib -> pickle -> JSON
             private_tests_raw = item.get("private_test_cases", "")
             if private_tests_raw:
@@ -1392,7 +1375,8 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
                 private_tests = json.loads(pickle.loads(decompressed))
             else:
                 private_tests = []
-            private_test_list = [f"Input: {t['input']}\nOutput: {t['output']}" for t in private_tests] if private_tests else []
+            num_public = len(public_tests)
+            private_test_list = [f"# Test {num_public + i + 1}:\n- Input:\n{t['input']}\n- Output:\n{t['output']}" for i, t in enumerate(private_tests)] if private_tests else []
             # Combine for judge (public + private)
             test_list = public_test_list + private_test_list
             starter_code = item.get("starter_code", "")
@@ -1409,8 +1393,8 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             base_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{tests_section}\n\n"
         elif args.dataset == "livecodebench":
             # LiveCodeBench prompt (only public tests in hint, private tests are for judge only)
-            test_cases_hint = "\n".join(public_test_list) if public_test_list else ""
-            tests_section = f"\n\nPublic Tests:\n{test_cases_hint}" if test_cases_hint else ""
+            test_cases_hint = "\n\n".join(public_test_list) if public_test_list else ""
+            tests_section = f"\n\nPublic Tests:\n\n{test_cases_hint}" if test_cases_hint else ""
             starter_hint = f"\n\nStarter code:\n```python\n{starter_code}\n```" if starter_code else ""
             thinking_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{starter_hint}{tests_section}"
             base_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{starter_hint}{tests_section}\n\n"

@@ -255,19 +255,26 @@ def _build_judge_prompt(
     test_list: Optional[List[str]] = None,
 ) -> str:
     if dataset_type == "coding":
-        test_cases_str = "\n".join(test_list) if test_list else "No test cases provided"
+        test_cases_str = "\n\n".join(test_list) if test_list else "No test cases provided"
+
+        # Reference solution section (only for datasets like MBPP that provide one)
+        if correct_answer:
+            reference_section = f"\n\nReference solution:\n```python\n{correct_answer}\n```"
+        else:
+            reference_section = ""
+
         return (
-            "Please evaluate whether the following code solution is functionally correct.\n\n"
-            f"Task description: {question}\n\n"
-            f"Reference solution:\n```python\n{correct_answer}\n```\n\n"
-            f"Model's solution:\n```python\n{model_answer}\n```\n\n"
-            f"Test cases that the solution should pass:\n{test_cases_str}\n\n"
-            "Evaluate if the model's code would produce the same outputs as the reference solution for the given test cases.\n"
+            "Please evaluate whether the following Python function correctly solves the problem.\n\n"
+            f"Problem: {question}\n\n"
+            f"Code:\n```python\n{model_answer}\n```"
+            f"{reference_section}\n\n"
+            f"Test cases that the code should pass:\n{test_cases_str}\n\n"
+            "Evaluate if the code would produce the correct outputs for the given test cases.\n"
             "Consider:\n"
-            "1. Does the code implement the correct logic?\n"
+            "1. Does the code implement the correct logic based on the problem description?\n"
             "2. Would it pass the test cases?\n"
             "3. Are there any bugs or edge cases it would fail?\n\n"
-            "Just answer YES if the model's code is functionally correct, or NO if it's incorrect. Nothing else.\n"
+            "Just answer YES if the code is functionally correct, or NO if it's incorrect. Nothing else.\n"
         )
     else:
         return (
