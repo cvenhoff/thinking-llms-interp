@@ -21,11 +21,13 @@ MODEL_SPECS: List[Tuple[str, str]] = [
 ]
 
 # Qwen models that have OpenReasonerZero counterparts
+# Note: For 32B, we specifically match the "on-open-reasoner-zero" variant,
+# not the plain qwen2.5-32b which are different experiments (bias-only, random-vectors, etc.)
 QWEN_ORZ_MODELS = [
     "qwen2.5-0.5b",
     "qwen2.5-1.5b",
     "qwen2.5-7b",
-    "qwen2.5-32b",
+    "qwen2.5-32b-on-open-reasoner-zero",
 ]
 
 
@@ -495,14 +497,16 @@ def update_all_files(
     files: List[Tuple[str, List[str]]],
     prompt_mapping: List[Tuple[str, int, str]],
     responses: Dict[int, str],
-) -> Tuple[int, Dict[str, int], Dict[str, int]]:
+) -> Dict[str, Dict[str, Any]]:
     """
     Update all files with judge responses.
 
     Returns:
-        total_records: Total number of records processed
-        aggregate_changed: Changed counts per model type
-        aggregate_correct: Correct counts per model type
+        per_prefix_stats: Dict mapping prefix to stats dict with:
+            - total: number of records
+            - correct: {model_key: count}
+            - changed: {model_key: count}
+            - eos: {model_key: count}
     """
     # Group responses by file
     file_updates: Dict[str, Dict[int, Dict[str, str]]] = {}
@@ -510,59 +514,73 @@ def update_all_files(
         response = responses.get(prompt_idx, "")
         file_updates.setdefault(path, {}).setdefault(record_idx, {})[model_key] = response
 
-    total_records = 0
-    aggregate_changed: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
-    aggregate_correct: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
+    # Track stats per prefix
+    per_prefix_stats: Dict[str, Dict[str, Any]] = {}
 
-    # Process each file
-    all_paths = [path for _, paths in files for path in paths]
-    for path in tqdm(all_paths, desc="Updating files", unit="file"):
-        with open(path, "r", encoding="utf-8") as src:
-            records = [json.loads(line) for line in src if line.strip()]
+    # Process each file group
+    for prefix, paths in tqdm(files, desc="Updating files", unit="prefix"):
+        prefix_total = 0
+        prefix_correct: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
+        prefix_changed: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
+        prefix_eos: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
 
-        updates = file_updates.get(path, {})
-        file_changed: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
-        file_correct: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
+        for path in paths:
+            with open(path, "r", encoding="utf-8") as src:
+                records = [json.loads(line) for line in src if line.strip()]
 
-        for idx, record in enumerate(records):
-            if idx not in updates:
-                continue
+            updates = file_updates.get(path, {})
 
-            existing_judges = record.get("judges", {})
-            record.setdefault("judges", {})
+            for idx, record in enumerate(records):
+                if idx not in updates:
+                    continue
 
-            for key, _ in MODEL_SPECS:
-                raw = updates[idx].get(key, "")
-                is_correct = "yes" in raw.lower()
+                existing_judges = record.get("judges", {})
+                record.setdefault("judges", {})
 
-                # Get previous value
-                prev_entry = existing_judges.get(key)
-                prev_correct = None
-                if isinstance(prev_entry, dict):
-                    val = prev_entry.get("correct")
-                    if isinstance(val, bool):
-                        prev_correct = val
+                for key, _ in MODEL_SPECS:
+                    raw = updates[idx].get(key, "")
+                    is_correct = "yes" in raw.lower()
 
-                record["judges"][key] = {"correct": bool(is_correct), "raw": raw}
+                    # Get previous value
+                    prev_entry = existing_judges.get(key)
+                    prev_correct = None
+                    if isinstance(prev_entry, dict):
+                        val = prev_entry.get("correct")
+                        if isinstance(val, bool):
+                            prev_correct = val
 
-                if is_correct:
-                    file_correct[key] += 1
-                    aggregate_correct[key] += 1
+                    record["judges"][key] = {"correct": bool(is_correct), "raw": raw}
 
-                if prev_correct is None or bool(is_correct) != bool(prev_correct):
-                    file_changed[key] += 1
-                    aggregate_changed[key] += 1
+                    if is_correct:
+                        prefix_correct[key] += 1
 
-        total_records += len(records)
+                    if prev_correct is None or bool(is_correct) != bool(prev_correct):
+                        prefix_changed[key] += 1
 
-        # Write back
-        temp_path = f"{path}.tmp"
-        with open(temp_path, "w", encoding="utf-8") as dst:
+            # Count EOS for all records in the file
             for record in records:
-                dst.write(json.dumps(record) + "\n")
-        os.replace(temp_path, path)
+                eos_data = record.get("eos", {})
+                for key, _ in MODEL_SPECS:
+                    if eos_data.get(key, False):
+                        prefix_eos[key] += 1
 
-    return total_records, aggregate_changed, aggregate_correct
+            prefix_total += len(records)
+
+            # Write back
+            temp_path = f"{path}.tmp"
+            with open(temp_path, "w", encoding="utf-8") as dst:
+                for record in records:
+                    dst.write(json.dumps(record) + "\n")
+            os.replace(temp_path, path)
+
+        per_prefix_stats[prefix] = {
+            "total": prefix_total,
+            "correct": prefix_correct,
+            "changed": prefix_changed,
+            "eos": prefix_eos,
+        }
+
+    return per_prefix_stats
 
 
 def main() -> None:
@@ -633,19 +651,45 @@ def main() -> None:
 
     # Update all files
     print("\nPhase 4: Updating files...")
-    total_records, aggregate_changed, aggregate_correct = update_all_files(
-        files, prompt_mapping, responses
-    )
+    per_prefix_stats = update_all_files(files, prompt_mapping, responses)
 
-    # Print summary
-    print(f"\nRe-evaluated {total_records} records across {sum(len(paths) for _, paths in files)} files.")
-    if total_records > 0:
-        print("\n==== Aggregate Summary ====")
-        for key, label in MODEL_SPECS:
-            changed = aggregate_changed.get(key, 0)
-            changed_pct = changed / total_records * 100.0
-            accuracy = aggregate_correct.get(key, 0) / total_records * 100.0
-            print(f"{label}: changed_correct={changed} ({changed_pct:.1f}%), accuracy={accuracy:.1f}%")
+    # Print per-model results
+    total_files = sum(len(paths) for _, paths in files)
+    total_records = sum(s["total"] for s in per_prefix_stats.values())
+    print(f"\nRe-evaluated {total_records} records across {total_files} files.")
+
+    for prefix, stats in per_prefix_stats.items():
+        prefix_name = os.path.basename(prefix).replace(".jsonl", "")
+        n = stats["total"]
+        if n == 0:
+            continue
+
+        thinking_correct = stats["correct"]["thinking"]
+        base_correct = stats["correct"]["base"]
+        hybrid_correct = stats["correct"]["hybrid"]
+
+        thinking_acc = thinking_correct / n * 100
+        base_acc = base_correct / n * 100
+        hybrid_acc = hybrid_correct / n * 100
+
+        print(f"\n===== {prefix_name} =====")
+        print(f"Thinking Model: {thinking_correct}/{n} correct ({thinking_acc:.1f}%)")
+        print(f"Base Model: {base_correct}/{n} correct ({base_acc:.1f}%)")
+        print(f"Hybrid Model: {hybrid_correct}/{n} correct ({hybrid_acc:.1f}%)")
+
+        # Gap recovered by hybrid
+        gap = abs(thinking_acc - base_acc)
+        if gap > 0:
+            recovered = (hybrid_acc - min(base_acc, thinking_acc)) / gap
+            print(f"Gap recovered by hybrid: {max(0.0, recovered) * 100:.1f}% of |Thinking-Base|")
+        else:
+            print("Gap recovered by hybrid: n/a")
+
+        # EOS endings
+        eos_base = stats["eos"]["base"] / n * 100
+        eos_thinking = stats["eos"]["thinking"] / n * 100
+        eos_hybrid = stats["eos"]["hybrid"] / n * 100
+        print(f"EOS endings: base {eos_base:.1f}, thinking {eos_thinking:.1f}, hybrid {eos_hybrid:.1f}")
 
 
 if __name__ == "__main__":
