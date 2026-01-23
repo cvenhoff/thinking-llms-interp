@@ -754,8 +754,8 @@ def load_models_and_sae(args):
             steering_vectors[k] = v.to(device=base_device, dtype=base_dtype, non_blocking=True)
     return thinking_model, thinking_tokenizer, base_model, base_tokenizer, sae, steering_vectors, descriptions, thinking_model_id, base_model_id
 
-CODING_TASK_PREFIX = "Task: Output a single Python function for the following problem. Do not include tests, examples, or explanations in your output."
-CODING_BASE_SUFFIX = "```python\n"
+CODING_TASK_PREFIX = "Task: Write a single Python function for the following problem. Do not include tests or examples in your output."
+CODING_BASE_SUFFIX = "Step by step answer:\n"
 
 def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer, 
                sae, steering_vectors, descriptions, args, dataset):
