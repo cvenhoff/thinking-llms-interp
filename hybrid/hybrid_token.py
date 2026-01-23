@@ -755,6 +755,7 @@ def load_models_and_sae(args):
     return thinking_model, thinking_tokenizer, base_model, base_tokenizer, sae, steering_vectors, descriptions, thinking_model_id, base_model_id
 
 CODING_TASK_PREFIX = "Task: Output a single Python function for the following problem. Do not include tests, examples, or explanations in your output."
+CODING_BASE_SUFFIX = "```python\n"
 
 def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer, 
                sae, steering_vectors, descriptions, args, dataset):
@@ -808,13 +809,13 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
         test_cases_hint = "\n".join(test_list) if test_list else ""
         tests_section = f"\n\nPublic Tests:\n{test_cases_hint}" if test_cases_hint else ""
         thinking_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{tests_section}"
-        base_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{tests_section}\n\n"
+        base_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{tests_section}\n\n{CODING_BASE_SUFFIX}"
     elif args.dataset == "livecodebench":
         test_cases_hint = "\n\n".join(test_list) if test_list else ""
         tests_section = f"\n\nPublic Tests:\n\n{test_cases_hint}" if test_cases_hint else ""
         starter_hint = f"\n\nStarter code:\n```python\n{starter_code}\n```" if starter_code else ""
         thinking_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{starter_hint}{tests_section}"
-        base_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{starter_hint}{tests_section}\n\n"
+        base_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{starter_hint}{tests_section}\n\n{CODING_BASE_SUFFIX}"
     else:
         thinking_prompt = question
         base_prompt = f"Task: Answer the question below. Explain your reasoning step by step.\n\n\n\nQuestion:\n{question}\n\nStep by step answer:\n"
@@ -1390,14 +1391,14 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             test_cases_hint = "\n".join(test_list) if test_list else ""
             tests_section = f"\n\nPublic Tests:\n{test_cases_hint}" if test_cases_hint else ""
             thinking_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{tests_section}"
-            base_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{tests_section}\n\n"
+            base_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{tests_section}\n\n{CODING_BASE_SUFFIX}"
         elif args.dataset == "livecodebench":
             # LiveCodeBench prompt (only public tests in hint, private tests are for judge only)
             test_cases_hint = "\n\n".join(public_test_list) if public_test_list else ""
             tests_section = f"\n\nPublic Tests:\n\n{test_cases_hint}" if test_cases_hint else ""
             starter_hint = f"\n\nStarter code:\n```python\n{starter_code}\n```" if starter_code else ""
             thinking_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{starter_hint}{tests_section}"
-            base_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{starter_hint}{tests_section}\n\n"
+            base_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{starter_hint}{tests_section}\n\n{CODING_BASE_SUFFIX}"
         else:
             # Math problem prompt (original)
             thinking_prompt = question
