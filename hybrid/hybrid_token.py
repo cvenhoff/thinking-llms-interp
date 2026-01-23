@@ -1417,9 +1417,9 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         
         # Thinking model (skip in ablation)
         print("\n" + "-" * 80)
-        print("PROMPT:")
+        print("PROMPT (for hybrid/base):")
         print("-" * 80)
-        print(thinking_prompt)
+        print(base_prompt)
         print("-" * 80)
         if _is_ablation(args):
             print(f"Ablation: skipping thinking model generation ({_ablation_flags_str(args)})")
