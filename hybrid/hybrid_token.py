@@ -1382,17 +1382,21 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             public_tests_raw = item.get("public_test_cases", "[]")
             public_tests = json.loads(public_tests_raw) if public_tests_raw else []
             public_test_list = [f"# Test {i+1}:\n- Input:\n{t['input']}\n- Output:\n{t['output']}" for i, t in enumerate(public_tests)] if public_tests else []
-            # Parse private tests (for judge only) - stored as base64 -> zlib -> pickle -> JSON
-            private_tests_raw = item.get("private_test_cases", "")
-            if private_tests_raw:
-                decompressed = zlib.decompress(base64.b64decode(private_tests_raw.encode("utf-8")))
-                private_tests = json.loads(pickle.loads(decompressed))
-            else:
-                private_tests = []
-            num_public = len(public_tests)
-            private_test_list = [f"# Test {num_public + i + 1}:\n- Input:\n{t['input']}\n- Output:\n{t['output']}" for i, t in enumerate(private_tests)] if private_tests else []
-            # Combine for judge (public + private)
-            test_list = public_test_list + private_test_list
+            # NOTE: Private tests disabled for LLM-based judging.
+            # LiveCodeBench private tests can be enormous (up to 18M chars / 4.5M tokens
+            # for a single test case). 150 problems have first private test > 100k chars.
+            # This exceeds GPT-4's 1M token context limit. For proper evaluation,
+            # use execution-based judging instead of LLM-based judging.
+            # private_tests_raw = item.get("private_test_cases", "")
+            # if private_tests_raw:
+            #     decompressed = zlib.decompress(base64.b64decode(private_tests_raw.encode("utf-8")))
+            #     private_tests = json.loads(pickle.loads(decompressed))
+            # else:
+            #     private_tests = []
+            # num_public = len(public_tests)
+            # private_test_list = [f"# Test {num_public + i + 1}:\n- Input:\n{t['input']}\n- Output:\n{t['output']}" for i, t in enumerate(private_tests)] if private_tests else []
+            # test_list = public_test_list + private_test_list
+            test_list = public_test_list
             starter_code = item.get("starter_code", "")
 
         results["questions"].append(question)
