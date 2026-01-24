@@ -1011,14 +1011,27 @@ Instructions for evaluation:
 Just answer YES if the final numerical answer matches, or NO if it doesn't. Nothing else.
 """
 
-    response_list = safe_chat_batch([prompt], model_name="openai/gpt-4.1", max_tokens=100)
-    if isinstance(response_list, (list, tuple)) and len(response_list) > 0 and isinstance(response_list[0], str):
-        response = response_list[0]
-        is_correct = "yes" in response.lower()
-        print(f"{model_name} evaluated as: {response}")
-        return is_correct, response
-    else:
-        raise RuntimeError(f"Judge API returned no response for {model_name}")
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            response_list = safe_chat_batch([prompt], model_name="openai/gpt-4.1", max_tokens=100)
+            if isinstance(response_list, (list, tuple)) and len(response_list) > 0 and isinstance(response_list[0], str):
+                response = response_list[0]
+                is_correct = "yes" in response.lower()
+                print(f"{model_name} evaluated as: {response}")
+                return is_correct, response
+            else:
+                if attempt < max_retries - 1:
+                    print(f"Judge API returned no response for {model_name}, retrying ({attempt + 1}/{max_retries})...")
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                    continue
+                raise RuntimeError(f"Judge API returned no response for {model_name} after {max_retries} attempts")
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"Judge API error for {model_name}: {e}, retrying ({attempt + 1}/{max_retries})...")
+                time.sleep(2 ** attempt)  # Exponential backoff
+                continue
+            raise
 
 ROLLING_MAX_BYTES = 90 * 1024 * 1024  # 100 MB hard cap per rolling part file
 
