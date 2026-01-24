@@ -755,7 +755,7 @@ def load_models_and_sae(args):
     return thinking_model, thinking_tokenizer, base_model, base_tokenizer, sae, steering_vectors, descriptions, thinking_model_id, base_model_id
 
 CODING_TASK_PREFIX = "Task: Write a single Python function for the following problem. Do not include tests or examples in your output."
-CODING_BASE_SUFFIX = "Step by step answer:\n"
+CODING_BASE_SUFFIX = "Algorithmic steps to solve this problem, followed by the Python function:\n"
 
 def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer, 
                sae, steering_vectors, descriptions, args, dataset):
