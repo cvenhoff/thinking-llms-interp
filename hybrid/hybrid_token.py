@@ -36,8 +36,8 @@ CODING_DATASETS = {"mbpp", "livecodebench"}
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Evaluate hybrid model on datasets (token-level steering)')
-    parser.add_argument('--dataset', type=str, choices=['gsm8k', 'math500', "aime", "mbpp", "livecodebench"], default='aime',
-                      help='Dataset to evaluate on (gsm8k, math500, aime, mbpp, or livecodebench)')
+    parser.add_argument('--dataset', type=str, choices=['gsm8k', 'math500', "aime24", "aime25", "mbpp", "livecodebench"], default='aime24',
+                      help='Dataset to evaluate on (gsm8k, math500, aime24, aime25, mbpp, or livecodebench)')
     parser.add_argument('--thinking_model', type=str, default='Qwen/QwQ-32B',
                       help='Model for thinking/perplexity')
     parser.add_argument('--base_model', type=str, default='Qwen/Qwen2.5-32B',
@@ -772,7 +772,7 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
                     "question": item["problem"],
                     "answer": item["answer"]
                 }
-            elif args.dataset == "aime":
+            elif args.dataset in ("aime24", "aime25"):
                 example = {
                     "question": item["problem"],
                     "answer": item["answer"]
@@ -1360,7 +1360,7 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             correct_answer = item["answer"]
             test_list = None
             starter_code = ""
-        elif args.dataset == "aime":
+        elif args.dataset in ("aime24", "aime25"):
             question = item["problem"]
             correct_answer = item["answer"]
             test_list = None
@@ -1797,8 +1797,10 @@ quick_judge_api_test()
 print(f"Loading {args.dataset} dataset...")
 if args.dataset == 'gsm8k':
     dataset = load_dataset("openai/gsm8k", "main")["test"]  # type: ignore
-elif args.dataset == "aime":
+elif args.dataset == "aime24":
     dataset = load_dataset("HuggingFaceH4/aime_2024")["train"]  # type: ignore
+elif args.dataset == "aime25":
+    dataset = load_dataset("yentinglin/aime_2025")["train"]  # type: ignore
 elif args.dataset == "math500":
     dataset = load_dataset("HuggingFaceH4/MATH-500")["test"]  # type: ignore
 elif args.dataset == "mbpp":

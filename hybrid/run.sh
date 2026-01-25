@@ -33,6 +33,6 @@
 # parser.add_argument('--example_idx', type=int, default=13,
 #                     help='Index of example to run')
 
-for dataset in gsm8k math500 aime; do
+for dataset in gsm8k math500 aime24 aime25; do
     python interactive_hybrid_model.py --dataset $dataset --thinking_model deepseek-ai/DeepSeek-R1-Distill-Llama-8B --base_model meta-llama/Llama-3.1-8B --thinking_layer 6 --n_clusters 20
 done
