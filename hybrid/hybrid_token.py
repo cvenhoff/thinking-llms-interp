@@ -21,7 +21,7 @@ import math
 import matplotlib.pyplot as plt
 import re
 import argparse
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from collections import Counter
 from matplotlib.patches import Rectangle
 try:
@@ -96,6 +96,12 @@ def parse_args():
                       help='If set, randomly select which latent to fire each token (bypass oracle)')
     parser.add_argument('--random-vectors', action='store_true', default=False,
                       help='If set, steer using random unit vectors (correct shape), ignoring trained vectors')
+    parser.add_argument(
+        '--disable-steering-in-code-blocks',
+        action='store_true',
+        default=False,
+        help='If set, hybrid token steering is disabled inside fenced python code blocks: after generating "```python" steering is off until the next "```".',
+    )
     args = parser.parse_known_args()[0]
     # Special handling: if [1] is provided, treat as "all tokens"
     if isinstance(args.token_windows, list) and len(args.token_windows) == 1 and int(args.token_windows[0]) == 1:
@@ -216,6 +222,38 @@ def prepare_cold_start(
 
     return base_with_cold, thinking_with_cold, cold_start_text
 
+def _update_code_fence_state(
+    text: str,
+    *,
+    in_code_fence: bool,
+    search_pos: int,
+    start_marker: str = "```python",
+    end_marker: str = "```",
+) -> Tuple[bool, int]:
+    """Update (in_code_fence, search_pos) by scanning `text` from `search_pos`."""
+    assert isinstance(text, str)
+    assert isinstance(in_code_fence, bool)
+    assert isinstance(search_pos, int) and search_pos >= 0
+    assert isinstance(start_marker, str) and start_marker
+    assert isinstance(end_marker, str) and end_marker
+
+    while True:
+        if not in_code_fence:
+            idx = text.find(start_marker, search_pos)
+            if idx == -1:
+                break
+            in_code_fence = True
+            search_pos = idx + len(start_marker)
+            continue
+
+        idx = text.find(end_marker, search_pos)
+        if idx == -1:
+            break
+        in_code_fence = False
+        search_pos = idx + len(end_marker)
+
+    return in_code_fence, search_pos
+
 # ---------------------------------------------------------------------------------
 # Token-level hybrid generation
 # ---------------------------------------------------------------------------------
@@ -235,6 +273,8 @@ def hybrid_generate_token(
     *,
     coefficient: float = 1.0,
     steered_temperature: float = 0.0,
+    disable_steering_in_code_blocks: bool = False,
+    initial_generated_text: str = "",
     verbose: bool = False,
     use_perplexity_guardrail: bool = False,
     coefficients: Optional[List[float]] = None,
@@ -254,6 +294,8 @@ def hybrid_generate_token(
       3) Select the next token by minimum perplexity under the thinking model (guardrail). If guardrail disabled, use the first provided candidate.
     """
     assert float(steered_temperature) >= 0.0, "steered_temperature must be >= 0"
+    assert isinstance(disable_steering_in_code_blocks, bool)
+    assert isinstance(initial_generated_text, str)
 
     # Normalize special-case: [1] means all tokens
     if token_windows is not None and isinstance(token_windows, list) and len(token_windows) == 1:
@@ -276,6 +318,17 @@ def hybrid_generate_token(
 
     generated_tokens = 0
     ended_by_eos = False
+    generated_text = initial_generated_text
+    in_code_fence = False
+    code_fence_search_pos = 0
+    if disable_steering_in_code_blocks and generated_text:
+        in_code_fence, code_fence_search_pos = _update_code_fence_state(
+            generated_text,
+            in_code_fence=in_code_fence,
+            search_pos=code_fence_search_pos,
+        )
+        if in_code_fence:
+            print("[CodeFence] Detected ```python in prefix; steering disabled until closing ```.")
 
     # Access bias vector if present
     bias_vector = steering_vectors.get("bias", None)
@@ -376,6 +429,8 @@ def hybrid_generate_token(
         # Decide whether to perform full steering based on base vs thinking disagreement
         perform_steering = True
         if disagreement_only and thinking_pred_tok == base_pred_tok:
+            perform_steering = False
+        if disable_steering_in_code_blocks and in_code_fence:
             perform_steering = False
 
         if not perform_steering:
@@ -548,6 +603,19 @@ def hybrid_generate_token(
 
         if pbar is not None:
             pbar.update(1)
+
+        if disable_steering_in_code_blocks:
+            prev_in_code_fence = in_code_fence
+            generated_text += next_tok_str
+            in_code_fence, code_fence_search_pos = _update_code_fence_state(
+                generated_text,
+                in_code_fence=in_code_fence,
+                search_pos=code_fence_search_pos,
+            )
+            if (not prev_in_code_fence) and in_code_fence:
+                print("[CodeFence] Detected ```python; steering disabled until closing ```.")
+            elif prev_in_code_fence and (not in_code_fence):
+                print("[CodeFence] Detected closing ```; steering re-enabled.")
 
         # Periodic cleanup to reduce fragmentation
         if (generated_tokens % 8) == 0:
@@ -904,6 +972,8 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
         steering_vectors=steering_vectors,
         latent_descriptions=descriptions,
         steered_temperature=float(args.steered_temperature),
+        disable_steering_in_code_blocks=bool(getattr(args, "disable_steering_in_code_blocks", False)),
+        initial_generated_text=cold_start_text,
         coefficient=(args.coefficients[0] if args.coefficients else 0.3),
         coefficients=args.coefficients,
         token_windows=args.token_windows,
@@ -1583,6 +1653,8 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             steering_vectors=steering_vectors,
             latent_descriptions=descriptions,
             steered_temperature=float(args.steered_temperature),
+            disable_steering_in_code_blocks=bool(getattr(args, "disable_steering_in_code_blocks", False)),
+            initial_generated_text=cold_start_text,
             coefficient=(args.coefficients[0] if args.coefficients else 0.3),
             coefficients=args.coefficients,
             token_windows=args.token_windows,
@@ -1854,6 +1926,8 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
 
 # Get command line arguments
 args = parse_args()
+if bool(getattr(args, "disable_steering_in_code_blocks", False)):
+    print("[CodeFence] disable-steering-in-code-blocks enabled: steering disabled inside ```python ... ```.")
 
 # Create results directory if it doesn't exist
 os.makedirs(args.results_dir, exist_ok=True)
