@@ -54,6 +54,12 @@ def parse_args():
                       help='Maximum number of tokens to generate')
     parser.add_argument('--max_thinking_tokens', type=int, default=5000,
                       help='Maximum number of tokens for the thinking model only')
+    parser.add_argument(
+        '--only-finished-thinking',
+        action='store_true',
+        default=False,
+        help='If set, skip base+hybrid generation when the thinking model does not end with EOS; still record the attempt and exclude such examples from printed stats.',
+    )
     parser.add_argument('--eval_start_idx', type=int, default=0,
                       help='Starting index in the dataset')
     parser.add_argument('--temperature', type=float, default=0.0,
@@ -837,6 +843,15 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
         thinking_outputs = thinking_model.generator.output.save()
     thinking_response = thinking_tokenizer.decode(thinking_outputs[0][len(thinking_input_ids[0]):], skip_special_tokens=True)
     print(thinking_response)
+
+    try:
+        thinking_eos_end = bool(int(thinking_outputs[0, -1].item()) == int(thinking_tokenizer.eos_token_id))
+    except Exception:
+        thinking_eos_end = False
+
+    if bool(getattr(args, "only_finished_thinking", False)) and (not thinking_eos_end):
+        print("[Skip] Thinking model did not end with EOS for this example; skipping base and hybrid generation.")
+        return thinking_response, "", "", [], []
     
     # Generate with base model
     print("\n===== Generating with Base Model =====")
@@ -1225,13 +1240,15 @@ def _load_prev_counts(args, base_model_id: str, thinking_model_id: str):
                     if not line:
                         continue
                     rec = json.loads(line)
+                    eos = rec.get("eos", {})
+                    if bool(getattr(args, "only_finished_thinking", False)) and (not bool(eos.get("thinking", False))):
+                        continue
                     judges = rec["judges"]
                     for k in ("thinking", "base", "hybrid"):
                         c = judges[k]["correct"]
                         assert isinstance(c, bool)
                         if c:
                             counts[k] += 1
-                    eos = rec.get("eos", {})
                     for k in ("thinking", "base", "hybrid"):
                         if k in eos:
                             eos_known[k] += 1
@@ -1320,6 +1337,10 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             torch.cuda.empty_cache()
             gc.collect()
 
+    only_finished_thinking = bool(getattr(args, "only_finished_thinking", False))
+    if only_finished_thinking:
+        assert not _is_ablation(args), "--only-finished-thinking is incompatible with ablation modes (which skip standalone thinking generation)"
+
     if _is_ablation(args):
         print(f"Ablation active: skipping standalone base/thinking generations for all tasks. Flags: {_ablation_flags_str(args)}")
         assert int(args.n_cold_start_tokens) == 0, "Ablation runs require --n_cold_start_tokens 0"
@@ -1347,13 +1368,15 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
     }
     
     task_counter = 0
+    included_counter = 0
+    skipped_unfinished_thinking = 0
     for i, item in enumerate(dataset):
         if i < args.eval_start_idx:
             continue
         if task_counter >= args.n_tasks:
             break
         task_counter += 1
-        print(f"\n===== Processing Task {task_counter}/{args.n_tasks} =====")
+        print(f"\n===== Processing Task {task_counter}/{args.n_tasks} (dataset idx {i}) =====")
         
         if args.dataset == "gsm8k":
             question = item["question"]
@@ -1399,9 +1422,6 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             test_list = public_test_list
             starter_code = item.get("starter_code", "")
 
-        results["questions"].append(question)
-        results["correct_answers"].append(correct_answer)
-
         # Build prompts based on dataset type
         if args.dataset == "mbpp":
             # Code generation prompt
@@ -1443,9 +1463,7 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             thinking_outputs = None
             thinking_response = ""
             thinking_tokens = 0
-            results["thinking_answers"].append("")
-            results["thinking_lengths"].append(0)
-            results["thinking_eos"].append(False)
+            thinking_eos_end = False
         else:
             print("Generating with Thinking Model...")
             clear_gpu_memory()
@@ -1453,23 +1471,61 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
                 thinking_outputs = thinking_model.generator.output.save()
             thinking_tokens = len(thinking_outputs[0]) - len(thinking_input_ids[0])
             thinking_response = thinking_tokenizer.decode(thinking_outputs[0][len(thinking_input_ids[0]):], skip_special_tokens=True)
-            results["thinking_answers"].append(thinking_response)
-            results["thinking_lengths"].append(len(thinking_response.split()))
             # Track EOS termination
             try:
                 thinking_eos_end = bool(int(thinking_outputs[0, -1].item()) == int(thinking_tokenizer.eos_token_id))
             except Exception:
                 thinking_eos_end = False
-            results["thinking_eos"].append(thinking_eos_end)
+
+        if (not _is_ablation(args)) and only_finished_thinking and (not bool(thinking_eos_end)):
+            skipped_unfinished_thinking += 1
+            print(
+                f"[Skip] Thinking model did not end with EOS (generated {thinking_tokens}/{int(args.max_thinking_tokens)} tokens). "
+                "Skipping base and hybrid generation for this input."
+            )
+            rolling_record = {
+                "ts": time.time(),
+                "dataset": args.dataset,
+                "question": question,
+                "gold_answer": correct_answer,
+                "test_list": test_list,
+                "answers": {
+                    "thinking": thinking_response,
+                    "base": "",
+                    "hybrid": "",
+                },
+                "judges": {
+                    "thinking": {"correct": False, "raw": "SKIPPED_UNFINISHED_THINKING"},
+                    "base": {"correct": False, "raw": "SKIPPED_UNFINISHED_THINKING"},
+                    "hybrid": {"correct": False, "raw": "SKIPPED_UNFINISHED_THINKING"},
+                },
+                "eos": {
+                    "thinking": False,
+                },
+                "skipped": {
+                    "reason": "thinking_no_eos",
+                },
+            }
+            append_rolling_result(rolling_record, args, base_model_id, thinking_model_id)
+            del thinking_input_ids, base_input_ids, thinking_outputs
+            del thinking_response
+            torch.cuda.empty_cache()
+            gc.collect()
+            continue
+
+        included_counter += 1
+        results["questions"].append(question)
+        results["correct_answers"].append(correct_answer)
+        results["thinking_answers"].append(thinking_response)
+        results["thinking_lengths"].append(len(thinking_response.split()) if thinking_response else 0)
+        results["thinking_eos"].append(bool(thinking_eos_end))
 
         # Base model (skip in ablation)
         if _is_ablation(args):
             print(f"Ablation: skipping base model generation ({_ablation_flags_str(args)})")
             base_response = ""
             base_tokens = 0
-            results["base_answers"].append("")
-            results["base_lengths"].append(0)
-            results["base_eos"].append(False)
+            base_eos_end = False
         else:
             print("Generating with Base Model...")
             clear_gpu_memory()
@@ -1492,9 +1548,9 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             base_response = f"{cold_start_text}{base_tokenizer.decode(base_outputs[0][len(base_input_with_cold_start[0]):], skip_special_tokens=True)}"
             del base_outputs, base_input_with_cold_start
             clear_gpu_memory()
-            results["base_answers"].append(base_response)
-            results["base_lengths"].append(len(base_response.split()))
-            results["base_eos"].append(base_eos_end)
+        results["base_answers"].append(base_response)
+        results["base_lengths"].append(len(base_response.split()) if base_response else 0)
+        results["base_eos"].append(bool(base_eos_end))
         
         # Hybrid token-level
         print("Generating with Hybrid Approach (Token-Level)...")
@@ -1620,9 +1676,9 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
                 "hybrid": {"correct": bool(hybrid_correct), "raw": hybrid_judge_raw},
             },
             "eos": {
-                "thinking": bool(results["thinking_eos"][-1]) if (not _is_ablation(args)) else False,
-                "base": bool(results["base_eos"][-1]) if (not _is_ablation(args)) else False,
-                "hybrid": bool(results["hybrid_eos"][-1]),
+                "thinking": bool(thinking_eos_end) if (not _is_ablation(args)) else False,
+                "base": bool(base_eos_end) if (not _is_ablation(args)) else False,
+                "hybrid": bool(hybrid_eos_end),
             },
             "hybrid_details": {
                 "per_token": token_latent_info,
@@ -1638,12 +1694,15 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         # Print current results
         if prev_counts is None:
             prev_counts = {"thinking": 0, "base": 0, "hybrid": 0}
-        so_far_cum = prev_completed + task_counter
+        so_far_cum = prev_completed + included_counter
         cum_thinking = prev_counts["thinking"] + results["thinking_correct"]
         cum_base = prev_counts["base"] + results["base_correct"]
         cum_hybrid = prev_counts["hybrid"] + results["hybrid_correct"]
 
-        print(f"\nCurrent Results after {so_far_cum} tasks:")
+        if only_finished_thinking:
+            print(f"\nCurrent Results after {so_far_cum} finished-thinking tasks:")
+        else:
+            print(f"\nCurrent Results after {so_far_cum} tasks:")
         if not _is_ablation(args):
             print(f"Thinking Model: {cum_thinking}/{so_far_cum} correct ({(cum_thinking/so_far_cum)*100:.1f}%)")
             print(f"Base Model: {cum_base}/{so_far_cum} correct ({(cum_base/so_far_cum)*100:.1f}%)")
@@ -1661,14 +1720,14 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             print("Gap recovered by hybrid: n/a")
         # EOS percentages: report combined across previous + current only
         if _is_ablation(args):
-            cum_den = prev_eos_known.get('hybrid', 0) + task_counter
+            cum_den = prev_eos_known.get('hybrid', 0) + included_counter
             cum_hybrid_eos = prev_eos_counts.get('hybrid', 0) + sum(results['hybrid_eos'])
             cum_pct = (cum_hybrid_eos / cum_den) * 100 if cum_den > 0 else 0.0
             print(f"EOS endings (% across all {so_far_cum} tasks): hybrid {cum_pct:.1f}")
         else:
-            cum_den_base = prev_eos_known.get('base', 0) + task_counter
-            cum_den_thinking = prev_eos_known.get('thinking', 0) + task_counter
-            cum_den_hybrid = prev_eos_known.get('hybrid', 0) + task_counter
+            cum_den_base = prev_eos_known.get('base', 0) + included_counter
+            cum_den_thinking = prev_eos_known.get('thinking', 0) + included_counter
+            cum_den_hybrid = prev_eos_known.get('hybrid', 0) + included_counter
             cum_base_eos = prev_eos_counts.get('base', 0) + sum(results['base_eos'])
             cum_thinking_eos = prev_eos_counts.get('thinking', 0) + sum(results['thinking_eos'])
             cum_hybrid_eos = prev_eos_counts.get('hybrid', 0) + sum(results['hybrid_eos'])
@@ -1691,15 +1750,18 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         torch.cuda.empty_cache()
         gc.collect()
 
-    thinking_accuracy = results["thinking_correct"] / task_counter * 100
-    base_accuracy = results["base_correct"] / task_counter * 100
-    hybrid_accuracy = results["hybrid_correct"] / task_counter * 100
+    assert included_counter > 0, "No tasks included in stats; possibly the thinking model never ended with EOS under --only-finished-thinking."
+    thinking_accuracy = results["thinking_correct"] / included_counter * 100
+    base_accuracy = results["base_correct"] / included_counter * 100
+    hybrid_accuracy = results["hybrid_correct"] / included_counter * 100
 
     print("\n===== Final Results =====")
+    if only_finished_thinking and skipped_unfinished_thinking > 0:
+        print(f"Excluded {skipped_unfinished_thinking} inputs where the thinking model did not end with EOS (this run).")
     if not _is_ablation(args):
-        print(f"Thinking Model: {results['thinking_correct']}/{task_counter} correct ({thinking_accuracy:.1f}%)")
-        print(f"Base Model: {results['base_correct']}/{task_counter} correct ({base_accuracy:.1f}%)")
-    print(f"Hybrid Model: {results['hybrid_correct']}/{task_counter} correct ({hybrid_accuracy:.1f}%)")
+        print(f"Thinking Model: {results['thinking_correct']}/{included_counter} correct ({thinking_accuracy:.1f}%)")
+        print(f"Base Model: {results['base_correct']}/{included_counter} correct ({base_accuracy:.1f}%)")
+    print(f"Hybrid Model: {results['hybrid_correct']}/{included_counter} correct ({hybrid_accuracy:.1f}%)")
     # Concise end-of-run gap and EOS summary
     gap_final = abs(thinking_accuracy - base_accuracy) if not _is_ablation(args) else 0.0
     if gap_final > 0:
@@ -1709,21 +1771,21 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         print("Gap recovered by hybrid: n/a")
     # EOS endings combined across previous + this run
     if _is_ablation(args):
-        cum_den_hybrid = prev_eos_known.get('hybrid', 0) + task_counter
+        cum_den_hybrid = prev_eos_known.get('hybrid', 0) + included_counter
         cum_hybrid_eos = prev_eos_counts.get('hybrid', 0) + sum(results['hybrid_eos'])
         cum_hybrid_pct = (cum_hybrid_eos / cum_den_hybrid) * 100 if cum_den_hybrid > 0 else 0.0
-        print(f"EOS endings (% across all {prev_completed + task_counter} tasks): hybrid {cum_hybrid_pct:.1f}")
+        print(f"EOS endings (% across all {prev_completed + included_counter} tasks): hybrid {cum_hybrid_pct:.1f}")
     else:
-        cum_den_base = prev_eos_known.get('base', 0) + task_counter
-        cum_den_thinking = prev_eos_known.get('thinking', 0) + task_counter
-        cum_den_hybrid = prev_eos_known.get('hybrid', 0) + task_counter
+        cum_den_base = prev_eos_known.get('base', 0) + included_counter
+        cum_den_thinking = prev_eos_known.get('thinking', 0) + included_counter
+        cum_den_hybrid = prev_eos_known.get('hybrid', 0) + included_counter
         cum_base_eos = prev_eos_counts.get('base', 0) + sum(results['base_eos'])
         cum_thinking_eos = prev_eos_counts.get('thinking', 0) + sum(results['thinking_eos'])
         cum_hybrid_eos = prev_eos_counts.get('hybrid', 0) + sum(results['hybrid_eos'])
         cum_base_pct = (cum_base_eos / cum_den_base) * 100 if cum_den_base > 0 else 0.0
         cum_thinking_pct = (cum_thinking_eos / cum_den_thinking) * 100 if cum_den_thinking > 0 else 0.0
         cum_hybrid_pct = (cum_hybrid_eos / cum_den_hybrid) * 100 if cum_den_hybrid > 0 else 0.0
-        print(f"EOS endings (% across all {prev_completed + task_counter} tasks): base {cum_base_pct:.1f}, thinking {cum_thinking_pct:.1f}, hybrid {cum_hybrid_pct:.1f}")
+        print(f"EOS endings (% across all {prev_completed + included_counter} tasks): base {cum_base_pct:.1f}, thinking {cum_thinking_pct:.1f}, hybrid {cum_hybrid_pct:.1f}")
 
     plt.figure(figsize=(10, 6))
     model_names = ["Base", "Thinking", "Hybrid"]
@@ -1734,7 +1796,7 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         accuracies = [base_accuracy, thinking_accuracy, hybrid_accuracy]
         colors = ["#3498db", "#e74c3c", "#2ecc71"]
     plt.bar(model_names, accuracies, color=colors)
-    plt.title(f"Model Accuracy on {task_counter} {args.dataset} Tasks")
+    plt.title(f"Model Accuracy on {included_counter} {args.dataset} Tasks")
     plt.ylabel("Accuracy (%)")
     plt.ylim(0, 100)
     for i, accuracy in enumerate(accuracies):
@@ -1749,7 +1811,7 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         "metadata": {
             "base_model": args.base_model,
             "thinking_model": args.thinking_model,
-            "n_tasks": task_counter,
+            "n_tasks": included_counter,
         },
         "results": {
             "accuracy": {
@@ -1765,7 +1827,7 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         },
         "tasks": []
     }
-    for i in range(task_counter):
+    for i in range(included_counter):
         task_data = {
             "question": results["questions"][i],
             "correct_answer": results["correct_answers"][i],

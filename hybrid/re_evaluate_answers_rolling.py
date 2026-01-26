@@ -84,6 +84,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Debug mode: run the full flow but only evaluate one record per file.",
     )
+    parser.add_argument(
+        "--only-finished-thinking",
+        action="store_true",
+        default=False,
+        help="If set, only re-evaluate records where eos.thinking is true, and compute stats on that subset.",
+    )
     return parser.parse_known_args()[0]
 
 
@@ -185,6 +191,11 @@ def _extract_dataset_from_filename(filename: str) -> Optional[str]:
 
 
 CODING_DATASETS = {"mbpp", "livecodebench"}
+
+def _thinking_finished(record: Dict[str, Any]) -> bool:
+    eos = record.get("eos", {})
+    assert isinstance(eos, dict), "record['eos'] must be a dict when present"
+    return bool(eos.get("thinking", False))
 
 
 def _matches_filter(filename: str, filter_patterns: List[str], exclude_patterns: Optional[List[str]] = None) -> bool:
@@ -510,6 +521,8 @@ class BatchEvaluator:
 def collect_all_prompts(
     files: List[Tuple[str, List[str]]],
     max_records_per_file: Optional[int] = None,
+    *,
+    only_finished_thinking: bool = False,
 ) -> Tuple[List[str], List[Tuple[str, int, str]]]:
     """
     Collect all prompts from all files.
@@ -534,13 +547,16 @@ def collect_all_prompts(
             with open(path, "r", encoding="utf-8") as src:
                 records = [json.loads(line) for line in src if line.strip()]
 
-            # Limit records in debug mode
+            included_indices: List[int] = []
+            for idx, record in enumerate(records):
+                if only_finished_thinking and (not _thinking_finished(record)):
+                    continue
+                included_indices.append(idx)
             if max_records_per_file is not None:
-                records_to_process = records[:max_records_per_file]
-            else:
-                records_to_process = records
+                included_indices = included_indices[:max_records_per_file]
 
-            for idx, record in enumerate(records_to_process):
+            for idx in included_indices:
+                record = records[idx]
                 question = str(record["question"])
                 gold = str(record["gold_answer"])
                 answers = record["answers"]
@@ -565,6 +581,8 @@ def update_all_files(
     files: List[Tuple[str, List[str]]],
     prompt_mapping: List[Tuple[str, int, str]],
     responses: Dict[int, str],
+    *,
+    only_finished_thinking: bool = False,
 ) -> Dict[str, Dict[str, Any]]:
     """
     Update all files with judge responses.
@@ -597,9 +615,14 @@ def update_all_files(
                 records = [json.loads(line) for line in src if line.strip()]
 
             updates = file_updates.get(path, {})
+            included_indices = sorted(updates.keys())
+            if only_finished_thinking:
+                included_indices = [i for i in included_indices if _thinking_finished(records[i])]
 
             for idx, record in enumerate(records):
                 if idx not in updates:
+                    continue
+                if idx not in included_indices:
                     continue
 
                 existing_judges = record.get("judges", {})
@@ -625,14 +648,15 @@ def update_all_files(
                     if prev_correct is None or bool(is_correct) != bool(prev_correct):
                         prefix_changed[key] += 1
 
-            # Count EOS for all records in the file
-            for record in records:
+            # Count EOS for included records in the file
+            for i in included_indices:
+                record = records[i]
                 eos_data = record.get("eos", {})
                 for key, _ in MODEL_SPECS:
                     if eos_data.get(key, False):
                         prefix_eos[key] += 1
 
-            prefix_total += len(records)
+            prefix_total += len(included_indices)
 
             # Write back
             temp_path = f"{path}.tmp"
@@ -655,6 +679,7 @@ def main() -> None:
     args = parse_args()
     rolling_dir = args.rolling_dir or _default_rolling_dir()
     assert os.path.isdir(rolling_dir), f"Rolling directory not found: {rolling_dir}"
+    only_finished_thinking = bool(getattr(args, "only_finished_thinking", False))
 
     # Parse filter
     exclude_patterns: Optional[List[str]] = None
@@ -695,7 +720,11 @@ def main() -> None:
     # Collect all prompts
     print("\nPhase 1: Collecting all prompts...")
     max_records = 1 if args.debug else None
-    prompts, prompt_mapping = collect_all_prompts(files, max_records_per_file=max_records)
+    prompts, prompt_mapping = collect_all_prompts(
+        files,
+        max_records_per_file=max_records,
+        only_finished_thinking=only_finished_thinking,
+    )
     print(f"Collected {len(prompts)} prompts total")
 
     if not prompts:
@@ -719,12 +748,20 @@ def main() -> None:
 
     # Update all files
     print("\nPhase 4: Updating files...")
-    per_prefix_stats = update_all_files(files, prompt_mapping, responses)
+    per_prefix_stats = update_all_files(
+        files,
+        prompt_mapping,
+        responses,
+        only_finished_thinking=only_finished_thinking,
+    )
 
     # Print per-model results
     total_files = sum(len(paths) for _, paths in files)
     total_records = sum(s["total"] for s in per_prefix_stats.values())
-    print(f"\nRe-evaluated {total_records} records across {total_files} files.")
+    if only_finished_thinking:
+        print(f"\nRe-evaluated {total_records} finished-thinking records across {total_files} files.")
+    else:
+        print(f"\nRe-evaluated {total_records} records across {total_files} files.")
 
     for prefix, stats in per_prefix_stats.items():
         prefix_name = os.path.basename(prefix).replace(".jsonl", "")
