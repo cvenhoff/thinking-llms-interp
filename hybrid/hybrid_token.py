@@ -63,7 +63,13 @@ def parse_args():
     parser.add_argument('--eval_start_idx', type=int, default=0,
                       help='Starting index in the dataset')
     parser.add_argument('--temperature', type=float, default=0.0,
-                      help='Temperature for sampling')
+                      help='Temperature for sampling in standalone thinking/base generation (not used by token-level hybrid generation).')
+    parser.add_argument(
+        '--steered-temperature',
+        type=float,
+        default=0.0,
+        help='Temperature for sampling ONLY on tokens where hybrid steering is applied (default: 0.0 = greedy). Tokens without steering remain greedy.',
+    )
     parser.add_argument('--coefficients', type=float, nargs='+', default=[0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
                         help='List of steering coefficients to evaluate per-token under the guardrail')
     parser.add_argument('--token_windows', type=int, nargs='+', default=[1],
@@ -228,7 +234,7 @@ def hybrid_generate_token(
     latent_descriptions,
     *,
     coefficient: float = 1.0,
-    temperature: float = 1.0,
+    steered_temperature: float = 0.0,
     verbose: bool = False,
     use_perplexity_guardrail: bool = False,
     coefficients: Optional[List[float]] = None,
@@ -247,6 +253,7 @@ def hybrid_generate_token(
       2) For each (coefficient, token_window) candidate, compute steered logits on base model.
       3) Select the next token by minimum perplexity under the thinking model (guardrail). If guardrail disabled, use the first provided candidate.
     """
+    assert float(steered_temperature) >= 0.0, "steered_temperature must be >= 0"
 
     # Normalize special-case: [1] means all tokens
     if token_windows is not None and isinstance(token_windows, list) and len(token_windows) == 1:
@@ -353,7 +360,7 @@ def hybrid_generate_token(
         # Actual next-token candidate according to chosen temperature
         tok_unsteered, tok_unsteered_str = get_token_and_string(
             _last_logits_unsteered,
-            temperature,
+            0.0,  # Always greedy when not steering
             base_tokenizer,
             base_output_ids,
         )
@@ -416,7 +423,7 @@ def hybrid_generate_token(
             _last_logits_steered0 = _last_logits_steered0.detach().to("cpu")
             tok_steered0, tok_steered0_str = get_token_and_string(
                 _last_logits_steered0,
-                temperature,
+                steered_temperature,
                 base_tokenizer,
                 base_output_ids,
             )
@@ -458,7 +465,7 @@ def hybrid_generate_token(
                         _last_logits_steered_c = _last_logits_steered_c.detach().to("cpu")
                         tok_c, tok_c_str = get_token_and_string(
                             _last_logits_steered_c,
-                            temperature,
+                            steered_temperature,
                             base_tokenizer,
                             base_output_ids,
                         )
@@ -896,7 +903,7 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
         sae=sae,
         steering_vectors=steering_vectors,
         latent_descriptions=descriptions,
-        temperature=args.temperature,
+        steered_temperature=float(args.steered_temperature),
         coefficient=(args.coefficients[0] if args.coefficients else 0.3),
         coefficients=args.coefficients,
         token_windows=args.token_windows,
@@ -1575,7 +1582,7 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             sae=sae,
             steering_vectors=steering_vectors,
             latent_descriptions=descriptions,
-            temperature=args.temperature,
+            steered_temperature=float(args.steered_temperature),
             coefficient=(args.coefficients[0] if args.coefficients else 0.3),
             coefficients=args.coefficients,
             token_windows=args.token_windows,
