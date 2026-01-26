@@ -1,0 +1,445 @@
+{
+  "metadata": {
+    "base_model": "Qwen/Qwen2.5-32B",
+    "thinking_model": "Open-Reasoner-Zero/Open-Reasoner-Zero-32B",
+    "dataset": "mbpp",
+    "temperature": 0.0,
+    "coefficients": [
+      0.5,
+      0.6,
+      0.7,
+      0.8,
+      0.9,
+      1.0
+    ],
+    "n_tasks": 18
+  },
+  "answer_lengths": {
+    "base_model": [
+      277,
+      66,
+      50,
+      56,
+      106,
+      113,
+      37,
+      57,
+      91,
+      46,
+      77,
+      57,
+      106,
+      109,
+      78,
+      115,
+      84,
+      110
+    ],
+    "thinking_model": [
+      980,
+      1243,
+      1078,
+      910,
+      975,
+      1312,
+      1093,
+      1105,
+      1185,
+      727,
+      1143,
+      936,
+      1362,
+      1222,
+      1189,
+      1277,
+      1259,
+      969
+    ],
+    "hybrid_model": [
+      178,
+      73,
+      204,
+      70,
+      149,
+      153,
+      56,
+      93,
+      142,
+      63,
+      238,
+      105,
+      124,
+      127,
+      76,
+      189,
+      161,
+      284
+    ],
+    "avg_base": 90.83333333333333,
+    "avg_thinking": 1109.1666666666667,
+    "avg_hybrid": 138.05555555555554
+  },
+  "steering_stats": {
+    "no_steering_fractions": [
+      0.8374233128834356,
+      0.8018018018018018,
+      0.7313432835820896,
+      0.8163265306122449,
+      0.8143459915611815,
+      0.8008298755186722,
+      0.7738095238095238,
+      0.8320610687022901,
+      0.8745247148288974,
+      0.7448979591836735,
+      0.8738095238095238,
+      0.8370786516853933,
+      0.8733031674208145,
+      0.982,
+      0.7878787878787878,
+      0.8161764705882353,
+      0.8333333333333334,
+      0.8269720101781171
+    ],
+    "avg_no_steering": 0.8254397781876676,
+    "detailed_stats": [
+      {
+        "steered_count": 53,
+        "unsteered_count": 273,
+        "total_tokens": 326,
+        "steering_fraction": 0.16257668711656442,
+        "no_steering_fraction": 0.8374233128834356
+      },
+      {
+        "steered_count": 22,
+        "unsteered_count": 89,
+        "total_tokens": 111,
+        "steering_fraction": 0.1981981981981982,
+        "no_steering_fraction": 0.8018018018018018
+      },
+      {
+        "steered_count": 72,
+        "unsteered_count": 196,
+        "total_tokens": 268,
+        "steering_fraction": 0.26865671641791045,
+        "no_steering_fraction": 0.7313432835820896
+      },
+      {
+        "steered_count": 27,
+        "unsteered_count": 120,
+        "total_tokens": 147,
+        "steering_fraction": 0.1836734693877551,
+        "no_steering_fraction": 0.8163265306122449
+      },
+      {
+        "steered_count": 44,
+        "unsteered_count": 193,
+        "total_tokens": 237,
+        "steering_fraction": 0.18565400843881857,
+        "no_steering_fraction": 0.8143459915611815
+      },
+      {
+        "steered_count": 48,
+        "unsteered_count": 193,
+        "total_tokens": 241,
+        "steering_fraction": 0.1991701244813278,
+        "no_steering_fraction": 0.8008298755186722
+      },
+      {
+        "steered_count": 19,
+        "unsteered_count": 65,
+        "total_tokens": 84,
+        "steering_fraction": 0.2261904761904762,
+        "no_steering_fraction": 0.7738095238095238
+      },
+      {
+        "steered_count": 22,
+        "unsteered_count": 109,
+        "total_tokens": 131,
+        "steering_fraction": 0.16793893129770993,
+        "no_steering_fraction": 0.8320610687022901
+      },
+      {
+        "steered_count": 33,
+        "unsteered_count": 230,
+        "total_tokens": 263,
+        "steering_fraction": 0.12547528517110265,
+        "no_steering_fraction": 0.8745247148288974
+      },
+      {
+        "steered_count": 25,
+        "unsteered_count": 73,
+        "total_tokens": 98,
+        "steering_fraction": 0.25510204081632654,
+        "no_steering_fraction": 0.7448979591836735
+      },
+      {
+        "steered_count": 53,
+        "unsteered_count": 367,
+        "total_tokens": 420,
+        "steering_fraction": 0.1261904761904762,
+        "no_steering_fraction": 0.8738095238095238
+      },
+      {
+        "steered_count": 29,
+        "unsteered_count": 149,
+        "total_tokens": 178,
+        "steering_fraction": 0.16292134831460675,
+        "no_steering_fraction": 0.8370786516853933
+      },
+      {
+        "steered_count": 28,
+        "unsteered_count": 193,
+        "total_tokens": 221,
+        "steering_fraction": 0.12669683257918551,
+        "no_steering_fraction": 0.8733031674208145
+      },
+      {
+        "steered_count": 36,
+        "unsteered_count": 1964,
+        "total_tokens": 2000,
+        "steering_fraction": 0.018,
+        "no_steering_fraction": 0.982
+      },
+      {
+        "steered_count": 21,
+        "unsteered_count": 78,
+        "total_tokens": 99,
+        "steering_fraction": 0.21212121212121213,
+        "no_steering_fraction": 0.7878787878787878
+      },
+      {
+        "steered_count": 50,
+        "unsteered_count": 222,
+        "total_tokens": 272,
+        "steering_fraction": 0.18382352941176472,
+        "no_steering_fraction": 0.8161764705882353
+      },
+      {
+        "steered_count": 40,
+        "unsteered_count": 200,
+        "total_tokens": 240,
+        "steering_fraction": 0.16666666666666666,
+        "no_steering_fraction": 0.8333333333333334
+      },
+      {
+        "steered_count": 68,
+        "unsteered_count": 325,
+        "total_tokens": 393,
+        "steering_fraction": 0.17302798982188294,
+        "no_steering_fraction": 0.8269720101781171
+      }
+    ],
+    "average_stats": {
+      "steered_count": 38.333333333333336,
+      "unsteered_count": 279.94444444444446,
+      "total_tokens": 318.27777777777777,
+      "steering_fraction": 0.17456022181233247,
+      "no_steering_fraction": 0.8254397781876676
+    }
+  },
+  "latent_usage": [
+    {
+      "Problem Decomposition": 15.09433962264151,
+      "Factual Premise Retrieval": 16.9811320754717,
+      "Deducing Quantitative Relationships": 9.433962264150944,
+      "Stating Given Information": 7.547169811320755,
+      "Structuring Problem-Solving Steps": 15.09433962264151,
+      "Generating Candidate Answers": 15.09433962264151,
+      "Recalling Mathematical Formulas": 9.433962264150944,
+      "Numeric Calculation Steps": 3.7735849056603774,
+      "Case-by-Case Evaluation": 5.660377358490567,
+      "Performing Calculations": 1.8867924528301887
+    },
+    {
+      "Problem Decomposition": 9.090909090909092,
+      "Performing Calculations": 18.181818181818183,
+      "Factual Premise Retrieval": 31.818181818181817,
+      "Structuring Problem-Solving Steps": 13.636363636363635,
+      "Deducing Quantitative Relationships": 13.636363636363635,
+      "Recalling Mathematical Formulas": 9.090909090909092,
+      "Stating Given Information": 4.545454545454546
+    },
+    {
+      "Problem Decomposition": 6.944444444444445,
+      "Factual Premise Retrieval": 18.055555555555554,
+      "Performing Calculations": 9.722222222222223,
+      "Stating Given Information": 2.7777777777777777,
+      "Case-by-Case Evaluation": 4.166666666666666,
+      "Deducing Quantitative Relationships": 4.166666666666666,
+      "Structuring Problem-Solving Steps": 5.555555555555555,
+      "Generating Candidate Answers": 15.277777777777779,
+      "Recalling Mathematical Formulas": 2.7777777777777777,
+      "Evaluating Options": 30.555555555555557
+    },
+    {
+      "Problem Decomposition": 7.4074074074074066,
+      "Recalling Mathematical Formulas": 14.814814814814813,
+      "Structuring Problem-Solving Steps": 7.4074074074074066,
+      "Factual Premise Retrieval": 29.629629629629626,
+      "Case-by-Case Evaluation": 3.7037037037037033,
+      "Generating Candidate Answers": 3.7037037037037033,
+      "Performing Calculations": 7.4074074074074066,
+      "Deducing Quantitative Relationships": 7.4074074074074066,
+      "Evaluating Options": 18.51851851851852
+    },
+    {
+      "Problem Decomposition": 11.363636363636363,
+      "Deducing Quantitative Relationships": 15.909090909090908,
+      "Factual Premise Retrieval": 20.454545454545457,
+      "Recalling Mathematical Formulas": 11.363636363636363,
+      "Structuring Problem-Solving Steps": 9.090909090909092,
+      "Performing Calculations": 25.0,
+      "Evaluating Options": 4.545454545454546,
+      "Generating Candidate Answers": 2.272727272727273
+    },
+    {
+      "Problem Decomposition": 14.583333333333334,
+      "Stating Given Information": 4.166666666666666,
+      "Case-by-Case Evaluation": 20.833333333333336,
+      "Structuring Problem-Solving Steps": 8.333333333333332,
+      "Deducing Quantitative Relationships": 12.5,
+      "Performing Calculations": 20.833333333333336,
+      "Factual Premise Retrieval": 10.416666666666668,
+      "Generating Candidate Answers": 2.083333333333333,
+      "Recalling Mathematical Formulas": 4.166666666666666,
+      "Evaluating Options": 2.083333333333333
+    },
+    {
+      "Problem Decomposition": 31.57894736842105,
+      "Factual Premise Retrieval": 26.31578947368421,
+      "Specifying Variables and Constants": 5.263157894736842,
+      "Structuring Problem-Solving Steps": 15.789473684210526,
+      "Recalling Mathematical Formulas": 10.526315789473683,
+      "Generating Candidate Answers": 10.526315789473683
+    },
+    {
+      "Problem Decomposition": 18.181818181818183,
+      "Deducing Quantitative Relationships": 13.636363636363635,
+      "Factual Premise Retrieval": 9.090909090909092,
+      "Stating Given Information": 13.636363636363635,
+      "Structuring Problem-Solving Steps": 9.090909090909092,
+      "Generating Candidate Answers": 18.181818181818183,
+      "Recalling Mathematical Formulas": 9.090909090909092,
+      "Numeric Calculation Steps": 9.090909090909092
+    },
+    {
+      "Problem Decomposition": 21.21212121212121,
+      "Factual Premise Retrieval": 27.27272727272727,
+      "Structuring Problem-Solving Steps": 21.21212121212121,
+      "Performing Calculations": 3.0303030303030303,
+      "Deducing Quantitative Relationships": 6.0606060606060606,
+      "Recalling Mathematical Formulas": 9.090909090909092,
+      "Case-by-Case Evaluation": 3.0303030303030303,
+      "Generating Candidate Answers": 9.090909090909092
+    },
+    {
+      "Problem Decomposition": 24.0,
+      "Case-by-Case Evaluation": 8.0,
+      "Structuring Problem-Solving Steps": 12.0,
+      "Performing Calculations": 8.0,
+      "Deducing Quantitative Relationships": 8.0,
+      "Factual Premise Retrieval": 8.0,
+      "Generating Candidate Answers": 20.0,
+      "Recalling Mathematical Formulas": 4.0,
+      "Numeric Calculation Steps": 8.0
+    },
+    {
+      "Problem Decomposition": 5.660377358490567,
+      "Deducing Quantitative Relationships": 11.320754716981133,
+      "Stating Given Information": 9.433962264150944,
+      "Performing Calculations": 13.20754716981132,
+      "Factual Premise Retrieval": 15.09433962264151,
+      "Structuring Problem-Solving Steps": 7.547169811320755,
+      "Generating Candidate Answers": 13.20754716981132,
+      "Recalling Mathematical Formulas": 5.660377358490567,
+      "Evaluating Options": 7.547169811320755,
+      "Case-by-Case Evaluation": 3.7735849056603774,
+      "Numeric Calculation Steps": 3.7735849056603774,
+      "Specifying Variables and Constants": 1.8867924528301887,
+      "Concept Elaboration": 1.8867924528301887
+    },
+    {
+      "Problem Decomposition": 17.24137931034483,
+      "Factual Premise Retrieval": 17.24137931034483,
+      "Structuring Problem-Solving Steps": 10.344827586206897,
+      "Performing Calculations": 20.689655172413794,
+      "Case-by-Case Evaluation": 3.4482758620689653,
+      "Generating Candidate Answers": 13.793103448275861,
+      "Recalling Mathematical Formulas": 10.344827586206897,
+      "Numeric Calculation Steps": 6.896551724137931
+    },
+    {
+      "Problem Decomposition": 14.285714285714285,
+      "Stating Given Information": 10.714285714285714,
+      "Performing Calculations": 3.571428571428571,
+      "Factual Premise Retrieval": 17.857142857142858,
+      "Structuring Problem-Solving Steps": 7.142857142857142,
+      "Recalling Mathematical Formulas": 17.857142857142858,
+      "Generating Candidate Answers": 17.857142857142858,
+      "Deducing Quantitative Relationships": 3.571428571428571,
+      "Numeric Calculation Steps": 7.142857142857142
+    },
+    {
+      "Problem Decomposition": 11.11111111111111,
+      "Recalling Mathematical Formulas": 8.333333333333332,
+      "Factual Premise Retrieval": 16.666666666666664,
+      "Case-by-Case Evaluation": 2.7777777777777777,
+      "Deducing Quantitative Relationships": 5.555555555555555,
+      "Structuring Problem-Solving Steps": 16.666666666666664,
+      "Performing Calculations": 8.333333333333332,
+      "Numeric Calculation Steps": 19.444444444444446,
+      "Generating Candidate Answers": 11.11111111111111
+    },
+    {
+      "Problem Decomposition": 23.809523809523807,
+      "Stating Given Information": 14.285714285714285,
+      "Case-by-Case Evaluation": 9.523809523809524,
+      "Structuring Problem-Solving Steps": 14.285714285714285,
+      "Performing Calculations": 14.285714285714285,
+      "Deducing Quantitative Relationships": 4.761904761904762,
+      "Generating Candidate Answers": 4.761904761904762,
+      "Recalling Mathematical Formulas": 14.285714285714285
+    },
+    {
+      "Problem Decomposition": 8.0,
+      "Factual Premise Retrieval": 22.0,
+      "Performing Calculations": 12.0,
+      "Case-by-Case Evaluation": 24.0,
+      "Structuring Problem-Solving Steps": 10.0,
+      "Generating Candidate Answers": 2.0,
+      "Recalling Mathematical Formulas": 4.0,
+      "Deducing Quantitative Relationships": 12.0,
+      "Stating Given Information": 2.0,
+      "Evaluating Options": 4.0
+    },
+    {
+      "Problem Decomposition": 17.5,
+      "Performing Calculations": 12.5,
+      "Case-by-Case Evaluation": 12.5,
+      "Stating Given Information": 7.5,
+      "Factual Premise Retrieval": 12.5,
+      "Deducing Quantitative Relationships": 12.5,
+      "Structuring Problem-Solving Steps": 7.5,
+      "Recalling Mathematical Formulas": 7.5,
+      "Generating Candidate Answers": 7.5,
+      "Evaluating Options": 2.5
+    },
+    {
+      "Problem Decomposition": 8.823529411764707,
+      "Stating Given Information": 5.88235294117647,
+      "Structuring Problem-Solving Steps": 13.23529411764706,
+      "Performing Calculations": 16.176470588235293,
+      "Factual Premise Retrieval": 22.058823529411764,
+      "Case-by-Case Evaluation": 2.941176470588235,
+      "Deducing Quantitative Relationships": 17.647058823529413,
+      "Generating Candidate Answers": 4.411764705882353,
+      "Recalling Mathematical Formulas": 5.88235294117647,
+      "Evaluating Options": 2.941176470588235
+    }
+  ],
+  "accuracies": {
+    "base_model": 61.111111111111114,
+    "thinking_model": 77.77777777777779,
+    "hybrid_model": 72.22222222222221
+  }
+}
