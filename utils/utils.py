@@ -175,12 +175,22 @@ async def chat_batch(prompts, model="gpt-4.1", max_tokens=28000, max_concurrent_
         temperature = 1
 
     # Create chat completion requests
-    requests = create_chat_completion_requests(
-        model=model,
-        prompts=prompts,
-        max_tokens=max_tokens,
-        temperature=temperature,
-    )
+    # Newer OpenAI models (gpt-5.x, o3, o4) require max_completion_tokens instead of max_tokens
+    use_max_completion_tokens = model.startswith("gpt-5") or model.startswith("o3") or model.startswith("o4")
+    if use_max_completion_tokens:
+        requests = create_chat_completion_requests(
+            model=model,
+            prompts=prompts,
+            max_completion_tokens=max_tokens,
+            temperature=temperature,
+        )
+    else:
+        requests = create_chat_completion_requests(
+            model=model,
+            prompts=prompts,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
     
     # Instantiate BatchConfig, accounting for versions without a `json_mode` parameter
     try:
