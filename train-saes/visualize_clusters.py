@@ -452,8 +452,12 @@ def get_all_model_ids():
 
 def visualize_all_models(output_dir="results/figures"):
     """
-    Load and visualize results for all models, displaying them side by side.
-    
+    Load and visualize results for QwQ and Open Reasoner Zero models only.
+
+    Layout:
+        Row 1: ORZ 0.5B - ORZ 1.5B - ORZ 7B
+        Row 2: ORZ 32B - QwQ 32B - empty
+
     Parameters:
     -----------
     output_dir : str
@@ -461,28 +465,17 @@ def visualize_all_models(output_dir="results/figures"):
     """
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
-    
-    # Get all model IDs
-    model_ids = get_all_model_ids()
-    # Filter out models with "Llama-70B" in title/id
-    model_ids = [m for m in model_ids if "llama-70b" not in m.lower()]
-    
-    if not model_ids:
-        print("No model results found.")
-        return
-    
-    print(f"Found {len(model_ids)} models: {', '.join(model_ids)}")
-    
-    # Sort model IDs by estimated model size
-    def get_model_size(model_id):
-        # Extract size indicators (like '1.5b', '7b', etc.)
-        size_indicators = ['125m', '350m', '770m', '1.5b', '3b', '7b', '13b', '30b', '70b']
-        for i, size in enumerate(size_indicators):
-            if size in model_id.lower():
-                return i
-        return len(size_indicators)  # Default to largest if no size found
-    
-    model_ids = sorted(model_ids, key=get_model_size)
+
+    # Fixed order: ORZ models by size, then QwQ
+    model_ids = [
+        "open-reasoner-zero-0.5b",
+        "open-reasoner-zero-1.5b",
+        "open-reasoner-zero-7b",
+        "open-reasoner-zero-32b",
+        "qwq-32b",
+    ]
+
+    print(f"Loading {len(model_ids)} models: {', '.join(model_ids)}")
     
     # Load results for all models
     model_results = {}
@@ -505,51 +498,36 @@ def visualize_all_models(output_dir="results/figures"):
         N=256
     )
     
-    # Create multi-panel figure with up to 3 columns and shared colorbar
+    # Create multi-panel figure with fixed 2x3 layout
+    # Layout: Row 1: ORZ 0.5B, ORZ 1.5B, ORZ 7B
+    #         Row 2: ORZ 32B, QwQ 32B, empty
     n_models = len(model_results)
     if n_models == 0:
         print("No results loaded for any model.")
         return
-    n_cols = min(3, n_models)
-    n_rows = int(np.ceil(n_models / n_cols))
+    n_cols = 3
+    n_rows = 2
     fig = plt.figure(figsize=(12 * n_cols, 11 * n_rows))
-    
+
     # Set font sizes globally for better readability in a paper
     plt.rcParams.update({
         'font.size': 18,
-        'axes.titlesize': 32,    # Increased from 28
-        'axes.labelsize': 28,    # Increased from 24
-        'xtick.labelsize': 24,   # Increased from 22
-        'ytick.labelsize': 24,   # Increased from 22
-        'legend.fontsize': 24,   # Increased from 22
-        'figure.titlesize': 36   # Increased from 32
+        'axes.titlesize': 32,
+        'axes.labelsize': 28,
+        'xtick.labelsize': 24,
+        'ytick.labelsize': 24,
+        'legend.fontsize': 24,
+        'figure.titlesize': 36
     })
-    
+
     # Create a GridSpec layout with space for the colorbar
     gs = fig.add_gridspec(n_rows, n_cols + 1, width_ratios=n_cols * [1] + [0.05], height_ratios=n_rows * [1], top=0.88)
-    
-    # Create axes for each model in row-major order, centering last row if not full
+
+    # Create axes for each model in row-major order
+    # Positions: (0,0), (0,1), (0,2), (1,0), (1,1) - leave (1,2) empty
     axes = []
-    items_in_last_row = n_models - (n_rows - 1) * n_cols
-    for i in range(n_models):
-        row = i // n_cols
-        idx_in_row = i - row * n_cols
-        if row == n_rows - 1 and items_in_last_row < n_cols:
-            # Center for 3-column grids: place 1 in middle, 2 at sides
-            if n_cols == 3:
-                if items_in_last_row == 1:
-                    col = 1
-                elif items_in_last_row == 2:
-                    # Place two items adjacent near the center-left: columns 0 and 1
-                    col = 0 if idx_in_row == 0 else 1
-                else:
-                    col = idx_in_row
-            else:
-                # Generic offset for other n_cols
-                offset = (n_cols - items_in_last_row) // 2
-                col = offset + idx_in_row
-        else:
-            col = idx_in_row
+    positions = [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1)]
+    for i, (row, col) in enumerate(positions[:n_models]):
         axes.append(fig.add_subplot(gs[row, col]))
     
     # Create a separate axis for the colorbar spanning all rows
@@ -652,14 +630,24 @@ def visualize_all_models(output_dir="results/figures"):
                                               edgecolor='#000000',  # Black
                                               linewidth=0.5))
         
-        # Set labels
-        ax.set_ylabel("Number of Clusters", fontsize=28) if j == 0 else ax.set_ylabel("")
+        # Set labels - show y-label only on leftmost column (j=0 for row 0, j=3 for row 1)
+        if j in [0, 3]:
+            ax.set_ylabel("Number of Clusters", fontsize=28)
+        else:
+            ax.set_ylabel("")
         ax.set_xlabel("Layer", fontsize=28)
         ax.tick_params(axis='both', which='major', labelsize=24)
         
-        # Set title (keep model name on one line)
-        display_model_id = model_id.upper()
-        ax.set_title(display_model_id, fontsize=32, pad=10)  # Reduced padding
+        # Set title with readable display names
+        display_names = {
+            "open-reasoner-zero-0.5b": "ORZ 0.5B",
+            "open-reasoner-zero-1.5b": "ORZ 1.5B",
+            "open-reasoner-zero-7b": "ORZ 7B",
+            "open-reasoner-zero-32b": "ORZ 32B",
+            "qwq-32b": "QwQ 32B",
+        }
+        display_model_id = display_names.get(model_id, model_id.upper())
+        ax.set_title(display_model_id, fontsize=32, pad=10)
     
     # Add a single colorbar
     norm = plt.Normalize(vmin=0, vmax=1)
