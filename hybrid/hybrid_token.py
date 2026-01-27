@@ -50,6 +50,12 @@ def parse_args():
                       help='Layer to read from in the thinking model for SAE projection')
     parser.add_argument('--n_clusters', type=int, default=10,
                       help='Number of clusters for SAE')
+    parser.add_argument(
+        '--disable-sae-mean',
+        action='store_true',
+        default=False,
+        help='If set, do NOT mean-center or L2-normalize thinking activations before SAE projection; feed raw activations into the SAE encoder.',
+    )
     parser.add_argument('--n_tasks', type=int, default=500,
                       help='Number of tasks to evaluate')
     parser.add_argument('--max_new_tokens', type=int, default=5000,
@@ -290,6 +296,7 @@ def hybrid_generate_token(
     *,
     coefficient: float = 1.0,
     steered_temperature: float = 0.0,
+    disable_sae_mean: bool = False,
     disable_steering_in_code_blocks: bool = False,
     initial_generated_text: str = "",
     verbose: bool = False,
@@ -311,6 +318,7 @@ def hybrid_generate_token(
       3) Select the next token by minimum perplexity under the thinking model (guardrail). If guardrail disabled, use the first provided candidate.
     """
     assert float(steered_temperature) >= 0.0, "steered_temperature must be >= 0"
+    assert isinstance(disable_sae_mean, bool)
     assert isinstance(disable_steering_in_code_blocks, bool)
     assert isinstance(initial_generated_text, str)
 
@@ -370,8 +378,16 @@ def hybrid_generate_token(
                 with thinking_model.trace(thinking_output_ids) as tracer:
                     activation_curr = thinking_model.model.layers[sae_layer].output[0, -1, :].save()
             activation_curr = activation_curr.detach().clone()
-            x_norm = center_and_l2_normalize_torch(activation_curr, sae.activation_mean)
-            latent_acts = sae.encoder(x_norm - sae.b_dec)
+            if disable_sae_mean:
+                x_in = activation_curr.to(dtype=torch.float32)
+                assert x_in.ndim == 1
+                assert x_in.shape == sae.b_dec.shape, f"Bad shapes: x_in.shape={tuple(x_in.shape)} b_dec.shape={tuple(sae.b_dec.shape)}"
+                latent_acts = sae.encoder(x_in - sae.b_dec)
+                del x_in
+            else:
+                x_norm = center_and_l2_normalize_torch(activation_curr, sae.activation_mean)
+                latent_acts = sae.encoder(x_norm - sae.b_dec)
+                del x_norm
             del activation_curr
             torch.cuda.empty_cache()
 
@@ -821,7 +837,12 @@ def load_models_and_sae(args):
     if args.temperature > 0:
         base_model.generation_config.do_sample = True
     print(f"Loading SAE for model {thinking_model_id}, layer {args.sae_layer}...")
-    sae, _ = load_sae(thinking_model_id, args.sae_layer, args.n_clusters)
+    sae, _ = load_sae(
+        thinking_model_id,
+        args.sae_layer,
+        args.n_clusters,
+        require_activation_mean=(not bool(getattr(args, "disable_sae_mean", False))),
+    )
     sae = sae.to(thinking_model.device)
     print(f"Loading steering vectors and layer effects...")
     descriptions = get_latent_descriptions(thinking_model_id, args.sae_layer, args.n_clusters)
@@ -2048,6 +2069,12 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
 args = parse_args()
 if bool(getattr(args, "disable_steering_in_code_blocks", False)):
     print("[CodeFence] disable-steering-in-code-blocks enabled: steering disabled inside ```python ... ```.")
+if bool(getattr(args, "disable_sae_mean", False)):
+    print("\n" + "!" * 90)
+    print("!!! WARNING: --disable-sae-mean is enabled !!!")
+    print("This will feed RAW thinking-model activations into the SAE encoder (no mean-centering, no L2-normalization).")
+    print("Results may not be comparable to standard runs. Use only if you know what you're doing.")
+    print("!" * 90 + "\n")
 
 # Create results directory if it doesn't exist
 os.makedirs(args.results_dir, exist_ok=True)
