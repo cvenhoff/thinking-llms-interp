@@ -80,6 +80,12 @@ def parse_args():
                       help='Number of initial tokens from the thinking model to prepend as a cold-start prefix')
     parser.add_argument('--results_dir', type=str, default='results',
                       help='Directory to save results')
+    parser.add_argument(
+        '--results-suffix',
+        type=str,
+        default='',
+        help='Optional custom suffix appended to all result filenames/prefixes (before extension). Example: --results-suffix exp1',
+    )
     parser.add_argument('--example_idx', type=int, default=0,
                       help='Index of example to run')
     parser.add_argument('--use_perplexity_guardrail', action='store_true', default=True,
@@ -118,6 +124,15 @@ def _result_suffix(args):
         s += "_random-firing"
     if getattr(args, "random_vectors", False):
         s += "_random-vectors"
+    custom = getattr(args, "results_suffix", "")
+    if custom:
+        assert isinstance(custom, str)
+        assert custom == custom.strip(), "--results-suffix must not have leading/trailing whitespace"
+        assert re.match(r"^[A-Za-z0-9._-]+$", custom), "--results-suffix must match ^[A-Za-z0-9._-]+$"
+        if not custom.startswith("_"):
+            s += "_" + custom
+        else:
+            s += custom
     return s
 
 def _is_ablation(args):
