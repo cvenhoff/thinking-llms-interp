@@ -452,11 +452,11 @@ def get_all_model_ids():
 
 def visualize_all_models(output_dir="results/figures"):
     """
-    Load and visualize results for QwQ and Open Reasoner Zero models only.
+    Load and visualize results for DeepSeek distill, QwQ, and Open Reasoner Zero models.
 
     Layout:
-        Row 1: ORZ 0.5B - ORZ 1.5B - ORZ 7B
-        Row 2: ORZ 32B - QwQ 32B - empty
+        Row 1: Deepseek 1.5B - Deepseek Llama 8B - Deepseek Qwen 14B - Deepseek Qwen 32B - QwQ 32B
+        Row 2: ORZ 0.5B - ORZ 1.5B - ORZ 7B - ORZ 32B - empty
 
     Parameters:
     -----------
@@ -466,18 +466,24 @@ def visualize_all_models(output_dir="results/figures"):
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
 
-    # Fixed order: ORZ models by size, then QwQ
+    # Fixed order: DeepSeek distill models, QwQ, then ORZ models
     model_ids = [
+        # Row 1: DeepSeek distill models + QwQ
+        "deepseek-r1-distill-qwen-1.5b",
+        "deepseek-r1-distill-llama-8b",
+        "deepseek-r1-distill-qwen-14b",
+        "deepseek-r1-distill-qwen-32b",
+        "qwq-32b",
+        # Row 2: ORZ models
         "open-reasoner-zero-0.5b",
         "open-reasoner-zero-1.5b",
         "open-reasoner-zero-7b",
         "open-reasoner-zero-32b",
-        "qwq-32b",
     ]
 
     print(f"Loading {len(model_ids)} models: {', '.join(model_ids)}")
-    
-    # Load results for all models
+
+    # Load results for all models (preserve order)
     model_results = {}
     for model_id in model_ids:
         results_df = load_sae_grid_search_results(model_id)
@@ -486,28 +492,24 @@ def visualize_all_models(output_dir="results/figures"):
             print(f"Loaded results for {model_id}")
         else:
             print(f"No results found for {model_id}")
-    
+
     if not model_results:
         print("No results loaded for any model.")
         return
-    
+
     # Define custom colormap
     cmap = LinearSegmentedColormap.from_list(
         'custom_diverging',
         [(0.9, 0.5, 0.5), (1.0, 1.0, 1.0), (0.5, 0.5, 0.9)],
         N=256
     )
-    
-    # Create multi-panel figure with fixed 2x3 layout
-    # Layout: Row 1: ORZ 0.5B, ORZ 1.5B, ORZ 7B
-    #         Row 2: ORZ 32B, QwQ 32B, empty
-    n_models = len(model_results)
-    if n_models == 0:
-        print("No results loaded for any model.")
-        return
-    n_cols = 3
+
+    # Create multi-panel figure with fixed 2x5 layout
+    # Layout: Row 1: Deepseek 1.5B, Deepseek Llama 8B, Deepseek Qwen 14B, Deepseek Qwen 32B, QwQ 32B
+    #         Row 2: ORZ 0.5B, ORZ 1.5B, ORZ 7B, ORZ 32B, empty
+    n_cols = 5
     n_rows = 2
-    fig = plt.figure(figsize=(12 * n_cols, 11 * n_rows))
+    fig = plt.figure(figsize=(8 * n_cols, 11 * n_rows))
 
     # Set font sizes globally for better readability in a paper
     plt.rcParams.update({
@@ -524,10 +526,11 @@ def visualize_all_models(output_dir="results/figures"):
     gs = fig.add_gridspec(n_rows, n_cols + 1, width_ratios=n_cols * [1] + [0.05], height_ratios=n_rows * [1], top=0.88)
 
     # Create axes for each model in row-major order
-    # Positions: (0,0), (0,1), (0,2), (1,0), (1,1) - leave (1,2) empty
+    # Row 1: 5 models (cols 0-4), Row 2: 4 models (cols 0-3), leave (1,4) empty
     axes = []
-    positions = [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1)]
-    for i, (row, col) in enumerate(positions[:n_models]):
+    positions = [(0, 0), (0, 1), (0, 2), (0, 3), (0, 4),  # Row 1: 5 DeepSeek/QwQ models
+                 (1, 0), (1, 1), (1, 2), (1, 3)]           # Row 2: 4 ORZ models
+    for i, (row, col) in enumerate(positions[:len(model_results)]):
         axes.append(fig.add_subplot(gs[row, col]))
     
     # Create a separate axis for the colorbar spanning all rows
@@ -602,7 +605,7 @@ def visualize_all_models(output_dir="results/figures"):
             text = f"{pivot.iloc[pos[0], pos[1]]:.2f}"
             ax.text(pos[1] + 0.5, pos[0] + 0.5, text,
                    ha="center", va="center",
-                   fontsize=28, weight="bold", color="black")
+                   fontsize=22, weight="bold", color="black")
             ax.add_patch(plt.Rectangle((pos[1], pos[0]), 1, 1, fill=False, 
                                       edgecolor=color, lw=5, linestyle='-'))
         
@@ -610,7 +613,7 @@ def visualize_all_models(output_dir="results/figures"):
             text = f"{pivot.iloc[pos[0], pos[1]]:.2f}"
             ax.text(pos[1] + 0.5, pos[0] + 0.5, text,
                    ha="center", va="center",
-                   fontsize=28, weight="bold", color="black")
+                   fontsize=22, weight="bold", color="black")
             ax.add_patch(plt.Rectangle((pos[1], pos[0]), 1, 1, fill=False, 
                                       edgecolor=color, lw=5, linestyle='-'))
         
@@ -630,21 +633,25 @@ def visualize_all_models(output_dir="results/figures"):
                                               edgecolor='#000000',  # Black
                                               linewidth=0.5))
         
-        # Set labels - show y-label only on leftmost column (j=0 for row 0, j=3 for row 1)
-        if j in [0, 3]:
+        # Set labels - show y-label only on leftmost column (j=0 for row 1, j=5 for row 2)
+        if j in [0, 5]:
             ax.set_ylabel("Number of Clusters", fontsize=28)
         else:
             ax.set_ylabel("")
         ax.set_xlabel("Layer", fontsize=28)
         ax.tick_params(axis='both', which='major', labelsize=24)
-        
+
         # Set title with readable display names
         display_names = {
+            "deepseek-r1-distill-qwen-1.5b": "Deepseek 1.5B",
+            "deepseek-r1-distill-llama-8b": "Deepseek Llama 8B",
+            "deepseek-r1-distill-qwen-14b": "Deepseek Qwen 14B",
+            "deepseek-r1-distill-qwen-32b": "Deepseek Qwen 32B",
+            "qwq-32b": "QwQ 32B",
             "open-reasoner-zero-0.5b": "ORZ 0.5B",
             "open-reasoner-zero-1.5b": "ORZ 1.5B",
             "open-reasoner-zero-7b": "ORZ 7B",
             "open-reasoner-zero-32b": "ORZ 32B",
-            "qwq-32b": "QwQ 32B",
         }
         display_model_id = display_names.get(model_id, model_id.upper())
         ax.set_title(display_model_id, fontsize=32, pad=10)
