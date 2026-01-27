@@ -788,6 +788,7 @@ def _print_stats(
         prefix_name = os.path.basename(prefix).replace(".jsonl", "")
         n = stats["total"]
         if n == 0:
+            print(f"\n[WARNING] Skipping {prefix_name}: 0 records" + (" with finished thinking" if only_finished_thinking else ""))
             continue
 
         thinking_correct = stats["correct"]["thinking"]
