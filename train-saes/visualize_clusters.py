@@ -506,7 +506,7 @@ def visualize_all_models(output_dir="results/figures"):
 
     # Create multi-panel figure with fixed 2x5 layout
     # Layout: Row 1: Deepseek 1.5B, Deepseek Llama 8B, Deepseek Qwen 14B, Deepseek Qwen 32B, QwQ 32B
-    #         Row 2: ORZ 0.5B, ORZ 1.5B, ORZ 7B, ORZ 32B, empty
+    #         Row 2: ORZ 0.5B, ORZ 1.5B, ORZ 7B, ORZ 32B (centered)
     n_cols = 5
     n_rows = 2
     fig = plt.figure(figsize=(8 * n_cols, 11 * n_rows))
@@ -522,16 +522,20 @@ def visualize_all_models(output_dir="results/figures"):
         'figure.titlesize': 36
     })
 
-    # Create a GridSpec layout with space for the colorbar
-    gs = fig.add_gridspec(n_rows, n_cols + 1, width_ratios=n_cols * [1] + [0.05], height_ratios=n_rows * [1], top=0.88)
+    # Create a GridSpec layout with 10 columns (2 per plot) + colorbar to allow centering bottom row
+    # Each plot spans 2 columns; bottom row is offset by 1 column to center 4 plots in 5-plot width
+    gs = fig.add_gridspec(n_rows, 10 + 1, width_ratios=10 * [1] + [0.1], height_ratios=n_rows * [1], top=0.88)
 
     # Create axes for each model in row-major order
-    # Row 1: 5 models (cols 0-4), Row 2: 4 models (cols 0-3), leave (1,4) empty
+    # Row 1: 5 models at cols 0-1, 2-3, 4-5, 6-7, 8-9
+    # Row 2: 4 models at cols 1-2, 3-4, 5-6, 7-8 (offset by 1 to center)
     axes = []
-    positions = [(0, 0), (0, 1), (0, 2), (0, 3), (0, 4),  # Row 1: 5 DeepSeek/QwQ models
-                 (1, 0), (1, 1), (1, 2), (1, 3)]           # Row 2: 4 ORZ models
-    for i, (row, col) in enumerate(positions[:len(model_results)]):
-        axes.append(fig.add_subplot(gs[row, col]))
+    # Row 1: 5 DeepSeek/QwQ models
+    for i in range(5):
+        axes.append(fig.add_subplot(gs[0, i*2:(i+1)*2]))
+    # Row 2: 4 ORZ models (centered by offsetting by 1 column)
+    for i in range(4):
+        axes.append(fig.add_subplot(gs[1, 1+i*2:1+(i+1)*2]))
     
     # Create a separate axis for the colorbar spanning all rows
     cbar_ax = fig.add_subplot(gs[:, -1])
