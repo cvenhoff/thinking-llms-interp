@@ -116,7 +116,8 @@ def parse_args():
         default=False,
         help='If set, hybrid token steering is disabled inside fenced python code blocks: after generating "```python" steering is off until the next "```".',
     )
-    args = parser.parse_known_args()[0]
+    args, unknown = parser.parse_known_args()
+    assert not unknown, f"Unknown arguments: {unknown}"
     # Special handling: if [1] is provided, treat as "all tokens"
     if isinstance(args.token_windows, list) and len(args.token_windows) == 1 and int(args.token_windows[0]) == 1:
         args.token_windows = [0]
@@ -2073,6 +2074,8 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
 
 # Get command line arguments
 args = parse_args()
+if bool(getattr(args, "results_suffix", "")):
+    print(f"[Results] results-suffix active: {getattr(args, 'results_suffix')}")
 if bool(getattr(args, "disable_steering_in_code_blocks", False)):
     print("[CodeFence] disable-steering-in-code-blocks enabled: steering disabled inside ```python ... ```.")
 if bool(getattr(args, "disable_sae_mean", False)):
