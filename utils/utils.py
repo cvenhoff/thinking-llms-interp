@@ -176,7 +176,9 @@ async def chat_batch(prompts, model="gpt-4.1", max_tokens=28000, max_concurrent_
 
     # Create chat completion requests
     # Newer OpenAI models (gpt-5.x, o3, o4) require max_completion_tokens instead of max_tokens
-    use_max_completion_tokens = model.startswith("gpt-5") or model.startswith("o3") or model.startswith("o4")
+    # Handle both "gpt-5.2" and "openai/gpt-5.2" formats
+    model_name_only = model.split("/")[-1] if "/" in model else model
+    use_max_completion_tokens = model_name_only.startswith("gpt-5") or model_name_only.startswith("o3") or model_name_only.startswith("o4")
     if use_max_completion_tokens:
         requests = create_chat_completion_requests(
             model=model,
