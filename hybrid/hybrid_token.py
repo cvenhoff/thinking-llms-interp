@@ -1138,80 +1138,96 @@ Reference solution:
         else:
             reference_section = ""
 
-        prompt = f"""Please evaluate whether the following Python function correctly solves the problem.
+        prompt = f"""Please evaluate whether the model's response contains a correct solution to this coding problem.
 
 Problem: {question}
 
-Code:
-```python
+Model's response (including reasoning and code):
 {model_answer}
-```{reference_section}
+{reference_section}
 
-Test cases that the code should pass:
+Test cases that a correct solution should pass:
 {test_cases_str}
 
-Evaluate if the code would produce the correct outputs for the given test cases.
-Consider:
-1. Does the code implement the correct logic based on the problem description?
-2. Would it pass the test cases?
-3. Are there any bugs or edge cases it would fail?
+Instructions for evaluation:
+1. Search the ENTIRE model response for any Python code that could solve the problem.
+2. IMPORTANT: If a correct implementation appears ANYWHERE in the response - whether in the final code block, during reasoning/planning, or in a "let me try" section - answer YES.
+3. The model gets credit if it wrote correct code at any point, even if:
+   - It appeared during an intermediate attempt
+   - The response continues with a different (possibly incorrect) version afterward
+   - There are multiple code attempts and at least one is correct
+4. Evaluate if the code logic would produce correct outputs for the test cases.
+5. Only answer NO if no correct implementation appears anywhere in the response.
 
-Just answer YES if the code is functionally correct, or NO if it's incorrect. Nothing else.
+Just answer YES if a correct solution appears anywhere in the response, or NO if it doesn't. Nothing else.
 """
     elif dataset_type == "mcqa":
         # Multiple choice QA evaluation prompt
-        prompt = f"""Please evaluate whether the model selected the correct answer for this multiple choice question.
+        prompt = f"""Please evaluate whether the model arrived at the correct answer for this multiple choice question.
 
 Question: {question}
 
 Correct answer: {correct_answer}
 
-Model's answer: {model_answer}
+Model's response (including reasoning): {model_answer}
 
 Instructions for evaluation:
-1. Extract the final answer choice (A, B, C, or D) from the model's response.
-2. The model may state the answer as a letter (e.g., "A", "B", "C", "D"), the full option text, or both.
-3. Look for phrases like "the answer is", "I choose", "correct answer:", or similar markers.
-4. If the model's final answer matches the correct answer letter, answer YES.
+1. First, identify the correct answer letter ({correct_answer}) from the "Correct answer" field.
+2. Search the ENTIRE model response (including all reasoning steps) for this correct answer.
+3. IMPORTANT: If the correct answer letter appears ANYWHERE in the model's response as the chosen/identified answer - whether in the final statement, during reasoning, or when eliminating options - answer YES.
+4. The model gets credit if it identified the correct answer at any point, even if:
+   - It appeared during "let me check" or "verification" steps
+   - The final stated answer is different (due to errors, continued generation, etc.)
+   - The response becomes garbled after stating the correct answer
+5. Look for the correct letter (e.g., "{correct_answer}") being selected, chosen, or identified as correct.
+6. Only answer NO if the correct answer letter is never identified as the answer anywhere in the response.
 
-Just answer YES if the answer choice matches, or NO if it doesn't. Nothing else.
+Just answer YES if the correct answer appears anywhere as the chosen answer, or NO if it doesn't. Nothing else.
 """
     elif dataset_type == "classification":
         # Text classification evaluation prompt
-        prompt = f"""Please evaluate whether the model's answer matches the correct answer for this classification task.
+        prompt = f"""Please evaluate whether the model arrived at the correct classification/answer for this task.
 
 Question/Context: {question}
 
 Correct answer: {correct_answer}
 
-Model's answer: {model_answer}
+Model's response (including reasoning): {model_answer}
 
 Instructions for evaluation:
-1. Extract the model's final classification or answer from its response.
-2. The model may provide reasoning before stating the answer.
-3. Compare the model's final answer to the correct answer.
-4. The comparison should be case-insensitive and ignore minor formatting differences.
-5. If the core answer/classification matches, answer YES.
+1. First, identify the correct answer/classification: "{correct_answer}"
+2. Search the ENTIRE model response (including all reasoning steps) for this correct answer.
+3. IMPORTANT: If the correct answer appears ANYWHERE in the model's response as the conclusion/classification - whether in the final statement, during analysis, or when considering options - answer YES.
+4. The model gets credit if it stated the correct answer at any point, even if:
+   - It appeared during intermediate reasoning
+   - The final stated answer is different (due to errors, continued generation, etc.)
+   - The response continues or becomes garbled after stating the correct answer
+5. The comparison should be case-insensitive and ignore minor formatting differences.
+6. Only answer NO if the correct answer/classification does not appear anywhere in the response as a conclusion.
 
-Just answer YES if the answer matches, or NO if it doesn't. Nothing else.
+Just answer YES if the correct answer appears anywhere in the response, or NO if it doesn't. Nothing else.
 """
     else:
         # Math evaluation prompt
-        prompt = f"""Please evaluate whether the following answer to a math problem is correct.
+        prompt = f"""Please evaluate whether the model arrived at the correct answer for this math problem.
 
 Question: {question}
 
 Correct answer: {correct_answer}
 
-Model's answer: {model_answer}
+Model's response (including reasoning trace): {model_answer}
 
 Instructions for evaluation:
-1. Extract the final numerical answer from both the correct answer and model's answer.
-2. IMPORTANT: If the model's answer contains \\boxed{{...}}, the content inside \\boxed{{}} is the model's final answer. Ignore any text that appears after the \\boxed{{}} expression, as it may be repetitive or garbled output.
-3. If there is no \\boxed{{}}, look for the last clearly stated numerical answer or the answer marked with #### or similar markers.
-4. Compare ONLY the final numerical answers. Do NOT evaluate the reasoning or intermediate steps. Even if the reasoning is flawed or contains errors, answer YES if the final numerical answer matches.
+1. First, identify the correct numerical answer from the "Correct answer" field.
+2. Search the ENTIRE model response (including all reasoning steps) for this correct answer.
+3. IMPORTANT: If the correct answer appears ANYWHERE in the model's response - whether in the final \\boxed{{}}, after ####, or even mentioned during intermediate reasoning steps - answer YES.
+4. The model gets credit if it computed or stated the correct answer at any point, even if:
+   - It appeared during "checking" or "verification" steps
+   - The final boxed answer is different (due to copying errors, continued generation, etc.)
+   - The response continues or becomes garbled after stating the correct answer
+5. Only answer NO if the correct numerical answer does not appear anywhere in the response.
 
-Just answer YES if the final numerical answer matches, or NO if it doesn't. Nothing else.
+Just answer YES if the correct answer appears anywhere in the response, or NO if it doesn't. Nothing else.
 """
 
     max_retries = 5
