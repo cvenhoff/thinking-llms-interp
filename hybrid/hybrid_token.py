@@ -33,11 +33,13 @@ except Exception:
 from datasets import load_dataset
 
 CODING_DATASETS = {"mbpp", "livecodebench"}
+MCQA_DATASETS = {"medqa"}  # Multiple choice QA datasets
+TEXT_CLASSIFICATION_DATASETS = {"legalbench"}  # Text classification datasets
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Evaluate hybrid model on datasets (token-level steering)')
-    parser.add_argument('--dataset', type=str, choices=['gsm8k', 'math500', "aime24", "aime25", "mbpp", "livecodebench"], default='aime24',
-                      help='Dataset to evaluate on (gsm8k, math500, aime24, aime25, mbpp, or livecodebench)')
+    parser.add_argument('--dataset', type=str, choices=['gsm8k', 'math500', "aime24", "aime25", "mbpp", "livecodebench", "medqa", "legalbench"], default='aime24',
+                      help='Dataset to evaluate on (gsm8k, math500, aime24, aime25, mbpp, livecodebench, medqa, or legalbench)')
     parser.add_argument('--thinking_model', type=str, default='Qwen/QwQ-32B',
                       help='Model for thinking/perplexity')
     parser.add_argument('--base_model', type=str, default='Qwen/Qwen2.5-32B',
@@ -875,6 +877,30 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
                     "test_list": test_list,
                     "starter_code": starter_code
                 }
+            elif args.dataset == "medqa":
+                # MedQA multiple choice - format options into question
+                options = item["options"]
+                options_str = "\n".join([f"{k}. {v}" for k, v in options.items()])
+                example = {
+                    "question": f"{item['question']}\n\nOptions:\n{options_str}",
+                    "answer": item["answer_idx"],  # Use letter (A/B/C/D) as canonical answer
+                    "answer_text": item["answer"],  # Full text for context
+                    "options": options
+                }
+            elif args.dataset == "legalbench":
+                # LegalBench - variable format across subsets
+                # Some have 'text' + 'answer', some have 'question' + 'text' + 'answer'
+                if "question" in item and "text" in item:
+                    question_text = f"Context:\n{item['text']}\n\nQuestion: {item['question']}"
+                elif "text" in item:
+                    question_text = item["text"]
+                else:
+                    question_text = str(item)
+                example = {
+                    "question": question_text,
+                    "answer": str(item.get("answer", "")),
+                    "subset": item.get("subset", "unknown")
+                }
             break
 
     question = example["question"]
@@ -897,6 +923,14 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
         starter_hint = f"\n\nStarter code:\n```python\n{starter_code}\n```" if starter_code else ""
         thinking_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{starter_hint}{tests_section}"
         base_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{starter_hint}{tests_section}\n\n{CODING_BASE_SUFFIX}"
+    elif args.dataset == "medqa":
+        # Multiple choice medical question - ask for the answer letter
+        thinking_prompt = f"{question}\n\nPlease select the correct answer (A, B, C, or D) and explain your reasoning."
+        base_prompt = f"Task: Answer the following medical question by selecting the correct option (A, B, C, or D). Explain your reasoning step by step.\n\n{question}\n\nStep by step answer:\n"
+    elif args.dataset == "legalbench":
+        # Legal reasoning - ask for the answer
+        thinking_prompt = f"{question}\n\nProvide your answer and explain your reasoning."
+        base_prompt = f"Task: Answer the following legal question. Explain your reasoning step by step.\n\n{question}\n\nStep by step answer:\n"
     else:
         thinking_prompt = question
         base_prompt = f"Task: Answer the question below. Explain your reasoning step by step.\n\n\n\nQuestion:\n{question}\n\nStep by step answer:\n"
@@ -1083,6 +1117,43 @@ Consider:
 3. Are there any bugs or edge cases it would fail?
 
 Just answer YES if the code is functionally correct, or NO if it's incorrect. Nothing else.
+"""
+    elif dataset_type == "mcqa":
+        # Multiple choice QA evaluation prompt
+        prompt = f"""Please evaluate whether the model selected the correct answer for this multiple choice question.
+
+Question: {question}
+
+Correct answer: {correct_answer}
+
+Model's answer: {model_answer}
+
+Instructions for evaluation:
+1. Extract the final answer choice (A, B, C, or D) from the model's response.
+2. The model may state the answer as a letter (e.g., "A", "B", "C", "D"), the full option text, or both.
+3. Look for phrases like "the answer is", "I choose", "correct answer:", or similar markers.
+4. If the model's final answer matches the correct answer letter, answer YES.
+
+Just answer YES if the answer choice matches, or NO if it doesn't. Nothing else.
+"""
+    elif dataset_type == "classification":
+        # Text classification evaluation prompt
+        prompt = f"""Please evaluate whether the model's answer matches the correct answer for this classification task.
+
+Question/Context: {question}
+
+Correct answer: {correct_answer}
+
+Model's answer: {model_answer}
+
+Instructions for evaluation:
+1. Extract the model's final classification or answer from its response.
+2. The model may provide reasoning before stating the answer.
+3. Compare the model's final answer to the correct answer.
+4. The comparison should be case-insensitive and ignore minor formatting differences.
+5. If the core answer/classification matches, answer YES.
+
+Just answer YES if the answer matches, or NO if it doesn't. Nothing else.
 """
     else:
         # Math evaluation prompt
@@ -1498,6 +1569,25 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             # test_list = public_test_list + private_test_list
             test_list = public_test_list
             starter_code = item.get("starter_code", "")
+        elif args.dataset == "medqa":
+            # MedQA multiple choice - format options into question
+            options = item["options"]
+            options_str = "\n".join([f"{k}. {v}" for k, v in options.items()])
+            question = f"{item['question']}\n\nOptions:\n{options_str}"
+            correct_answer = item["answer_idx"]  # Letter (A/B/C/D)
+            test_list = None
+            starter_code = ""
+        elif args.dataset == "legalbench":
+            # LegalBench - variable format across subsets
+            if "question" in item and "text" in item:
+                question = f"Context:\n{item['text']}\n\nQuestion: {item['question']}"
+            elif "text" in item:
+                question = item["text"]
+            else:
+                question = str(item)
+            correct_answer = str(item.get("answer", ""))
+            test_list = None
+            starter_code = ""
 
         # Build prompts based on dataset type
         if args.dataset == "mbpp":
@@ -1513,6 +1603,14 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             starter_hint = f"\n\nStarter code:\n```python\n{starter_code}\n```" if starter_code else ""
             thinking_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{starter_hint}{tests_section}"
             base_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{starter_hint}{tests_section}\n\n{CODING_BASE_SUFFIX}"
+        elif args.dataset == "medqa":
+            # Multiple choice medical question - ask for the answer letter
+            thinking_prompt = f"{question}\n\nPlease select the correct answer (A, B, C, or D) and explain your reasoning."
+            base_prompt = f"Task: Answer the following medical question by selecting the correct option (A, B, C, or D). Explain your reasoning step by step.\n\n{question}\n\nStep by step answer:\n"
+        elif args.dataset == "legalbench":
+            # Legal reasoning - ask for the answer
+            thinking_prompt = f"{question}\n\nProvide your answer and explain your reasoning."
+            base_prompt = f"Task: Answer the following legal question. Explain your reasoning step by step.\n\n{question}\n\nStep by step answer:\n"
         else:
             # Math problem prompt (original)
             thinking_prompt = question
@@ -1692,7 +1790,14 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         clean_hybrid_answer = clean_answer(hybrid_response)
 
         # Determine dataset type for evaluation
-        dataset_type = "coding" if args.dataset in CODING_DATASETS else "math"
+        if args.dataset in CODING_DATASETS:
+            dataset_type = "coding"
+        elif args.dataset in MCQA_DATASETS:
+            dataset_type = "mcqa"
+        elif args.dataset in TEXT_CLASSIFICATION_DATASETS:
+            dataset_type = "classification"
+        else:
+            dataset_type = "math"
 
         # Display all responses clearly before evaluation
         print("\n" + "=" * 80)
@@ -1951,6 +2056,65 @@ elif args.dataset == "mbpp":
 elif args.dataset == "livecodebench":
     # Use bzantium/livecodebench - compatible with datasets 4.0+ (uses JSONL instead of deprecated loading script)
     dataset = load_dataset("bzantium/livecodebench", "release_v5")["test"]  # type: ignore
+elif args.dataset == "medqa":
+    # MedQA USMLE 4-option multiple choice - medical licensing exam questions (first 500)
+    dataset = load_dataset("GBaker/MedQA-USMLE-4-options")["test"].select(range(500))  # type: ignore
+elif args.dataset == "legalbench":
+    # LegalBench - legal reasoning benchmark with 162 subsets
+    # Load first 5 short examples from each subset (loading script deprecated, fetch TSV directly)
+    import requests
+    import pandas as pd
+    from io import StringIO
+
+    LEGALBENCH_EXAMPLES_PER_SUBSET = 5
+    LEGALBENCH_MAX_CHARS = 4000  # ~1000 tokens
+    # Skip subsets where all examples exceed max length (e.g. full tax statutes ~30k chars each)
+    LEGALBENCH_SKIP_SUBSETS = {"sara_numeric"}
+
+    def _legalbench_example_length(row):
+        """Calculate total character length of text fields in a row."""
+        length = 0
+        if 'text' in row:
+            length += len(str(row['text']))
+        if 'question' in row:
+            length += len(str(row['question']))
+        # Also check other common text fields
+        for col in ['contract', 'policy', 'claim', 'bill_summary', 'Paragraph']:
+            if col in row:
+                length += len(str(row[col]))
+        return length
+
+    print("Loading LegalBench subsets (this may take a moment)...")
+    resp = requests.get('https://huggingface.co/api/datasets/nguha/legalbench/tree/main/data')
+    folders = [f['path'].replace('data/', '') for f in resp.json() if f['type'] == 'directory' and '.ipynb' not in f['path']]
+
+    all_examples = []
+    skipped_long = 0
+    for subset in folders:
+        if subset in LEGALBENCH_SKIP_SUBSETS:
+            continue
+        url = f'https://huggingface.co/datasets/nguha/legalbench/resolve/main/data/{subset}/test.tsv'
+        try:
+            resp = requests.get(url, timeout=10)
+            if resp.status_code == 200:
+                df = pd.read_csv(StringIO(resp.text), sep='\t')
+                # Take first N short examples from each subset
+                subset_count = 0
+                for _, row in df.iterrows():
+                    if subset_count >= LEGALBENCH_EXAMPLES_PER_SUBSET:
+                        break
+                    if _legalbench_example_length(row) > LEGALBENCH_MAX_CHARS:
+                        skipped_long += 1
+                        continue
+                    example = dict(row)
+                    example['subset'] = subset
+                    all_examples.append(example)
+                    subset_count += 1
+        except Exception as e:
+            print(f"Warning: Failed to load {subset}: {e}")
+
+    print(f"Loaded {len(all_examples)} LegalBench examples ({LEGALBENCH_EXAMPLES_PER_SUBSET} per subset from {len(folders)} subsets, skipped {skipped_long} long examples)")
+    dataset = all_examples  # type: ignore
 
 # %% Load models and SAE
 thinking_model, thinking_tokenizer, base_model, base_tokenizer, sae, steering_vectors, descriptions, thinking_model_id, base_model_id = load_models_and_sae(args)
