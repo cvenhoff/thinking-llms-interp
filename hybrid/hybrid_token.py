@@ -1083,7 +1083,7 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
 def clean_answer(text):
     return re.sub(r'\s+', ' ', text).strip()
 
-def safe_chat_batch(prompts, model_name: str = "openai/gpt-4.1", max_tokens: int = 1024, **kwargs):
+def safe_chat_batch(prompts, model_name: str = "openai/gpt-5.2", max_tokens: int = 2000, **kwargs):
     import asyncio
     import concurrent.futures
     async def _run():
@@ -1111,7 +1111,7 @@ def quick_judge_api_test():
     """
     test_prompt = "Reply with YES."
     try:
-        responses = safe_chat_batch([test_prompt], model_name="openai/gpt-4.1", max_tokens=5)
+        responses = safe_chat_batch([test_prompt], model_name="openai/gpt-5.2", max_tokens=5)
         ok = isinstance(responses, (list, tuple)) and len(responses) > 0 and isinstance(responses[0], str)
         if ok:
             print("Judge API test: OK")
@@ -1217,7 +1217,7 @@ Just answer YES if the final numerical answer matches, or NO if it doesn't. Noth
     max_retries = 5
     for attempt in range(max_retries):
         try:
-            response_list = safe_chat_batch([prompt], model_name="openai/gpt-4.1", max_tokens=100)
+            response_list = safe_chat_batch([prompt], model_name="openai/gpt-5.2", max_tokens=2000)
             if isinstance(response_list, (list, tuple)) and len(response_list) > 0 and isinstance(response_list[0], str):
                 response = response_list[0]
                 is_correct = "yes" in response.lower()
