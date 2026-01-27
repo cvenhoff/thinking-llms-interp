@@ -925,17 +925,16 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
                 }
             elif args.dataset == "legalbench":
                 # LegalBench - variable format across subsets
-                # Some have 'text' + 'answer', some have 'question' + 'text' + 'answer'
-                if "question" in item and "text" in item:
-                    question_text = f"Context:\n{item['text']}\n\nQuestion: {item['question']}"
-                elif "text" in item:
-                    question_text = item["text"]
+                # Get the text content to insert into the prompt
+                if "text" in item:
+                    text_content = item["text"]
                 else:
-                    question_text = str(item)
+                    text_content = str(item)
                 example = {
-                    "question": question_text,
+                    "question": text_content,  # Raw text (will be inserted into base_prompt template)
                     "answer": str(item.get("answer", "")),
-                    "subset": item.get("subset", "unknown")
+                    "subset": item.get("subset", "unknown"),
+                    "base_prompt_template": item.get("base_prompt", None)  # Task-specific prompt template from GitHub
                 }
             break
 
@@ -964,9 +963,13 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
         thinking_prompt = f"{question}\n\nPlease select the correct answer (A, B, C, or D) and explain your reasoning."
         base_prompt = f"Task: Answer the following medical question by selecting the correct option (A, B, C, or D). Explain your reasoning step by step.\n\n{question}\n\nStep by step answer:\n"
     elif args.dataset == "legalbench":
-        # Legal reasoning - ask for the answer
-        thinking_prompt = f"{question}\n\nProvide your answer and explain your reasoning."
-        base_prompt = f"Task: Answer the following legal question. Explain your reasoning step by step.\n\n{question}\n\nStep by step answer:\n"
+        # Legal reasoning - use task-specific prompt template from GitHub
+        base_prompt_template = example.get("base_prompt_template")
+        task_prefix = "Task: Answer the following legal question. Explain your reasoning step by step.\n\nContext:\n"
+        # Template uses {{text}} placeholder and already ends with answer cue (A: or Label:)
+        full_prompt = task_prefix + base_prompt_template.replace("{{text}}", question)
+        thinking_prompt = full_prompt
+        base_prompt = full_prompt
     else:
         thinking_prompt = question
         base_prompt = f"Task: Answer the question below. Explain your reasoning step by step.\n\n\n\nQuestion:\n{question}\n\nStep by step answer:\n"
@@ -1615,13 +1618,13 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             starter_code = ""
         elif args.dataset == "legalbench":
             # LegalBench - variable format across subsets
-            if "question" in item and "text" in item:
-                question = f"Context:\n{item['text']}\n\nQuestion: {item['question']}"
-            elif "text" in item:
+            # Get raw text content (will be inserted into prompt template)
+            if "text" in item:
                 question = item["text"]
             else:
                 question = str(item)
             correct_answer = str(item.get("answer", ""))
+            base_prompt_template = item.get("base_prompt", None)  # Task-specific prompt template from GitHub
             test_list = None
             starter_code = ""
 
@@ -1644,9 +1647,12 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             thinking_prompt = f"{question}\n\nPlease select the correct answer (A, B, C, or D) and explain your reasoning."
             base_prompt = f"Task: Answer the following medical question by selecting the correct option (A, B, C, or D). Explain your reasoning step by step.\n\n{question}\n\nStep by step answer:\n"
         elif args.dataset == "legalbench":
-            # Legal reasoning - ask for the answer
-            thinking_prompt = f"{question}\n\nProvide your answer and explain your reasoning."
-            base_prompt = f"Task: Answer the following legal question. Explain your reasoning step by step.\n\n{question}\n\nStep by step answer:\n"
+            # Legal reasoning - use task-specific prompt template from GitHub
+            task_prefix = "Task: Answer the following legal question. Explain your reasoning step by step.\n\nContext:\n"
+            # Template uses {{text}} placeholder and already ends with answer cue (A: or Label:)
+            full_prompt = task_prefix + base_prompt_template.replace("{{text}}", question)
+            thinking_prompt = full_prompt
+            base_prompt = full_prompt
         else:
             # Math problem prompt (original)
             thinking_prompt = question
@@ -2130,6 +2136,24 @@ elif args.dataset == "legalbench":
     resp = requests.get('https://huggingface.co/api/datasets/nguha/legalbench/tree/main/data')
     folders = [f['path'].replace('data/', '') for f in resp.json() if f['type'] == 'directory' and '.ipynb' not in f['path']]
 
+    # Cache for base prompts (fetched from GitHub)
+    base_prompts = {}
+
+    def _get_base_prompt(subset):
+        """Fetch base_prompt.txt from GitHub for a subset."""
+        if subset in base_prompts:
+            return base_prompts[subset]
+        prompt_url = f'https://raw.githubusercontent.com/HazyResearch/legalbench/main/tasks/{subset}/base_prompt.txt'
+        try:
+            resp = requests.get(prompt_url, timeout=5)
+            if resp.status_code == 200:
+                base_prompts[subset] = resp.text.strip()
+            else:
+                base_prompts[subset] = None
+        except:
+            base_prompts[subset] = None
+        return base_prompts[subset]
+
     all_examples = []
     skipped_long = 0
     for subset in folders:
@@ -2140,6 +2164,8 @@ elif args.dataset == "legalbench":
             resp = requests.get(url, timeout=10)
             if resp.status_code == 200:
                 df = pd.read_csv(StringIO(resp.text), sep='\t')
+                # Fetch base prompt for this subset
+                base_prompt = _get_base_prompt(subset)
                 # Take first N short examples from each subset
                 subset_count = 0
                 for _, row in df.iterrows():
@@ -2150,6 +2176,7 @@ elif args.dataset == "legalbench":
                         continue
                     example = dict(row)
                     example['subset'] = subset
+                    example['base_prompt'] = base_prompt
                     all_examples.append(example)
                     subset_count += 1
         except Exception as e:

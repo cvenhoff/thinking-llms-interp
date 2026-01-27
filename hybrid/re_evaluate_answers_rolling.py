@@ -161,7 +161,7 @@ def _extract_model_from_filename(filename: str) -> Optional[str]:
     # Datasets are: gsm8k, math500, aime, mbpp, livecodebench
     parts = rest.split("_")
     # Find where the dataset starts
-    datasets = {"gsm8k", "math500", "aime", "mbpp", "livecodebench"}
+    datasets = {"gsm8k", "math500", "aime", "mbpp", "livecodebench", "medqa", "legalbench"}
     model_parts = []
     for part in parts:
         if part in datasets:
@@ -182,7 +182,7 @@ def _extract_dataset_from_filename(filename: str) -> Optional[str]:
     # Handle part numbers like _0, _1
     rest = re.sub(r"_\d+$", "", rest)
     # Find dataset in the parts
-    datasets = {"gsm8k", "math500", "aime", "mbpp", "livecodebench"}
+    datasets = {"gsm8k", "math500", "aime", "mbpp", "livecodebench", "medqa", "legalbench"}
     parts = rest.split("_")
     for part in parts:
         if part in datasets:
@@ -191,6 +191,8 @@ def _extract_dataset_from_filename(filename: str) -> Optional[str]:
 
 
 CODING_DATASETS = {"mbpp", "livecodebench"}
+MCQA_DATASETS = {"medqa"}  # Multiple choice QA datasets
+TEXT_CLASSIFICATION_DATASETS = {"legalbench"}  # Text classification datasets
 
 def _thinking_finished(record: Dict[str, Any]) -> bool:
     eos = record.get("eos", {})
@@ -286,6 +288,33 @@ def _build_judge_prompt(
             "2. Would it pass the test cases?\n"
             "3. Are there any bugs or edge cases it would fail?\n\n"
             "Just answer YES if the code is functionally correct, or NO if it's incorrect. Nothing else.\n"
+        )
+    elif dataset_type == "mcqa":
+        return (
+            "Please evaluate whether the model selected the correct answer for this multiple choice question.\n\n"
+            f"Question: {question}\n\n"
+            f"Correct answer: {correct_answer}\n\n"
+            f"Model's answer: {model_answer}\n\n"
+            "Instructions for evaluation:\n"
+            "1. Extract the final answer choice (A, B, C, or D) from the model's response.\n"
+            "2. The model may state the answer as a letter (e.g., \"A\", \"B\", \"C\", \"D\"), the full option text, or both.\n"
+            "3. Look for phrases like \"the answer is\", \"I choose\", \"correct answer:\", or similar markers.\n"
+            "4. If the model's final answer matches the correct answer letter, answer YES.\n\n"
+            "Just answer YES if the answer choice matches, or NO if it doesn't. Nothing else.\n"
+        )
+    elif dataset_type == "classification":
+        return (
+            "Please evaluate whether the model's answer matches the correct answer for this classification task.\n\n"
+            f"Question/Context: {question}\n\n"
+            f"Correct answer: {correct_answer}\n\n"
+            f"Model's answer: {model_answer}\n\n"
+            "Instructions for evaluation:\n"
+            "1. Extract the model's final classification or answer from its response.\n"
+            "2. The model may provide reasoning before stating the answer.\n"
+            "3. Compare the model's final answer to the correct answer.\n"
+            "4. The comparison should be case-insensitive and ignore minor formatting differences.\n"
+            "5. If the core answer/classification matches, answer YES.\n\n"
+            "Just answer YES if the answer matches, or NO if it doesn't. Nothing else.\n"
         )
     else:
         return (
@@ -542,7 +571,14 @@ def collect_all_prompts(
         for path in paths:
             # Determine dataset type from filename
             dataset = _extract_dataset_from_filename(path)
-            dataset_type = "coding" if dataset in CODING_DATASETS else "math"
+            if dataset in CODING_DATASETS:
+                dataset_type = "coding"
+            elif dataset in MCQA_DATASETS:
+                dataset_type = "mcqa"
+            elif dataset in TEXT_CLASSIFICATION_DATASETS:
+                dataset_type = "classification"
+            else:
+                dataset_type = "math"
 
             with open(path, "r", encoding="utf-8") as src:
                 records = [json.loads(line) for line in src if line.strip()]
