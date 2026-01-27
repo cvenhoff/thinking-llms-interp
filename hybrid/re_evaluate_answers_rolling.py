@@ -90,6 +90,11 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help="If set, only re-evaluate records where eos.thinking is true, and compute stats on that subset.",
     )
+    parser.add_argument(
+        "--recompute-only",
+        action="store_true",
+        help="Read existing judge results and print stats without re-running evaluation or modifying files.",
+    )
     return parser.parse_known_args()[0]
 
 
@@ -711,6 +716,108 @@ def update_all_files(
     return per_prefix_stats
 
 
+def compute_stats_from_existing(
+    files: List[Tuple[str, List[str]]],
+    *,
+    only_finished_thinking: bool = False,
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Read existing judge results from files and compute stats without modifying anything.
+
+    Returns:
+        per_prefix_stats: Dict mapping prefix to stats dict with:
+            - total: number of records
+            - correct: {model_key: count}
+            - eos: {model_key: count}
+    """
+    per_prefix_stats: Dict[str, Dict[str, Any]] = {}
+
+    for prefix, paths in tqdm(files, desc="Computing stats", unit="prefix"):
+        prefix_total = 0
+        prefix_correct: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
+        prefix_eos: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
+
+        for path in paths:
+            with open(path, "r", encoding="utf-8") as src:
+                records = [json.loads(line) for line in src if line.strip()]
+
+            for record in records:
+                # Skip if only_finished_thinking and thinking didn't finish
+                if only_finished_thinking and (not _thinking_finished(record)):
+                    continue
+
+                prefix_total += 1
+
+                # Read existing judge results
+                judges = record.get("judges", {})
+                for key, _ in MODEL_SPECS:
+                    judge_entry = judges.get(key)
+                    if isinstance(judge_entry, dict) and judge_entry.get("correct"):
+                        prefix_correct[key] += 1
+
+                # Count EOS
+                eos_data = record.get("eos", {})
+                for key, _ in MODEL_SPECS:
+                    if eos_data.get(key, False):
+                        prefix_eos[key] += 1
+
+        per_prefix_stats[prefix] = {
+            "total": prefix_total,
+            "correct": prefix_correct,
+            "eos": prefix_eos,
+        }
+
+    return per_prefix_stats
+
+
+def _print_stats(
+    files: List[Tuple[str, List[str]]],
+    per_prefix_stats: Dict[str, Dict[str, Any]],
+    only_finished_thinking: bool,
+    recompute_only: bool = False,
+) -> None:
+    """Print per-model results."""
+    total_files = sum(len(paths) for _, paths in files)
+    total_records = sum(s["total"] for s in per_prefix_stats.values())
+
+    action = "Read" if recompute_only else "Re-evaluated"
+    subset = "finished-thinking " if only_finished_thinking else ""
+    print(f"\n{action} {total_records} {subset}records across {total_files} files.")
+
+    for prefix, stats in per_prefix_stats.items():
+        prefix_name = os.path.basename(prefix).replace(".jsonl", "")
+        n = stats["total"]
+        if n == 0:
+            continue
+
+        thinking_correct = stats["correct"]["thinking"]
+        base_correct = stats["correct"]["base"]
+        hybrid_correct = stats["correct"]["hybrid"]
+
+        thinking_acc = thinking_correct / n * 100
+        base_acc = base_correct / n * 100
+        hybrid_acc = hybrid_correct / n * 100
+
+        print(f"\n===== {prefix_name} =====")
+        print(f"Thinking Model: {thinking_correct}/{n} correct ({thinking_acc:.1f}%)")
+        print(f"Base Model: {base_correct}/{n} correct ({base_acc:.1f}%)")
+        print(f"Hybrid Model: {hybrid_correct}/{n} correct ({hybrid_acc:.1f}%)")
+
+        # Gap recovered by hybrid
+        gap = abs(thinking_acc - base_acc)
+        if gap > 0:
+            recovered = (hybrid_acc - min(base_acc, thinking_acc)) / gap
+            print(f"Gap recovered by hybrid: {max(0.0, recovered) * 100:.1f}% of |Thinking-Base|")
+        else:
+            print("Gap recovered by hybrid: n/a")
+
+        # EOS endings
+        eos_base = stats["eos"]["base"] / n * 100
+        eos_thinking = stats["eos"]["thinking"] / n * 100
+        eos_hybrid = stats["eos"]["hybrid"] / n * 100
+        print(f"EOS endings: base {eos_base:.1f}, thinking {eos_thinking:.1f}, hybrid {eos_hybrid:.1f}")
+
+
 def main() -> None:
     args = parse_args()
     rolling_dir = args.rolling_dir or _default_rolling_dir()
@@ -748,6 +855,16 @@ def main() -> None:
 
     if args.dry_run:
         print("\n[DRY RUN] Would process the above files. Exiting.")
+        return
+
+    # Recompute-only mode: read existing judge results and print stats
+    if args.recompute_only:
+        print("\n[RECOMPUTE-ONLY] Reading existing judge results...")
+        per_prefix_stats = compute_stats_from_existing(
+            files,
+            only_finished_thinking=only_finished_thinking,
+        )
+        _print_stats(files, per_prefix_stats, only_finished_thinking, recompute_only=True)
         return
 
     if args.debug:
@@ -792,45 +909,7 @@ def main() -> None:
     )
 
     # Print per-model results
-    total_files = sum(len(paths) for _, paths in files)
-    total_records = sum(s["total"] for s in per_prefix_stats.values())
-    if only_finished_thinking:
-        print(f"\nRe-evaluated {total_records} finished-thinking records across {total_files} files.")
-    else:
-        print(f"\nRe-evaluated {total_records} records across {total_files} files.")
-
-    for prefix, stats in per_prefix_stats.items():
-        prefix_name = os.path.basename(prefix).replace(".jsonl", "")
-        n = stats["total"]
-        if n == 0:
-            continue
-
-        thinking_correct = stats["correct"]["thinking"]
-        base_correct = stats["correct"]["base"]
-        hybrid_correct = stats["correct"]["hybrid"]
-
-        thinking_acc = thinking_correct / n * 100
-        base_acc = base_correct / n * 100
-        hybrid_acc = hybrid_correct / n * 100
-
-        print(f"\n===== {prefix_name} =====")
-        print(f"Thinking Model: {thinking_correct}/{n} correct ({thinking_acc:.1f}%)")
-        print(f"Base Model: {base_correct}/{n} correct ({base_acc:.1f}%)")
-        print(f"Hybrid Model: {hybrid_correct}/{n} correct ({hybrid_acc:.1f}%)")
-
-        # Gap recovered by hybrid
-        gap = abs(thinking_acc - base_acc)
-        if gap > 0:
-            recovered = (hybrid_acc - min(base_acc, thinking_acc)) / gap
-            print(f"Gap recovered by hybrid: {max(0.0, recovered) * 100:.1f}% of |Thinking-Base|")
-        else:
-            print("Gap recovered by hybrid: n/a")
-
-        # EOS endings
-        eos_base = stats["eos"]["base"] / n * 100
-        eos_thinking = stats["eos"]["thinking"] / n * 100
-        eos_hybrid = stats["eos"]["hybrid"] / n * 100
-        print(f"EOS endings: base {eos_base:.1f}, thinking {eos_thinking:.1f}, hybrid {eos_hybrid:.1f}")
+    _print_stats(files, per_prefix_stats, only_finished_thinking)
 
 
 if __name__ == "__main__":
