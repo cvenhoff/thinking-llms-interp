@@ -8,23 +8,117 @@ import seaborn as sns
 from matplotlib.colors import LinearSegmentedColormap
 import argparse
     
+import random
+
 parser = argparse.ArgumentParser(description="Visualize SAE grid search results")
 parser.add_argument("--model", type=str, default="all",
                     help="Model identifier")
+parser.add_argument("--print-stats", action="store_true", default=False,
+                    help="Print all statistics to stdout instead of generating plots")
+parser.add_argument("--max-repetitions", type=int, default=None,
+                    help="Maximum number of repetitions to use (randomly samples if more available)")
+parser.add_argument("--seed", type=int, default=42,
+                    help="Random seed for sampling repetitions (default: 42)")
 
 args, _ = parser.parse_known_args()
 
-def load_sae_grid_search_results(model_id, method="sae_topk"):
+
+def sample_repetitions(all_results, max_reps, seed, identifier=""):
+    """
+    Sample repetitions if we have more than max_reps.
+
+    Parameters:
+    -----------
+    all_results : list
+        List of repetition results
+    max_reps : int or None
+        Maximum number of repetitions to keep (None = keep all)
+    seed : int
+        Random seed for reproducibility
+    identifier : str
+        Identifier string for deterministic sampling (e.g., "model_layer_clusters")
+
+    Returns:
+    --------
+    list
+        Sampled list of repetition results
+    """
+    if max_reps is None or len(all_results) <= max_reps:
+        return all_results
+
+    # Use identifier to make sampling deterministic across calls with same data
+    rng = random.Random(seed + hash(identifier) % (2**31))
+    indices = list(range(len(all_results)))
+    rng.shuffle(indices)
+    selected_indices = sorted(indices[:max_reps])
+
+    return [all_results[i] for i in selected_indices]
+
+
+def compute_statistics_from_results(all_results):
+    """
+    Compute statistics from a list of repetition results.
+
+    Parameters:
+    -----------
+    all_results : list
+        List of repetition result dicts
+
+    Returns:
+    --------
+    dict
+        Statistics dict with mean, std_dev, sem, ci_95 for each metric
+    """
+    from scipy import stats as scipy_stats
+
+    metrics_to_stat = [
+        'avg_accuracy', 'avg_f1', 'avg_precision', 'avg_recall', 'orthogonality',
+        'semantic_orthogonality_score', 'avg_confidence', 'final_score'
+    ]
+
+    statistics = {}
+    for metric in metrics_to_stat:
+        values = [res[metric] for res in all_results if metric in res]
+        if not values:
+            continue
+
+        mean = np.mean(values)
+        n = len(values)
+        if n > 1:
+            std_dev = np.std(values, ddof=1)
+            sem = scipy_stats.sem(values)
+            conf = 0.95
+            t_score = scipy_stats.t.ppf((1 + conf) / 2, df=n - 1)
+            ci_95 = (mean - t_score * sem, mean + t_score * sem)
+        else:
+            std_dev = 0
+            sem = 0
+            ci_95 = (mean, mean)
+
+        statistics[metric] = {
+            'mean': mean,
+            'std_dev': std_dev,
+            'sem': sem,
+            'ci_95': ci_95
+        }
+
+    return statistics
+
+def load_sae_grid_search_results(model_id, method="sae_topk", max_reps=None, seed=42):
     """
     Load all SAE grid search results for a specific model across all layers and cluster sizes.
-    
+
     Parameters:
     -----------
     model_id : str
         Model identifier (e.g., "deepseek-r1-distill-qwen-1.5b")
     method : str
         Clustering method to load (default: "sae_topk")
-        
+    max_reps : int or None
+        Maximum number of repetitions to use (None = use all)
+    seed : int
+        Random seed for sampling repetitions
+
     Returns:
     --------
     DataFrame
@@ -32,7 +126,7 @@ def load_sae_grid_search_results(model_id, method="sae_topk"):
     """
     results_dir = 'results/vars'
     results_data = []
-    
+
     # Find all result files for this model and method
     for filename in os.listdir(results_dir):
         # Filter for result files matching this model and method
@@ -41,46 +135,57 @@ def load_sae_grid_search_results(model_id, method="sae_topk"):
                 # Extract layer number
                 layer_str = filename.split(f"{method}_results_{model_id}_layer")[1]
                 layer = int(layer_str.split(".json")[0])
-                
+
                 file_path = os.path.join(results_dir, filename)
                 with open(file_path, 'r') as f:
                     results = json.load(f)
-                
+
                 # New structure: results_by_cluster_size contains cluster sizes as keys
                 for n_clusters_str, cluster_data in results["results_by_cluster_size"].items():
                     n_clusters = int(n_clusters_str)
-                    
+
                     # Extract all repetitions for this cluster size
                     all_results = cluster_data.get("all_results", [])
-                    statistics = cluster_data.get("statistics", {})
-                    
-                    if not all_results or not statistics:
+
+                    if not all_results:
                         print(f"Warning: No results found for layer {layer}, clusters {n_clusters}")
                         continue
-                    
-                    # Calculate average metrics across all repetitions
-                    avg_orthogonality = statistics["orthogonality"]["mean"]
-                    avg_accuracy = statistics["avg_accuracy"]["mean"]
-                    avg_f1 = statistics["avg_f1"]["mean"]
-                    avg_completeness = statistics["avg_confidence"]["mean"]
-                    avg_semantic_orthogonality = statistics["semantic_orthogonality_score"]["mean"]
-                    avg_final_score = statistics["final_score"]["mean"]
-                    
-                    # Check for dead latents by examining detailed results from first repetition
+
+                    # Sample repetitions if max_reps is set
+                    identifier = f"{model_id}_{layer}_{n_clusters}"
+                    sampled_results = sample_repetitions(all_results, max_reps, seed, identifier)
+
+                    # Recompute statistics from sampled results
+                    if max_reps is not None and len(all_results) > max_reps:
+                        statistics = compute_statistics_from_results(sampled_results)
+                    else:
+                        statistics = cluster_data.get("statistics", {})
+                        if not statistics:
+                            statistics = compute_statistics_from_results(sampled_results)
+
+                    # Calculate average metrics across sampled repetitions
+                    avg_orthogonality = statistics.get("orthogonality", {}).get("mean", 0)
+                    avg_accuracy = statistics.get("avg_accuracy", {}).get("mean", 0)
+                    avg_f1 = statistics.get("avg_f1", {}).get("mean", 0)
+                    avg_completeness = statistics.get("avg_confidence", {}).get("mean", 0)
+                    avg_semantic_orthogonality = statistics.get("semantic_orthogonality_score", {}).get("mean", 0)
+                    avg_final_score = statistics.get("final_score", {}).get("mean", 0)
+
+                    # Check for dead latents by examining detailed results from first sampled repetition
                     has_dead_latents = False
                     active_clusters = n_clusters  # Default assumption
-                    
-                    if all_results and "detailed_results" in all_results[0]:
-                        detailed = all_results[0]["detailed_results"]
+
+                    if sampled_results and "detailed_results" in sampled_results[0]:
+                        detailed = sampled_results[0]["detailed_results"]
                         active_clusters = 0
-                        
+
                         # Count clusters with size > 0
                         for cluster_id_str, cluster_info in detailed.items():
                             if cluster_info.get("size", 0) > 0:
                                 active_clusters += 1
-                        
+
                         has_dead_latents = active_clusters < n_clusters
-                    
+
                     metrics = {
                         "layer": layer,
                         "n_clusters": n_clusters,
@@ -94,15 +199,15 @@ def load_sae_grid_search_results(model_id, method="sae_topk"):
                         "active_clusters": active_clusters
                     }
                     results_data.append(metrics)
-                
+
                 print(f"Loaded results for layer {layer}")
             except Exception as e:
                 print(f"Error loading {filename}: {e}")
-    
+
     if not results_data:
         print(f"No grid search results found for model {model_id} with method {method}")
         return None
-    
+
     # Convert to DataFrame
     df = pd.DataFrame(results_data)
     return df
@@ -402,17 +507,21 @@ def visualize_combined_grid_search(results_df, model_id, output_dir="results/fig
     return plt.gcf()
 
 # Usage example
-def main(model_id):
+def main(model_id, max_reps=None, seed=42):
     """
     Main function to load and visualize SAE grid search results.
-    
+
     Parameters:
     -----------
     model_id : str
         Model identifier (e.g., "deepseek-r1-distill-qwen-1.5b")
+    max_reps : int or None
+        Maximum number of repetitions to use
+    seed : int
+        Random seed for sampling repetitions
     """
     # Load grid search results
-    results_df = load_sae_grid_search_results(model_id)
+    results_df = load_sae_grid_search_results(model_id, max_reps=max_reps, seed=seed)
     print(f"Column names: {results_df.columns}")
     
     if results_df is not None:
@@ -450,7 +559,7 @@ def get_all_model_ids():
     
     return sorted(list(model_ids))
 
-def visualize_all_models(output_dir="results/figures"):
+def visualize_all_models(output_dir="results/figures", max_reps=None, seed=42):
     """
     Load and visualize results for DeepSeek distill, QwQ, and Open Reasoner Zero models.
 
@@ -482,11 +591,13 @@ def visualize_all_models(output_dir="results/figures"):
     ]
 
     print(f"Loading {len(model_ids)} models: {', '.join(model_ids)}")
+    if max_reps is not None:
+        print(f"Using max {max_reps} repetitions (seed={seed})")
 
     # Load results for all models (preserve order)
     model_results = {}
     for model_id in model_ids:
-        results_df = load_sae_grid_search_results(model_id)
+        results_df = load_sae_grid_search_results(model_id, max_reps=max_reps, seed=seed)
         if results_df is not None:
             model_results[model_id] = results_df
             print(f"Loaded results for {model_id}")
@@ -674,12 +785,161 @@ def visualize_all_models(output_dir="results/figures"):
     # Save figure with reduced padding
     save_path = os.path.join(output_dir, "sae_grid_search_all_models.pdf")
     plt.savefig(save_path, bbox_inches='tight', pad_inches=0.1)
-    
+
     return fig
 
-if __name__ == "__main__":
-    if args.model == "all":
-        visualize_all_models()
+
+def load_full_results(model_id, method="sae_topk", max_reps=None, seed=42):
+    """
+    Load the full JSON results for a model including all repetitions and statistics.
+
+    Parameters:
+    -----------
+    model_id : str
+        Model identifier
+    method : str
+        Clustering method (default: "sae_topk")
+    max_reps : int or None
+        Maximum number of repetitions to use (None = use all)
+    seed : int
+        Random seed for sampling repetitions
+
+    Returns:
+    --------
+    dict
+        Dictionary mapping layer -> full results data (with sampled repetitions if max_reps set)
+    """
+    results_dir = 'results/vars'
+    results_by_layer = {}
+
+    for filename in os.listdir(results_dir):
+        if f"{method}_results_{model_id}_layer" in filename and filename.endswith(".json"):
+            try:
+                layer_str = filename.split(f"{method}_results_{model_id}_layer")[1]
+                layer = int(layer_str.split(".json")[0])
+
+                file_path = os.path.join(results_dir, filename)
+                with open(file_path, 'r') as f:
+                    results = json.load(f)
+
+                # Sample repetitions if max_reps is set
+                if max_reps is not None:
+                    for n_clusters, cluster_data in results.get("results_by_cluster_size", {}).items():
+                        all_results = cluster_data.get("all_results", [])
+                        identifier = f"{model_id}_{layer}_{n_clusters}"
+                        sampled_results = sample_repetitions(all_results, max_reps, seed, identifier)
+                        cluster_data["all_results"] = sampled_results
+                        # Recompute statistics from sampled results
+                        cluster_data["statistics"] = compute_statistics_from_results(sampled_results)
+
+                results_by_layer[layer] = results
+            except Exception as e:
+                print(f"Error loading {filename}: {e}")
+
+    return results_by_layer
+
+
+def print_all_stats(model_id=None, max_reps=None, seed=42):
+    """
+    Print all statistics for one or all models to stdout.
+
+    Parameters:
+    -----------
+    model_id : str or None
+        Model identifier, or None to print all models
+    max_reps : int or None
+        Maximum number of repetitions to use (None = use all)
+    seed : int
+        Random seed for sampling repetitions
+    """
+    if model_id is None or model_id == "all":
+        model_ids = get_all_model_ids()
     else:
-        main(args.model.split('/')[-1].lower())
+        model_ids = [model_id]
+
+    # Metrics to display
+    metrics = ['avg_accuracy', 'avg_f1', 'avg_precision', 'avg_recall',
+               'orthogonality', 'semantic_orthogonality_score', 'avg_confidence', 'final_score']
+
+    if max_reps is not None:
+        print(f"Using max {max_reps} repetitions (seed={seed})")
+        print()
+
+    for model_id in model_ids:
+        print("=" * 80)
+        print(f"MODEL: {model_id.upper()}")
+        print("=" * 80)
+
+        results_by_layer = load_full_results(model_id, max_reps=max_reps, seed=seed)
+
+        if not results_by_layer:
+            print(f"  No results found for {model_id}")
+            continue
+
+        for layer in sorted(results_by_layer.keys()):
+            layer_data = results_by_layer[layer]
+            print(f"\n  LAYER {layer}")
+            print("  " + "-" * 76)
+
+            results_by_cluster_size = layer_data.get("results_by_cluster_size", {})
+
+            for n_clusters in sorted(results_by_cluster_size.keys(), key=int):
+                cluster_data = results_by_cluster_size[n_clusters]
+                all_results = cluster_data.get("all_results", [])
+                statistics = cluster_data.get("statistics", {})
+
+                print(f"\n    Clusters: {n_clusters} ({len(all_results)} repetitions)")
+                print("    " + "-" * 72)
+
+                # Print per-repetition results
+                print("\n    Per-repetition results:")
+                header = "      Rep  " + "  ".join([f"{m[:12]:>12}" for m in metrics])
+                print(header)
+                print("      " + "-" * (len(header) - 6))
+
+                for rep_idx, rep_result in enumerate(all_results):
+                    values = []
+                    for metric in metrics:
+                        val = rep_result.get(metric, None)
+                        if val is not None:
+                            values.append(f"{val:12.4f}")
+                        else:
+                            values.append(f"{'N/A':>12}")
+                    print(f"      {rep_idx + 1:3d}  " + "  ".join(values))
+
+                # Print aggregated statistics
+                if statistics:
+                    print("\n    Aggregated statistics:")
+                    print("      " + "-" * 68)
+                    print(f"      {'Metric':<30} {'Mean':>10} {'Std':>10} {'SEM':>10} {'CI_95':>20}")
+                    print("      " + "-" * 68)
+
+                    for metric in metrics:
+                        if metric in statistics:
+                            stats = statistics[metric]
+                            mean = stats.get('mean', 0)
+                            std = stats.get('std_dev', 0)
+                            sem = stats.get('sem', 0)
+                            ci_95 = stats.get('ci_95', [0, 0])
+                            ci_str = f"[{ci_95[0]:.3f}, {ci_95[1]:.3f}]"
+                            print(f"      {metric:<30} {mean:10.4f} {std:10.4f} {sem:10.4f} {ci_str:>20}")
+
+                print()
+
+        print("\n")
+
+
+if __name__ == "__main__":
+    max_reps = args.max_repetitions
+    seed = args.seed
+
+    # Generate plots (unless --print-stats only)
+    if not args.print_stats:
+        if args.model == "all":
+            visualize_all_models(max_reps=max_reps, seed=seed)
+        else:
+            main(args.model.split('/')[-1].lower(), max_reps=max_reps, seed=seed)
+
+    # Always print stats
+    print_all_stats(args.model, max_reps=max_reps, seed=seed)
 # %%
