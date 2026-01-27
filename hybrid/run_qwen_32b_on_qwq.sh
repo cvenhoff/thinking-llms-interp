@@ -10,3 +10,7 @@ python hybrid_token.py --dataset aime25 --only-finished-thinking --thinking_mode
 python hybrid_token.py --dataset mbpp --only-finished-thinking --thinking_model qwen/QwQ-32B --base_model Qwen/Qwen2.5-32B --steering_layer 24  --sae_layer 27 --n_clusters 10 --max_new_tokens 4000  --max_thinking_tokens 4000
 
 python hybrid_token.py --dataset livecodebench --only-finished-thinking --thinking_model qwen/QwQ-32B --base_model Qwen/Qwen2.5-32B --steering_layer 24  --sae_layer 27 --n_clusters 10 --max_new_tokens 4000  --max_thinking_tokens 4000
+
+python hybrid_token.py --dataset medqa --only-finished-thinking --thinking_model qwen/QwQ-32B --base_model Qwen/Qwen2.5-32B --steering_layer 24  --sae_layer 27 --n_clusters 10 --max_new_tokens 4000  --max_thinking_tokens 4000
+
+python hybrid_token.py --dataset legalbench --only-finished-thinking --thinking_model qwen/QwQ-32B --base_model Qwen/Qwen2.5-32B --steering_layer 24  --sae_layer 27 --n_clusters 10 --max_new_tokens 4000  --max_thinking_tokens 4000
