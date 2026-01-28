@@ -116,6 +116,12 @@ def parse_args():
         default=False,
         help='If set, hybrid token steering is disabled inside fenced python code blocks: after generating "```python" steering is off until the next "```".',
     )
+    parser.add_argument(
+        '--judge-repetitions',
+        type=int,
+        default=1,
+        help='Number of independent LLM judge calls per answer (default: 1). Final verdict is majority vote.',
+    )
     args, unknown = parser.parse_known_args()
     assert not unknown, f"Unknown arguments: {unknown}"
     # Special handling: if [1] is provided, treat as "all tokens"
@@ -1083,6 +1089,37 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
 def clean_answer(text):
     return re.sub(r'\s+', ' ', text).strip()
 
+
+def _normalize_judge_entry(entry):
+    """Convert old or missing format to new format with repetitions list.
+
+    Old format {"correct": bool, "raw": str} -> wraps into 1-element repetitions list.
+    Missing/invalid entry -> empty repetitions list (zero reps).
+    New format (already has "repetitions") -> returned as-is.
+    """
+    if not isinstance(entry, dict):
+        return {"correct": False, "raw": "", "repetitions": []}
+    if "repetitions" in entry:
+        return entry
+    rep = {"correct": entry.get("correct", False), "raw": entry.get("raw", "")}
+    return {"correct": rep["correct"], "raw": rep["raw"], "repetitions": [rep]}
+
+
+def _majority_vote(repetitions):
+    """Return (correct_bool, raw_from_first) based on majority vote."""
+    if not repetitions:
+        return False, ""
+    n_correct = sum(1 for r in repetitions if r.get("correct", False))
+    correct = n_correct > len(repetitions) / 2  # strict majority
+    return correct, repetitions[0].get("raw", "")
+
+
+def _build_judge_entry(repetitions):
+    """Build a judge entry dict from a list of repetition dicts."""
+    correct, raw = _majority_vote(repetitions)
+    return {"correct": correct, "raw": raw, "repetitions": repetitions}
+
+
 def safe_chat_batch(prompts, model_name: str = "openai/gpt-5.2", max_tokens: int = 2000, **kwargs):
     import asyncio
     import concurrent.futures
@@ -1120,8 +1157,12 @@ def quick_judge_api_test():
     except Exception as e:
         print(f"Judge API test: FAILED ({e}). Check OPENAI_API_KEY/OPENAI_PROJECT.")
 
-def evaluate_answer(model_answer, correct_answer, question, model_name, dataset_type="math", test_list=None):
-    """Evaluate model answer using LLM judge."""
+def evaluate_answer(model_answer, correct_answer, question, model_name, dataset_type="math", test_list=None, n_repetitions=1):
+    """Evaluate model answer using LLM judge.
+
+    When n_repetitions > 1, calls the judge N times and returns a list of
+    (is_correct, raw) tuples. Otherwise returns a single (is_correct, raw) tuple.
+    """
 
     if dataset_type == "coding":
         # Code evaluation prompt
@@ -1230,25 +1271,38 @@ Instructions for evaluation:
 Just answer YES if the correct answer appears anywhere in the response, or NO if it doesn't. Nothing else.
 """
 
+    n_reps = max(1, int(n_repetitions))
+    batch_prompts = [prompt] * n_reps
+
     max_retries = 5
     for attempt in range(max_retries):
         try:
-            response_list = safe_chat_batch([prompt], model_name="openai/gpt-5.2", max_tokens=2000)
-            if isinstance(response_list, (list, tuple)) and len(response_list) > 0 and isinstance(response_list[0], str):
-                response = response_list[0]
-                is_correct = "yes" in response.lower()
-                print(f"{model_name} evaluated as: {response}")
-                return is_correct, response
+            response_list = safe_chat_batch(batch_prompts, model_name="openai/gpt-5.2", max_tokens=2000)
+            if isinstance(response_list, (list, tuple)) and len(response_list) >= n_reps:
+                results = []
+                for idx, response in enumerate(response_list[:n_reps]):
+                    if not isinstance(response, str):
+                        response = ""
+                    is_correct = "yes" in response.lower()
+                    results.append((is_correct, response))
+                if n_reps == 1:
+                    print(f"{model_name} evaluated as: {results[0][1]}")
+                else:
+                    verdicts = ["YES" if r[0] else "NO" for r in results]
+                    print(f"{model_name} evaluated as: {verdicts} ({sum(r[0] for r in results)}/{n_reps} YES)")
+                if n_reps == 1:
+                    return results[0]
+                return results
             else:
                 if attempt < max_retries - 1:
-                    print(f"Judge API returned no response for {model_name}, retrying ({attempt + 1}/{max_retries})...")
-                    time.sleep(2 ** attempt)  # Exponential backoff
+                    print(f"Judge API returned insufficient responses for {model_name}, retrying ({attempt + 1}/{max_retries})...")
+                    time.sleep(2 ** attempt)
                     continue
-                raise RuntimeError(f"Judge API returned no response for {model_name} after {max_retries} attempts")
+                raise RuntimeError(f"Judge API returned insufficient responses for {model_name} after {max_retries} attempts")
         except Exception as e:
             if attempt < max_retries - 1:
                 print(f"Judge API error for {model_name}: {e}, retrying ({attempt + 1}/{max_retries})...")
-                time.sleep(2 ** attempt)  # Exponential backoff
+                time.sleep(2 ** attempt)
                 continue
             raise
 
@@ -1449,9 +1503,8 @@ def _load_prev_counts(args, base_model_id: str, thinking_model_id: str):
                         continue
                     judges = rec["judges"]
                     for k in ("thinking", "base", "hybrid"):
-                        c = judges[k]["correct"]
-                        assert isinstance(c, bool)
-                        if c:
+                        entry = _normalize_judge_entry(judges.get(k, {}))
+                        if entry["correct"]:
                             counts[k] += 1
                     for k in ("thinking", "base", "hybrid"):
                         if k in eos:
@@ -1729,9 +1782,9 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
                     "hybrid": "",
                 },
                 "judges": {
-                    "thinking": {"correct": False, "raw": "SKIPPED_UNFINISHED_THINKING"},
-                    "base": {"correct": False, "raw": "SKIPPED_UNFINISHED_THINKING"},
-                    "hybrid": {"correct": False, "raw": "SKIPPED_UNFINISHED_THINKING"},
+                    "thinking": _build_judge_entry([{"correct": False, "raw": "SKIPPED_UNFINISHED_THINKING"}]),
+                    "base": _build_judge_entry([{"correct": False, "raw": "SKIPPED_UNFINISHED_THINKING"}]),
+                    "hybrid": _build_judge_entry([{"correct": False, "raw": "SKIPPED_UNFINISHED_THINKING"}]),
                 },
                 "eos": {
                     "thinking": False,
@@ -1883,24 +1936,44 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         print("\n" + "=" * 80)
 
         # Evaluate answers
-        print("\nEvaluating answers...")
+        n_judge_reps = int(getattr(args, "judge_repetitions", 1))
+        print(f"\nEvaluating answers (judge_repetitions={n_judge_reps})...")
+
+        def _eval_to_reps(result):
+            """Normalize evaluate_answer output to list of (correct, raw) tuples."""
+            if isinstance(result, list):
+                return result
+            return [result]
+
         if _is_ablation(args):
             print(f"Ablation: evaluating hybrid only ({_ablation_flags_str(args)})")
-            thinking_correct, thinking_judge_raw = False, "SKIPPED"
-            base_correct, base_judge_raw = False, "SKIPPED"
-            hybrid_correct, hybrid_judge_raw = evaluate_answer(clean_hybrid_answer, correct_answer, question, "Hybrid Model", dataset_type=dataset_type, test_list=test_list)
+            thinking_reps = [{"correct": False, "raw": "SKIPPED"}]
+            base_reps = [{"correct": False, "raw": "SKIPPED"}]
+            hybrid_result = evaluate_answer(clean_hybrid_answer, correct_answer, question, "Hybrid Model", dataset_type=dataset_type, test_list=test_list, n_repetitions=n_judge_reps)
+            hybrid_reps = [{"correct": c, "raw": r} for c, r in _eval_to_reps(hybrid_result)]
         else:
-            thinking_correct, thinking_judge_raw = evaluate_answer(clean_thinking_answer, correct_answer, question, "Thinking Model", dataset_type=dataset_type, test_list=test_list)
-            base_correct, base_judge_raw = evaluate_answer(clean_base_answer, correct_answer, question, "Base Model", dataset_type=dataset_type, test_list=test_list)
-            hybrid_correct, hybrid_judge_raw = evaluate_answer(clean_hybrid_answer, correct_answer, question, "Hybrid Model", dataset_type=dataset_type, test_list=test_list)
-        
+            thinking_result = evaluate_answer(clean_thinking_answer, correct_answer, question, "Thinking Model", dataset_type=dataset_type, test_list=test_list, n_repetitions=n_judge_reps)
+            thinking_reps = [{"correct": c, "raw": r} for c, r in _eval_to_reps(thinking_result)]
+            base_result = evaluate_answer(clean_base_answer, correct_answer, question, "Base Model", dataset_type=dataset_type, test_list=test_list, n_repetitions=n_judge_reps)
+            base_reps = [{"correct": c, "raw": r} for c, r in _eval_to_reps(base_result)]
+            hybrid_result = evaluate_answer(clean_hybrid_answer, correct_answer, question, "Hybrid Model", dataset_type=dataset_type, test_list=test_list, n_repetitions=n_judge_reps)
+            hybrid_reps = [{"correct": c, "raw": r} for c, r in _eval_to_reps(hybrid_result)]
+
+        thinking_judge_entry = _build_judge_entry(thinking_reps)
+        base_judge_entry = _build_judge_entry(base_reps)
+        hybrid_judge_entry = _build_judge_entry(hybrid_reps)
+
+        thinking_correct = thinking_judge_entry["correct"]
+        base_correct = base_judge_entry["correct"]
+        hybrid_correct = hybrid_judge_entry["correct"]
+
         if thinking_correct:
             results["thinking_correct"] += 1
         if base_correct:
             results["base_correct"] += 1
         if hybrid_correct:
             results["hybrid_correct"] += 1
-        
+
         # Rolling save for this task
         rolling_record = {
             "ts": time.time(),
@@ -1914,9 +1987,9 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
                 "hybrid": hybrid_response,
             },
             "judges": {
-                "thinking": {"correct": bool(thinking_correct), "raw": thinking_judge_raw},
-                "base": {"correct": bool(base_correct), "raw": base_judge_raw},
-                "hybrid": {"correct": bool(hybrid_correct), "raw": hybrid_judge_raw},
+                "thinking": thinking_judge_entry,
+                "base": base_judge_entry,
+                "hybrid": hybrid_judge_entry,
             },
             "eos": {
                 "thinking": bool(thinking_eos_end) if (not _is_ablation(args)) else False,

@@ -95,6 +95,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Read existing judge results and print stats without re-running evaluation or modifying files.",
     )
+    parser.add_argument(
+        "--judge-repetitions",
+        type=int,
+        default=5,
+        help="Target number of independent judge repetitions per record (default: 5). Existing reps are preserved; only the shortfall is submitted.",
+    )
     return parser.parse_known_args()[0]
 
 
@@ -263,6 +269,36 @@ def _list_all_rollings(
 
 def clean_answer(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
+
+
+def _normalize_judge_entry(entry):
+    """Convert old or missing format to new format with repetitions list.
+
+    Old format {"correct": bool, "raw": str} -> wraps into 1-element repetitions list.
+    Missing/invalid entry -> empty repetitions list (zero reps).
+    New format (already has "repetitions") -> returned as-is.
+    """
+    if not isinstance(entry, dict):
+        return {"correct": False, "raw": "", "repetitions": []}
+    if "repetitions" in entry:
+        return entry
+    rep = {"correct": entry.get("correct", False), "raw": entry.get("raw", "")}
+    return {"correct": rep["correct"], "raw": rep["raw"], "repetitions": [rep]}
+
+
+def _majority_vote(repetitions):
+    """Return (correct_bool, raw_from_first) based on majority vote."""
+    if not repetitions:
+        return False, ""
+    n_correct = sum(1 for r in repetitions if r.get("correct", False))
+    correct = n_correct > len(repetitions) / 2  # strict majority
+    return correct, repetitions[0].get("raw", "")
+
+
+def _build_judge_entry(repetitions):
+    """Build a judge entry dict from a list of repetition dicts."""
+    correct, raw = _majority_vote(repetitions)
+    return {"correct": correct, "raw": raw, "repetitions": repetitions}
 
 
 def _build_judge_prompt(
@@ -576,17 +612,23 @@ def collect_all_prompts(
     max_records_per_file: Optional[int] = None,
     *,
     only_finished_thinking: bool = False,
+    target_repetitions: int = 1,
 ) -> Tuple[List[str], List[Tuple[str, int, str]]]:
     """
-    Collect all prompts from all files.
+    Collect all prompts from all files, with top-up for multi-rep judge support.
 
     Args:
         files: List of (prefix, paths) tuples
         max_records_per_file: If set, limit to this many records per file (for debug mode)
+        only_finished_thinking: If True, skip records where thinking didn't finish
+        target_repetitions: Target number of judge reps per record/model.
+            Existing reps are preserved; only the shortfall is submitted.
 
     Returns:
         prompts: List of all judge prompts
-        prompt_mapping: List of (file_path, record_idx, model_key) for each prompt
+        prompt_mapping: List of (file_path, record_idx, model_key) for each prompt.
+            The same (path, idx, key) tuple may appear multiple times when
+            multiple new reps are needed.
     """
     prompts: List[str] = []
     prompt_mapping: List[Tuple[str, int, str]] = []
@@ -620,19 +662,29 @@ def collect_all_prompts(
                 question = str(record["question"])
                 gold = str(record["gold_answer"])
                 answers = record["answers"]
+                judges = record.get("judges", {})
 
                 # Get test_list for coding datasets (if available in record)
                 test_list = record.get("test_list") if dataset_type == "coding" else None
 
                 for key, _ in MODEL_SPECS:
+                    # Determine how many reps already exist
+                    existing_entry = _normalize_judge_entry(judges.get(key, {}))
+                    n_existing = len(existing_entry["repetitions"])
+                    n_needed = max(0, target_repetitions - n_existing)
+                    if n_needed == 0:
+                        continue
+
                     answer_text = clean_answer(str(answers[key]))
                     prompt = _build_judge_prompt(
                         question, gold, answer_text,
                         dataset_type=dataset_type,
                         test_list=test_list,
                     )
-                    prompts.append(prompt)
-                    prompt_mapping.append((path, idx, key))
+                    # Add n_needed copies of the same prompt
+                    for _ in range(n_needed):
+                        prompts.append(prompt)
+                        prompt_mapping.append((path, idx, key))
 
     return prompts, prompt_mapping
 
@@ -645,7 +697,11 @@ def update_all_files(
     only_finished_thinking: bool = False,
 ) -> Dict[str, Dict[str, Any]]:
     """
-    Update all files with judge responses.
+    Update all files with judge responses (multi-rep aware).
+
+    New responses are appended to existing repetitions. The entire file is
+    normalized to the new format in one pass (records without new prompts
+    also get their judge entries converted from old to new format).
 
     Returns:
         per_prefix_stats: Dict mapping prefix to stats dict with:
@@ -653,12 +709,15 @@ def update_all_files(
             - correct: {model_key: count}
             - changed: {model_key: count}
             - eos: {model_key: count}
+            - per_rep_correct: {model_key: List[int]} per-rep correct counts
+            - agreement: {model_key: int} records where all reps agree
+            - n_with_reps: int, records with >1 repetition
     """
-    # Group responses by file
-    file_updates: Dict[str, Dict[int, Dict[str, str]]] = {}
+    # Group responses by file -- accumulate lists instead of single values
+    file_updates: Dict[str, Dict[int, Dict[str, List[str]]]] = {}
     for prompt_idx, (path, record_idx, model_key) in enumerate(prompt_mapping):
         response = responses.get(prompt_idx, "")
-        file_updates.setdefault(path, {}).setdefault(record_idx, {})[model_key] = response
+        file_updates.setdefault(path, {}).setdefault(record_idx, {}).setdefault(model_key, []).append(response)
 
     # Track stats per prefix
     per_prefix_stats: Dict[str, Dict[str, Any]] = {}
@@ -669,56 +728,89 @@ def update_all_files(
         prefix_correct: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
         prefix_changed: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
         prefix_eos: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
+        # Per-rep stats: track correct counts per rep index
+        # Will be ragged across records (different records may have different n_reps),
+        # so we track as a list that grows as needed
+        prefix_per_rep_correct: Dict[str, List[int]] = {key: [] for key, _ in MODEL_SPECS}
+        prefix_agreement: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
+        prefix_n_with_reps = 0
 
         for path in paths:
             with open(path, "r", encoding="utf-8") as src:
                 records = [json.loads(line) for line in src if line.strip()]
 
             updates = file_updates.get(path, {})
-            included_indices = sorted(updates.keys())
-            if only_finished_thinking:
-                included_indices = [i for i in included_indices if _thinking_finished(records[i])]
+
+            # Determine which records are included for stats
+            all_included_list: List[int] = []
+            for idx, record in enumerate(records):
+                if only_finished_thinking and (not _thinking_finished(record)):
+                    continue
+                all_included_list.append(idx)
+            all_included = set(all_included_list)
 
             for idx, record in enumerate(records):
-                if idx not in updates:
-                    continue
-                if idx not in included_indices:
-                    continue
-
-                existing_judges = record.get("judges", {})
                 record.setdefault("judges", {})
+                has_updates = idx in updates
 
                 for key, _ in MODEL_SPECS:
-                    raw = updates[idx].get(key, "")
-                    is_correct = "yes" in raw.lower()
+                    # Normalize existing entry
+                    existing_entry = _normalize_judge_entry(record["judges"].get(key, {}))
+                    prev_correct = existing_entry["correct"]
+                    all_reps = list(existing_entry["repetitions"])
 
-                    # Get previous value
-                    prev_entry = existing_judges.get(key)
-                    prev_correct = None
-                    if isinstance(prev_entry, dict):
-                        val = prev_entry.get("correct")
-                        if isinstance(val, bool):
-                            prev_correct = val
+                    # Append new responses if any
+                    if has_updates and key in updates[idx]:
+                        for raw in updates[idx][key]:
+                            is_correct = "yes" in raw.lower()
+                            all_reps.append({"correct": bool(is_correct), "raw": raw})
 
-                    record["judges"][key] = {"correct": bool(is_correct), "raw": raw}
+                    # Rebuild entry with majority vote
+                    record["judges"][key] = _build_judge_entry(all_reps)
 
-                    if is_correct:
-                        prefix_correct[key] += 1
+                    # Track changed (majority vote flipped)
+                    if has_updates and idx in all_included:
+                        new_correct = record["judges"][key]["correct"]
+                        if prev_correct != new_correct:
+                            prefix_changed[key] += 1
 
-                    if prev_correct is None or bool(is_correct) != bool(prev_correct):
-                        prefix_changed[key] += 1
+                # Stats for included records
+                if idx in all_included:
+                    prefix_total += 1
+                    has_multi_reps = False
+                    for key, _ in MODEL_SPECS:
+                        entry = record["judges"][key]
+                        if entry["correct"]:
+                            prefix_correct[key] += 1
 
-            # Count EOS for included records in the file
-            for i in included_indices:
-                record = records[i]
-                eos_data = record.get("eos", {})
-                for key, _ in MODEL_SPECS:
-                    if eos_data.get(key, False):
-                        prefix_eos[key] += 1
+                        # Per-rep stats
+                        reps = entry.get("repetitions", [])
+                        n_reps = len(reps)
+                        if n_reps > 1:
+                            has_multi_reps = True
+                        # Extend per_rep_correct lists if needed
+                        while len(prefix_per_rep_correct[key]) < n_reps:
+                            prefix_per_rep_correct[key].append(0)
+                        for ri, rep in enumerate(reps):
+                            if rep.get("correct", False):
+                                prefix_per_rep_correct[key][ri] += 1
 
-            prefix_total += len(included_indices)
+                        # Agreement: all reps give same verdict
+                        if n_reps > 1:
+                            verdicts = [r.get("correct", False) for r in reps]
+                            if all(v == verdicts[0] for v in verdicts):
+                                prefix_agreement[key] += 1
 
-            # Write back
+                    if has_multi_reps:
+                        prefix_n_with_reps += 1
+
+                    # Count EOS
+                    eos_data = record.get("eos", {})
+                    for key, _ in MODEL_SPECS:
+                        if eos_data.get(key, False):
+                            prefix_eos[key] += 1
+
+            # Write back (normalizes entire file to new format)
             temp_path = f"{path}.tmp"
             with open(temp_path, "w", encoding="utf-8") as dst:
                 for record in records:
@@ -730,6 +822,9 @@ def update_all_files(
             "correct": prefix_correct,
             "changed": prefix_changed,
             "eos": prefix_eos,
+            "per_rep_correct": prefix_per_rep_correct,
+            "agreement": prefix_agreement,
+            "n_with_reps": prefix_n_with_reps,
         }
 
     return per_prefix_stats
@@ -748,6 +843,9 @@ def compute_stats_from_existing(
             - total: number of records
             - correct: {model_key: count}
             - eos: {model_key: count}
+            - per_rep_correct: {model_key: List[int]} per-rep correct counts
+            - agreement: {model_key: int} records where all reps agree
+            - n_with_reps: int, records with >1 repetition
     """
     per_prefix_stats: Dict[str, Dict[str, Any]] = {}
 
@@ -755,6 +853,9 @@ def compute_stats_from_existing(
         prefix_total = 0
         prefix_correct: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
         prefix_eos: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
+        prefix_per_rep_correct: Dict[str, List[int]] = {key: [] for key, _ in MODEL_SPECS}
+        prefix_agreement: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
+        prefix_n_with_reps = 0
 
         for path in paths:
             with open(path, "r", encoding="utf-8") as src:
@@ -769,10 +870,31 @@ def compute_stats_from_existing(
 
                 # Read existing judge results
                 judges = record.get("judges", {})
+                has_multi_reps = False
                 for key, _ in MODEL_SPECS:
-                    judge_entry = judges.get(key)
-                    if isinstance(judge_entry, dict) and judge_entry.get("correct"):
+                    entry = _normalize_judge_entry(judges.get(key, {}))
+                    if entry["correct"]:
                         prefix_correct[key] += 1
+
+                    # Per-rep stats
+                    reps = entry.get("repetitions", [])
+                    n_reps = len(reps)
+                    if n_reps > 1:
+                        has_multi_reps = True
+                    while len(prefix_per_rep_correct[key]) < n_reps:
+                        prefix_per_rep_correct[key].append(0)
+                    for ri, rep in enumerate(reps):
+                        if rep.get("correct", False):
+                            prefix_per_rep_correct[key][ri] += 1
+
+                    # Agreement
+                    if n_reps > 1:
+                        verdicts = [r.get("correct", False) for r in reps]
+                        if all(v == verdicts[0] for v in verdicts):
+                            prefix_agreement[key] += 1
+
+                if has_multi_reps:
+                    prefix_n_with_reps += 1
 
                 # Count EOS
                 eos_data = record.get("eos", {})
@@ -784,6 +906,9 @@ def compute_stats_from_existing(
             "total": prefix_total,
             "correct": prefix_correct,
             "eos": prefix_eos,
+            "per_rep_correct": prefix_per_rep_correct,
+            "agreement": prefix_agreement,
+            "n_with_reps": prefix_n_with_reps,
         }
 
     return per_prefix_stats
@@ -795,7 +920,9 @@ def _print_stats(
     only_finished_thinking: bool,
     recompute_only: bool = False,
 ) -> None:
-    """Print per-model results."""
+    """Print per-model results, including per-rep statistics when available."""
+    import math as _math
+
     total_files = sum(len(paths) for _, paths in files)
     total_records = sum(s["total"] for s in per_prefix_stats.values())
 
@@ -819,9 +946,40 @@ def _print_stats(
         hybrid_acc = hybrid_correct / n * 100
 
         print(f"\n===== {prefix_name} =====")
-        print(f"Thinking Model: {thinking_correct}/{n} correct ({thinking_acc:.1f}%)")
-        print(f"Base Model: {base_correct}/{n} correct ({base_acc:.1f}%)")
-        print(f"Hybrid Model: {hybrid_correct}/{n} correct ({hybrid_acc:.1f}%)")
+
+        n_with_reps = stats.get("n_with_reps", 0)
+        per_rep_correct = stats.get("per_rep_correct", {})
+        agreement = stats.get("agreement", {})
+
+        for key, label in MODEL_SPECS:
+            correct_count = stats["correct"][key]
+            acc = correct_count / n * 100
+            print(f"{label}: {correct_count}/{n} correct ({acc:.1f}%) [majority vote]")
+
+            # Per-rep statistics (only when records have >1 rep)
+            rep_counts = per_rep_correct.get(key, [])
+            n_reps = len(rep_counts)
+            if n_reps > 1 and n_with_reps > 0:
+                per_rep_accs = [c / n * 100 for c in rep_counts]
+                mean_acc = sum(per_rep_accs) / n_reps
+                if n_reps > 1:
+                    variance = sum((a - mean_acc) ** 2 for a in per_rep_accs) / (n_reps - 1)
+                    std_acc = _math.sqrt(variance)
+                else:
+                    std_acc = 0.0
+                # 95% CI using t-distribution approximation (for small N use 2.0 as rough factor)
+                if n_reps >= 30:
+                    t_val = 1.96
+                elif n_reps >= 10:
+                    t_val = 2.228
+                else:
+                    t_val = 2.776  # df=4 (conservative for small N)
+                ci_half = t_val * std_acc / _math.sqrt(n_reps) if n_reps > 1 else 0.0
+                ci_lo = mean_acc - ci_half
+                ci_hi = mean_acc + ci_half
+                agree_count = agreement.get(key, 0)
+                agree_pct = agree_count / n_with_reps * 100 if n_with_reps > 0 else 0.0
+                print(f"  Per-rep mean: {mean_acc:.1f}% +/- {std_acc:.1f}%  |  95% CI: [{ci_lo:.1f}%, {ci_hi:.1f}%]  |  Agreement: {agree_pct:.1f}%")
 
         # Gap recovered by hybrid
         gap = abs(thinking_acc - base_acc)
@@ -873,8 +1031,19 @@ def main() -> None:
     for prefix, paths in files:
         print(f"  {os.path.basename(prefix)}: {len(paths)} file(s)")
 
+    target_reps = int(getattr(args, "judge_repetitions", 5))
+
     if args.dry_run:
-        print("\n[DRY RUN] Would process the above files. Exiting.")
+        # In dry-run, still collect prompts to show shortfall counts
+        print(f"\n[DRY RUN] Target judge repetitions: {target_reps}")
+        max_records = 1 if args.debug else None
+        prompts, prompt_mapping = collect_all_prompts(
+            files,
+            max_records_per_file=max_records,
+            only_finished_thinking=only_finished_thinking,
+            target_repetitions=target_reps,
+        )
+        print(f"Would submit {len(prompts)} prompts (shortfall from target {target_reps} reps). Exiting.")
         return
 
     # Recompute-only mode: read existing judge results and print stats
@@ -891,14 +1060,15 @@ def main() -> None:
         print("\n[DEBUG MODE] Processing only 1 record per file.")
 
     # Collect all prompts
-    print("\nPhase 1: Collecting all prompts...")
+    print(f"\nPhase 1: Collecting all prompts (target {target_reps} reps)...")
     max_records = 1 if args.debug else None
     prompts, prompt_mapping = collect_all_prompts(
         files,
         max_records_per_file=max_records,
         only_finished_thinking=only_finished_thinking,
+        target_repetitions=target_reps,
     )
-    print(f"Collected {len(prompts)} prompts total")
+    print(f"Collected {len(prompts)} prompts total (shortfall from target {target_reps} reps)")
 
     if not prompts:
         print("No prompts to process.")
