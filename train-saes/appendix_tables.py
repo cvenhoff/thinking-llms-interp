@@ -66,14 +66,14 @@ def generate_latex_table(model_name, model_label, layer, cluster_size, json_file
             # Escape special LaTeX characters and Unicode characters
             escaped = example.replace('\\', '\\textbackslash{}').replace('&', '\\&').replace('%', '\\%').replace('$', '\\$').replace('#', '\\#').replace('^', '\\textasciicircum{}').replace('_', '\\_').replace('{', '\\{').replace('}', '\\}').replace('~', '\\textasciitilde{}')
             # Handle common Unicode characters
-            escaped = escaped.replace('Δ', '$\\Delta$').replace('π', '$\\pi$').replace('×', '$\\times$').replace('β', '$\\beta$').replace('≈', '$\\approx$')
+            escaped = escaped.replace('Δ', '$\\Delta$').replace('π', '$\\pi$').replace('×', '$\\times$').replace('β', '$\\beta$').replace('≈', '$\\approx$').replace('λ', '$\\lambda$')
             # Handle subscripts
             escaped = escaped.replace('₀', '$_0$').replace('₁', '$_1$').replace('₂', '$_2$').replace('₃', '$_3$').replace('₄', '$_4$').replace('₅', '$_5$').replace('₆', '$_6$').replace('₇', '$_7$').replace('₈', '$_8$').replace('₉', '$_9$')
             # Handle superscripts
             escaped = escaped.replace('²', '$^2$').replace('³', '$^3$')
             formatted_example = f'``{escaped}\'\''
         else:
-            formatted_example = "``No examples available''"
+            assert False, f"No examples available for category '{title}' (id={category_id}) in {model_name}. Run add_examples.py to populate examples."
         
         latex_lines.append(f"{title} & ")
         latex_lines.append(f"{formatted_example} \\\\")
@@ -92,21 +92,21 @@ def main():
     # Configuration for each model
     configs = [
         {
-            'model_name': 'DeepSeek-R1-Distill-Llama-8b',
+            'model_name': 'DeepSeek-R1-Distill-Llama-8B',
             'model_label': 'llama_8b',
             'layer': 6,
             'cluster_size': 15,
             'json_file': 'results/vars/sae_topk_results_deepseek-r1-distill-llama-8b_layer6.json'
         },
         {
-            'model_name': 'DeepSeek-R1-Distill-Qwen-1.5b',
+            'model_name': 'DeepSeek-R1-Distill-Qwen-1.5B',
             'model_label': 'qwen_1.5b',
             'layer': 4,
             'cluster_size': 25,
             'json_file': 'results/vars/sae_topk_results_deepseek-r1-distill-qwen-1.5b_layer4.json'
         },
         {
-            'model_name': 'DeepSeek-R1-Distill-Qwen-14b',
+            'model_name': 'DeepSeek-R1-Distill-Qwen-14B',
             'model_label': 'qwen_14b',
             'layer': 38,
             'cluster_size': 5,
@@ -120,7 +120,7 @@ def main():
             'json_file': 'results/vars/sae_topk_results_qwq-32b_layer27.json'
         },
         {
-            'model_name': 'DeepSeek-R1-Distill-Qwen-32b',
+            'model_name': 'DeepSeek-R1-Distill-Qwen-32B',
             'model_label': 'qwen_32b',
             'layer': 27,
             'cluster_size': 15,
