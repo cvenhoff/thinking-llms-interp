@@ -125,6 +125,34 @@ def main():
             'layer': 27,
             'cluster_size': 15,
             'json_file': 'results/vars/sae_topk_results_deepseek-r1-distill-qwen-32b_layer27.json'
+        },
+        {
+            'model_name': 'Open-Reasoner-Zero-0.5B',
+            'model_label': 'orz_0.5b',
+            'layer': 8,
+            'cluster_size': 10,
+            'json_file': 'results/vars/sae_topk_results_open-reasoner-zero-0.5b_layer8.json'
+        },
+        {
+            'model_name': 'Open-Reasoner-Zero-1.5B',
+            'model_label': 'orz_1.5b',
+            'layer': 8,
+            'cluster_size': 5,
+            'json_file': 'results/vars/sae_topk_results_open-reasoner-zero-1.5b_layer8.json'
+        },
+        {
+            'model_name': 'Open-Reasoner-Zero-7B',
+            'model_label': 'orz_7b',
+            'layer': 20,
+            'cluster_size': 10,
+            'json_file': 'results/vars/sae_topk_results_open-reasoner-zero-7b_layer20.json'
+        },
+        {
+            'model_name': 'Open-Reasoner-Zero-32B',
+            'model_label': 'orz_32b',
+            'layer': 27,
+            'cluster_size': 15,
+            'json_file': 'results/vars/sae_topk_results_open-reasoner-zero-32b_layer27.json'
         }
     ]
     
