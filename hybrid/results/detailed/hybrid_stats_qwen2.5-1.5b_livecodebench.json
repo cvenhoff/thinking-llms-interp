@@ -1,0 +1,3277 @@
+{
+  "metadata": {
+    "base_model": "Qwen/Qwen2.5-1.5B",
+    "thinking_model": "Open-Reasoner-Zero/Open-Reasoner-Zero-1.5B",
+    "dataset": "livecodebench",
+    "temperature": 0.0,
+    "coefficients": [
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+      0.5,
+      0.6,
+      0.7,
+      0.8,
+      0.9,
+      1.0
+    ],
+    "n_tasks": 187
+  },
+  "answer_lengths": {
+    "base_model": [
+      90,
+      177,
+      1855,
+      81,
+      249,
+      238,
+      104,
+      78,
+      85,
+      109,
+      141,
+      88,
+      145,
+      96,
+      71,
+      119,
+      169,
+      180,
+      138,
+      117,
+      154,
+      133,
+      198,
+      121,
+      236,
+      125,
+      66,
+      302,
+      161,
+      110,
+      129,
+      116,
+      367,
+      47,
+      107,
+      118,
+      181,
+      276,
+      1356,
+      89,
+      138,
+      171,
+      299,
+      34,
+      108,
+      1259,
+      233,
+      88,
+      70,
+      1775,
+      145,
+      101,
+      177,
+      73,
+      118,
+      1677,
+      49,
+      158,
+      154,
+      1270,
+      316,
+      116,
+      69,
+      233,
+      84,
+      1761,
+      117,
+      146,
+      159,
+      121,
+      126,
+      69,
+      115,
+      1722,
+      74,
+      306,
+      196,
+      162,
+      183,
+      84,
+      94,
+      173,
+      92,
+      77,
+      1581,
+      96,
+      1589,
+      137,
+      67,
+      188,
+      70,
+      1564,
+      1570,
+      46,
+      217,
+      1616,
+      1328,
+      88,
+      74,
+      211,
+      109,
+      111,
+      107,
+      322,
+      202,
+      92,
+      1457,
+      266,
+      116,
+      67,
+      115,
+      296,
+      361,
+      105,
+      182,
+      137,
+      167,
+      301,
+      139,
+      117,
+      1372,
+      107,
+      171,
+      207,
+      273,
+      1552,
+      148,
+      89,
+      217,
+      163,
+      93,
+      158,
+      118,
+      118,
+      146,
+      157,
+      115,
+      290,
+      1675,
+      357,
+      134,
+      194,
+      1721,
+      251,
+      123,
+      108,
+      218,
+      130,
+      110,
+      88,
+      138,
+      221,
+      179,
+      108,
+      168,
+      186,
+      123,
+      127,
+      108,
+      132,
+      166,
+      124,
+      191,
+      137,
+      150,
+      302,
+      102,
+      137,
+      305,
+      144,
+      167,
+      134,
+      131,
+      85,
+      205,
+      80,
+      74,
+      62,
+      193,
+      1289,
+      111,
+      223,
+      140,
+      87,
+      121,
+      137,
+      161
+    ],
+    "thinking_model": [
+      420,
+      961,
+      438,
+      433,
+      400,
+      975,
+      361,
+      365,
+      230,
+      276,
+      255,
+      346,
+      346,
+      868,
+      187,
+      276,
+      1408,
+      364,
+      292,
+      248,
+      452,
+      456,
+      472,
+      189,
+      401,
+      308,
+      290,
+      284,
+      210,
+      227,
+      362,
+      383,
+      429,
+      226,
+      324,
+      255,
+      313,
+      471,
+      235,
+      230,
+      290,
+      374,
+      481,
+      247,
+      504,
+      414,
+      494,
+      172,
+      293,
+      373,
+      307,
+      299,
+      335,
+      324,
+      458,
+      494,
+      235,
+      1106,
+      443,
+      402,
+      391,
+      478,
+      340,
+      1128,
+      417,
+      413,
+      352,
+      248,
+      829,
+      314,
+      325,
+      218,
+      385,
+      462,
+      425,
+      413,
+      301,
+      301,
+      252,
+      200,
+      324,
+      434,
+      199,
+      229,
+      192,
+      1483,
+      1017,
+      502,
+      206,
+      448,
+      401,
+      374,
+      255,
+      142,
+      313,
+      247,
+      308,
+      1137,
+      751,
+      456,
+      371,
+      296,
+      292,
+      200,
+      323,
+      1411,
+      468,
+      248,
+      318,
+      365,
+      1516,
+      443,
+      254,
+      263,
+      477,
+      256,
+      947,
+      249,
+      480,
+      297,
+      280,
+      228,
+      244,
+      332,
+      340,
+      288,
+      434,
+      379,
+      325,
+      258,
+      384,
+      326,
+      417,
+      320,
+      206,
+      246,
+      339,
+      241,
+      268,
+      560,
+      290,
+      247,
+      1065,
+      410,
+      255,
+      266,
+      320,
+      525,
+      236,
+      351,
+      1024,
+      482,
+      347,
+      961,
+      302,
+      300,
+      404,
+      316,
+      285,
+      1277,
+      521,
+      346,
+      495,
+      1188,
+      268,
+      438,
+      204,
+      358,
+      417,
+      353,
+      260,
+      390,
+      1116,
+      364,
+      1155,
+      1018,
+      332,
+      385,
+      1067,
+      1084,
+      957,
+      290,
+      623,
+      1226,
+      442,
+      301,
+      1062
+    ],
+    "hybrid_model": [
+      407,
+      1477,
+      277,
+      1751,
+      268,
+      309,
+      902,
+      293,
+      329,
+      299,
+      251,
+      1755,
+      352,
+      163,
+      239,
+      327,
+      236,
+      425,
+      475,
+      222,
+      279,
+      477,
+      1792,
+      366,
+      665,
+      379,
+      274,
+      449,
+      1601,
+      264,
+      316,
+      889,
+      774,
+      505,
+      312,
+      256,
+      361,
+      419,
+      223,
+      300,
+      343,
+      1480,
+      391,
+      203,
+      1603,
+      400,
+      521,
+      249,
+      260,
+      421,
+      299,
+      272,
+      293,
+      336,
+      282,
+      1199,
+      251,
+      1768,
+      389,
+      189,
+      387,
+      364,
+      181,
+      411,
+      226,
+      438,
+      282,
+      1488,
+      302,
+      361,
+      282,
+      1407,
+      221,
+      374,
+      277,
+      1562,
+      386,
+      309,
+      376,
+      257,
+      354,
+      387,
+      234,
+      392,
+      300,
+      356,
+      1164,
+      478,
+      342,
+      313,
+      1642,
+      229,
+      520,
+      199,
+      349,
+      1467,
+      399,
+      748,
+      417,
+      262,
+      282,
+      261,
+      396,
+      265,
+      296,
+      173,
+      859,
+      1507,
+      294,
+      984,
+      1073,
+      1567,
+      254,
+      740,
+      334,
+      408,
+      535,
+      403,
+      1740,
+      319,
+      341,
+      206,
+      1266,
+      279,
+      399,
+      315,
+      374,
+      307,
+      302,
+      386,
+      884,
+      1529,
+      340,
+      336,
+      223,
+      303,
+      226,
+      461,
+      560,
+      1737,
+      256,
+      482,
+      347,
+      1028,
+      286,
+      305,
+      1359,
+      1014,
+      858,
+      1449,
+      1047,
+      1094,
+      1739,
+      448,
+      248,
+      1627,
+      355,
+      1129,
+      1807,
+      283,
+      1216,
+      305,
+      426,
+      357,
+      1649,
+      1312,
+      754,
+      1160,
+      417,
+      383,
+      603,
+      1754,
+      1092,
+      1451,
+      1454,
+      1577,
+      515,
+      395,
+      1685,
+      628,
+      1224,
+      1521,
+      1031,
+      602,
+      417,
+      612,
+      1047
+    ],
+    "avg_base": 298.80213903743316,
+    "avg_thinking": 448.3048128342246,
+    "avg_hybrid": 638.8342245989305
+  },
+  "steering_stats": {
+    "no_steering_fractions": [
+      0.9124579124579124,
+      0.967,
+      0.8741007194244604,
+      0.9675,
+      0.8875878220140515,
+      0.9494640122511485,
+      0.9645,
+      0.9368863955119214,
+      0.8879310344827587,
+      0.8942917547568711,
+      0.9232558139534883,
+      0.9725,
+      0.9327272727272727,
+      0.8716814159292036,
+      0.9106280193236715,
+      0.8969072164948454,
+      0.9093484419263456,
+      0.9140518417462483,
+      0.9388888888888889,
+      0.8440677966101695,
+      0.9202586206896551,
+      0.9212376933895922,
+      0.9765,
+      0.9132569558101473,
+      0.969,
+      0.8675373134328358,
+      0.905940594059406,
+      0.9236016371077762,
+      0.971,
+      0.9191685912240185,
+      0.9039665970772442,
+      0.9600340136054422,
+      0.9945,
+      0.9855,
+      0.9096267190569745,
+      0.8710462287104623,
+      0.9403254972875226,
+      0.9312320916905444,
+      0.8691588785046729,
+      0.8682008368200836,
+      0.8950381679389313,
+      0.961,
+      0.9097978227060654,
+      0.8916666666666667,
+      0.9675,
+      0.9299847792998478,
+      0.9370786516853933,
+      0.868421052631579,
+      0.8898305084745762,
+      0.9490874159462056,
+      0.9121140142517815,
+      0.8833746898263027,
+      0.9348230912476723,
+      0.9118773946360154,
+      0.928436911487759,
+      0.9825,
+      0.906801007556675,
+      0.9785,
+      0.8800773694390716,
+      0.9171428571428571,
+      0.9292763157894737,
+      0.9136690647482014,
+      0.8700787401574803,
+      0.9251592356687898,
+      0.8847352024922118,
+      0.9392655367231638,
+      0.8916256157635468,
+      0.9815,
+      0.9140461215932913,
+      0.9060955518945635,
+      0.9114219114219114,
+      0.991,
+      0.9297752808988764,
+      0.9233390119250426,
+      0.8956743002544529,
+      0.974,
+      0.9443478260869566,
+      0.9168646080760094,
+      0.9134438305709024,
+      0.9028132992327366,
+      0.9177852348993288,
+      0.9224422442244224,
+      0.8454810495626822,
+      0.8876611418047882,
+      0.9043478260869565,
+      0.9252525252525252,
+      0.993,
+      0.912850812407681,
+      0.9124343257443083,
+      0.9020332717190388,
+      0.9765,
+      0.8882978723404256,
+      0.9411764705882353,
+      0.892018779342723,
+      0.9312977099236641,
+      0.9795,
+      0.9257142857142857,
+      0.9815,
+      0.9045996592844975,
+      0.8798955613577023,
+      0.8825,
+      0.9178082191780822,
+      0.9194991055456172,
+      0.919431279620853,
+      0.928416485900217,
+      0.978,
+      0.995,
+      0.9695,
+      0.9004237288135594,
+      0.978,
+      0.977,
+      0.984,
+      0.9439834024896265,
+      0.9805,
+      0.9284497444633731,
+      0.9267935578330894,
+      0.9317919075144508,
+      0.9031719532554258,
+      0.981,
+      0.9065817409766455,
+      0.9191729323308271,
+      0.8888888888888888,
+      0.981,
+      0.896551724137931,
+      0.9595536959553695,
+      0.9059080962800875,
+      0.8680297397769516,
+      0.9293598233995585,
+      0.9213286713286714,
+      0.9458413926499033,
+      0.9765,
+      0.987,
+      0.8907407407407407,
+      0.9265625,
+      0.8988439306358381,
+      0.8707627118644068,
+      0.8825396825396825,
+      0.9331713244228432,
+      0.9272271016311167,
+      0.9805,
+      0.9305912596401028,
+      0.9171597633136095,
+      0.9013282732447818,
+      0.986,
+      0.9084507042253521,
+      0.8843683083511777,
+      0.9845,
+      0.966,
+      0.9845,
+      0.9695,
+      0.982,
+      0.9785,
+      0.973,
+      0.9170812603648425,
+      0.9238095238095239,
+      0.977,
+      0.910394265232975,
+      0.982,
+      0.967,
+      0.9217221135029354,
+      0.9765,
+      0.855072463768116,
+      0.9165507649513213,
+      0.9166666666666666,
+      0.963,
+      0.968,
+      0.9815,
+      0.9725,
+      0.8828671328671329,
+      0.9262048192771084,
+      0.9076923076923077,
+      0.972,
+      0.9705,
+      0.9745,
+      0.977,
+      0.976,
+      0.9257265877287406,
+      0.9212598425196851,
+      0.97,
+      0.9334548769371012,
+      0.974,
+      0.98,
+      0.973,
+      0.9845,
+      0.9060955518945635,
+      0.9309309309309309,
+      0.972
+    ],
+    "avg_no_steering": 0.9310566992007842,
+    "detailed_stats": [
+      {
+        "steered_count": 52,
+        "unsteered_count": 542,
+        "total_tokens": 594,
+        "steering_fraction": 0.08754208754208755,
+        "no_steering_fraction": 0.9124579124579124
+      },
+      {
+        "steered_count": 66,
+        "unsteered_count": 1934,
+        "total_tokens": 2000,
+        "steering_fraction": 0.033,
+        "no_steering_fraction": 0.967
+      },
+      {
+        "steered_count": 70,
+        "unsteered_count": 486,
+        "total_tokens": 556,
+        "steering_fraction": 0.12589928057553956,
+        "no_steering_fraction": 0.8741007194244604
+      },
+      {
+        "steered_count": 65,
+        "unsteered_count": 1935,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0325,
+        "no_steering_fraction": 0.9675
+      },
+      {
+        "steered_count": 48,
+        "unsteered_count": 379,
+        "total_tokens": 427,
+        "steering_fraction": 0.11241217798594848,
+        "no_steering_fraction": 0.8875878220140515
+      },
+      {
+        "steered_count": 33,
+        "unsteered_count": 620,
+        "total_tokens": 653,
+        "steering_fraction": 0.05053598774885146,
+        "no_steering_fraction": 0.9494640122511485
+      },
+      {
+        "steered_count": 71,
+        "unsteered_count": 1929,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0355,
+        "no_steering_fraction": 0.9645
+      },
+      {
+        "steered_count": 45,
+        "unsteered_count": 668,
+        "total_tokens": 713,
+        "steering_fraction": 0.06311360448807854,
+        "no_steering_fraction": 0.9368863955119214
+      },
+      {
+        "steered_count": 52,
+        "unsteered_count": 412,
+        "total_tokens": 464,
+        "steering_fraction": 0.11206896551724138,
+        "no_steering_fraction": 0.8879310344827587
+      },
+      {
+        "steered_count": 50,
+        "unsteered_count": 423,
+        "total_tokens": 473,
+        "steering_fraction": 0.10570824524312897,
+        "no_steering_fraction": 0.8942917547568711
+      },
+      {
+        "steered_count": 33,
+        "unsteered_count": 397,
+        "total_tokens": 430,
+        "steering_fraction": 0.07674418604651163,
+        "no_steering_fraction": 0.9232558139534883
+      },
+      {
+        "steered_count": 55,
+        "unsteered_count": 1945,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0275,
+        "no_steering_fraction": 0.9725
+      },
+      {
+        "steered_count": 37,
+        "unsteered_count": 513,
+        "total_tokens": 550,
+        "steering_fraction": 0.06727272727272728,
+        "no_steering_fraction": 0.9327272727272727
+      },
+      {
+        "steered_count": 29,
+        "unsteered_count": 197,
+        "total_tokens": 226,
+        "steering_fraction": 0.12831858407079647,
+        "no_steering_fraction": 0.8716814159292036
+      },
+      {
+        "steered_count": 37,
+        "unsteered_count": 377,
+        "total_tokens": 414,
+        "steering_fraction": 0.0893719806763285,
+        "no_steering_fraction": 0.9106280193236715
+      },
+      {
+        "steered_count": 50,
+        "unsteered_count": 435,
+        "total_tokens": 485,
+        "steering_fraction": 0.10309278350515463,
+        "no_steering_fraction": 0.8969072164948454
+      },
+      {
+        "steered_count": 32,
+        "unsteered_count": 321,
+        "total_tokens": 353,
+        "steering_fraction": 0.0906515580736544,
+        "no_steering_fraction": 0.9093484419263456
+      },
+      {
+        "steered_count": 63,
+        "unsteered_count": 670,
+        "total_tokens": 733,
+        "steering_fraction": 0.08594815825375171,
+        "no_steering_fraction": 0.9140518417462483
+      },
+      {
+        "steered_count": 44,
+        "unsteered_count": 676,
+        "total_tokens": 720,
+        "steering_fraction": 0.06111111111111111,
+        "no_steering_fraction": 0.9388888888888889
+      },
+      {
+        "steered_count": 46,
+        "unsteered_count": 249,
+        "total_tokens": 295,
+        "steering_fraction": 0.15593220338983052,
+        "no_steering_fraction": 0.8440677966101695
+      },
+      {
+        "steered_count": 37,
+        "unsteered_count": 427,
+        "total_tokens": 464,
+        "steering_fraction": 0.07974137931034483,
+        "no_steering_fraction": 0.9202586206896551
+      },
+      {
+        "steered_count": 56,
+        "unsteered_count": 655,
+        "total_tokens": 711,
+        "steering_fraction": 0.07876230661040788,
+        "no_steering_fraction": 0.9212376933895922
+      },
+      {
+        "steered_count": 47,
+        "unsteered_count": 1953,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0235,
+        "no_steering_fraction": 0.9765
+      },
+      {
+        "steered_count": 53,
+        "unsteered_count": 558,
+        "total_tokens": 611,
+        "steering_fraction": 0.0867430441898527,
+        "no_steering_fraction": 0.9132569558101473
+      },
+      {
+        "steered_count": 62,
+        "unsteered_count": 1938,
+        "total_tokens": 2000,
+        "steering_fraction": 0.031,
+        "no_steering_fraction": 0.969
+      },
+      {
+        "steered_count": 71,
+        "unsteered_count": 465,
+        "total_tokens": 536,
+        "steering_fraction": 0.13246268656716417,
+        "no_steering_fraction": 0.8675373134328358
+      },
+      {
+        "steered_count": 38,
+        "unsteered_count": 366,
+        "total_tokens": 404,
+        "steering_fraction": 0.09405940594059406,
+        "no_steering_fraction": 0.905940594059406
+      },
+      {
+        "steered_count": 56,
+        "unsteered_count": 677,
+        "total_tokens": 733,
+        "steering_fraction": 0.07639836289222374,
+        "no_steering_fraction": 0.9236016371077762
+      },
+      {
+        "steered_count": 58,
+        "unsteered_count": 1942,
+        "total_tokens": 2000,
+        "steering_fraction": 0.029,
+        "no_steering_fraction": 0.971
+      },
+      {
+        "steered_count": 35,
+        "unsteered_count": 398,
+        "total_tokens": 433,
+        "steering_fraction": 0.08083140877598152,
+        "no_steering_fraction": 0.9191685912240185
+      },
+      {
+        "steered_count": 46,
+        "unsteered_count": 433,
+        "total_tokens": 479,
+        "steering_fraction": 0.09603340292275574,
+        "no_steering_fraction": 0.9039665970772442
+      },
+      {
+        "steered_count": 47,
+        "unsteered_count": 1129,
+        "total_tokens": 1176,
+        "steering_fraction": 0.039965986394557826,
+        "no_steering_fraction": 0.9600340136054422
+      },
+      {
+        "steered_count": 11,
+        "unsteered_count": 1989,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0055,
+        "no_steering_fraction": 0.9945
+      },
+      {
+        "steered_count": 29,
+        "unsteered_count": 1971,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0145,
+        "no_steering_fraction": 0.9855
+      },
+      {
+        "steered_count": 46,
+        "unsteered_count": 463,
+        "total_tokens": 509,
+        "steering_fraction": 0.09037328094302555,
+        "no_steering_fraction": 0.9096267190569745
+      },
+      {
+        "steered_count": 53,
+        "unsteered_count": 358,
+        "total_tokens": 411,
+        "steering_fraction": 0.12895377128953772,
+        "no_steering_fraction": 0.8710462287104623
+      },
+      {
+        "steered_count": 33,
+        "unsteered_count": 520,
+        "total_tokens": 553,
+        "steering_fraction": 0.059674502712477394,
+        "no_steering_fraction": 0.9403254972875226
+      },
+      {
+        "steered_count": 48,
+        "unsteered_count": 650,
+        "total_tokens": 698,
+        "steering_fraction": 0.06876790830945559,
+        "no_steering_fraction": 0.9312320916905444
+      },
+      {
+        "steered_count": 42,
+        "unsteered_count": 279,
+        "total_tokens": 321,
+        "steering_fraction": 0.1308411214953271,
+        "no_steering_fraction": 0.8691588785046729
+      },
+      {
+        "steered_count": 63,
+        "unsteered_count": 415,
+        "total_tokens": 478,
+        "steering_fraction": 0.13179916317991633,
+        "no_steering_fraction": 0.8682008368200836
+      },
+      {
+        "steered_count": 55,
+        "unsteered_count": 469,
+        "total_tokens": 524,
+        "steering_fraction": 0.1049618320610687,
+        "no_steering_fraction": 0.8950381679389313
+      },
+      {
+        "steered_count": 78,
+        "unsteered_count": 1922,
+        "total_tokens": 2000,
+        "steering_fraction": 0.039,
+        "no_steering_fraction": 0.961
+      },
+      {
+        "steered_count": 58,
+        "unsteered_count": 585,
+        "total_tokens": 643,
+        "steering_fraction": 0.09020217729393468,
+        "no_steering_fraction": 0.9097978227060654
+      },
+      {
+        "steered_count": 39,
+        "unsteered_count": 321,
+        "total_tokens": 360,
+        "steering_fraction": 0.10833333333333334,
+        "no_steering_fraction": 0.8916666666666667
+      },
+      {
+        "steered_count": 65,
+        "unsteered_count": 1935,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0325,
+        "no_steering_fraction": 0.9675
+      },
+      {
+        "steered_count": 46,
+        "unsteered_count": 611,
+        "total_tokens": 657,
+        "steering_fraction": 0.0700152207001522,
+        "no_steering_fraction": 0.9299847792998478
+      },
+      {
+        "steered_count": 56,
+        "unsteered_count": 834,
+        "total_tokens": 890,
+        "steering_fraction": 0.06292134831460675,
+        "no_steering_fraction": 0.9370786516853933
+      },
+      {
+        "steered_count": 50,
+        "unsteered_count": 330,
+        "total_tokens": 380,
+        "steering_fraction": 0.13157894736842105,
+        "no_steering_fraction": 0.868421052631579
+      },
+      {
+        "steered_count": 39,
+        "unsteered_count": 315,
+        "total_tokens": 354,
+        "steering_fraction": 0.11016949152542373,
+        "no_steering_fraction": 0.8898305084745762
+      },
+      {
+        "steered_count": 53,
+        "unsteered_count": 988,
+        "total_tokens": 1041,
+        "steering_fraction": 0.05091258405379443,
+        "no_steering_fraction": 0.9490874159462056
+      },
+      {
+        "steered_count": 37,
+        "unsteered_count": 384,
+        "total_tokens": 421,
+        "steering_fraction": 0.08788598574821853,
+        "no_steering_fraction": 0.9121140142517815
+      },
+      {
+        "steered_count": 47,
+        "unsteered_count": 356,
+        "total_tokens": 403,
+        "steering_fraction": 0.11662531017369727,
+        "no_steering_fraction": 0.8833746898263027
+      },
+      {
+        "steered_count": 35,
+        "unsteered_count": 502,
+        "total_tokens": 537,
+        "steering_fraction": 0.06517690875232775,
+        "no_steering_fraction": 0.9348230912476723
+      },
+      {
+        "steered_count": 46,
+        "unsteered_count": 476,
+        "total_tokens": 522,
+        "steering_fraction": 0.08812260536398467,
+        "no_steering_fraction": 0.9118773946360154
+      },
+      {
+        "steered_count": 38,
+        "unsteered_count": 493,
+        "total_tokens": 531,
+        "steering_fraction": 0.07156308851224105,
+        "no_steering_fraction": 0.928436911487759
+      },
+      {
+        "steered_count": 35,
+        "unsteered_count": 1965,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0175,
+        "no_steering_fraction": 0.9825
+      },
+      {
+        "steered_count": 37,
+        "unsteered_count": 360,
+        "total_tokens": 397,
+        "steering_fraction": 0.09319899244332494,
+        "no_steering_fraction": 0.906801007556675
+      },
+      {
+        "steered_count": 43,
+        "unsteered_count": 1957,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0215,
+        "no_steering_fraction": 0.9785
+      },
+      {
+        "steered_count": 62,
+        "unsteered_count": 455,
+        "total_tokens": 517,
+        "steering_fraction": 0.11992263056092843,
+        "no_steering_fraction": 0.8800773694390716
+      },
+      {
+        "steered_count": 29,
+        "unsteered_count": 321,
+        "total_tokens": 350,
+        "steering_fraction": 0.08285714285714285,
+        "no_steering_fraction": 0.9171428571428571
+      },
+      {
+        "steered_count": 43,
+        "unsteered_count": 565,
+        "total_tokens": 608,
+        "steering_fraction": 0.07072368421052631,
+        "no_steering_fraction": 0.9292763157894737
+      },
+      {
+        "steered_count": 48,
+        "unsteered_count": 508,
+        "total_tokens": 556,
+        "steering_fraction": 0.08633093525179857,
+        "no_steering_fraction": 0.9136690647482014
+      },
+      {
+        "steered_count": 33,
+        "unsteered_count": 221,
+        "total_tokens": 254,
+        "steering_fraction": 0.12992125984251968,
+        "no_steering_fraction": 0.8700787401574803
+      },
+      {
+        "steered_count": 47,
+        "unsteered_count": 581,
+        "total_tokens": 628,
+        "steering_fraction": 0.07484076433121019,
+        "no_steering_fraction": 0.9251592356687898
+      },
+      {
+        "steered_count": 37,
+        "unsteered_count": 284,
+        "total_tokens": 321,
+        "steering_fraction": 0.11526479750778816,
+        "no_steering_fraction": 0.8847352024922118
+      },
+      {
+        "steered_count": 43,
+        "unsteered_count": 665,
+        "total_tokens": 708,
+        "steering_fraction": 0.06073446327683616,
+        "no_steering_fraction": 0.9392655367231638
+      },
+      {
+        "steered_count": 44,
+        "unsteered_count": 362,
+        "total_tokens": 406,
+        "steering_fraction": 0.10837438423645321,
+        "no_steering_fraction": 0.8916256157635468
+      },
+      {
+        "steered_count": 37,
+        "unsteered_count": 1963,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0185,
+        "no_steering_fraction": 0.9815
+      },
+      {
+        "steered_count": 41,
+        "unsteered_count": 436,
+        "total_tokens": 477,
+        "steering_fraction": 0.0859538784067086,
+        "no_steering_fraction": 0.9140461215932913
+      },
+      {
+        "steered_count": 57,
+        "unsteered_count": 550,
+        "total_tokens": 607,
+        "steering_fraction": 0.09390444810543658,
+        "no_steering_fraction": 0.9060955518945635
+      },
+      {
+        "steered_count": 38,
+        "unsteered_count": 391,
+        "total_tokens": 429,
+        "steering_fraction": 0.08857808857808858,
+        "no_steering_fraction": 0.9114219114219114
+      },
+      {
+        "steered_count": 18,
+        "unsteered_count": 1982,
+        "total_tokens": 2000,
+        "steering_fraction": 0.009,
+        "no_steering_fraction": 0.991
+      },
+      {
+        "steered_count": 25,
+        "unsteered_count": 331,
+        "total_tokens": 356,
+        "steering_fraction": 0.0702247191011236,
+        "no_steering_fraction": 0.9297752808988764
+      },
+      {
+        "steered_count": 45,
+        "unsteered_count": 542,
+        "total_tokens": 587,
+        "steering_fraction": 0.07666098807495741,
+        "no_steering_fraction": 0.9233390119250426
+      },
+      {
+        "steered_count": 41,
+        "unsteered_count": 352,
+        "total_tokens": 393,
+        "steering_fraction": 0.10432569974554708,
+        "no_steering_fraction": 0.8956743002544529
+      },
+      {
+        "steered_count": 52,
+        "unsteered_count": 1948,
+        "total_tokens": 2000,
+        "steering_fraction": 0.026,
+        "no_steering_fraction": 0.974
+      },
+      {
+        "steered_count": 32,
+        "unsteered_count": 543,
+        "total_tokens": 575,
+        "steering_fraction": 0.05565217391304348,
+        "no_steering_fraction": 0.9443478260869566
+      },
+      {
+        "steered_count": 35,
+        "unsteered_count": 386,
+        "total_tokens": 421,
+        "steering_fraction": 0.0831353919239905,
+        "no_steering_fraction": 0.9168646080760094
+      },
+      {
+        "steered_count": 47,
+        "unsteered_count": 496,
+        "total_tokens": 543,
+        "steering_fraction": 0.0865561694290976,
+        "no_steering_fraction": 0.9134438305709024
+      },
+      {
+        "steered_count": 38,
+        "unsteered_count": 353,
+        "total_tokens": 391,
+        "steering_fraction": 0.09718670076726342,
+        "no_steering_fraction": 0.9028132992327366
+      },
+      {
+        "steered_count": 49,
+        "unsteered_count": 547,
+        "total_tokens": 596,
+        "steering_fraction": 0.08221476510067115,
+        "no_steering_fraction": 0.9177852348993288
+      },
+      {
+        "steered_count": 47,
+        "unsteered_count": 559,
+        "total_tokens": 606,
+        "steering_fraction": 0.07755775577557755,
+        "no_steering_fraction": 0.9224422442244224
+      },
+      {
+        "steered_count": 53,
+        "unsteered_count": 290,
+        "total_tokens": 343,
+        "steering_fraction": 0.15451895043731778,
+        "no_steering_fraction": 0.8454810495626822
+      },
+      {
+        "steered_count": 61,
+        "unsteered_count": 482,
+        "total_tokens": 543,
+        "steering_fraction": 0.11233885819521179,
+        "no_steering_fraction": 0.8876611418047882
+      },
+      {
+        "steered_count": 44,
+        "unsteered_count": 416,
+        "total_tokens": 460,
+        "steering_fraction": 0.09565217391304348,
+        "no_steering_fraction": 0.9043478260869565
+      },
+      {
+        "steered_count": 37,
+        "unsteered_count": 458,
+        "total_tokens": 495,
+        "steering_fraction": 0.07474747474747474,
+        "no_steering_fraction": 0.9252525252525252
+      },
+      {
+        "steered_count": 14,
+        "unsteered_count": 1986,
+        "total_tokens": 2000,
+        "steering_fraction": 0.007,
+        "no_steering_fraction": 0.993
+      },
+      {
+        "steered_count": 59,
+        "unsteered_count": 618,
+        "total_tokens": 677,
+        "steering_fraction": 0.08714918759231906,
+        "no_steering_fraction": 0.912850812407681
+      },
+      {
+        "steered_count": 50,
+        "unsteered_count": 521,
+        "total_tokens": 571,
+        "steering_fraction": 0.08756567425569177,
+        "no_steering_fraction": 0.9124343257443083
+      },
+      {
+        "steered_count": 53,
+        "unsteered_count": 488,
+        "total_tokens": 541,
+        "steering_fraction": 0.09796672828096119,
+        "no_steering_fraction": 0.9020332717190388
+      },
+      {
+        "steered_count": 47,
+        "unsteered_count": 1953,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0235,
+        "no_steering_fraction": 0.9765
+      },
+      {
+        "steered_count": 42,
+        "unsteered_count": 334,
+        "total_tokens": 376,
+        "steering_fraction": 0.11170212765957446,
+        "no_steering_fraction": 0.8882978723404256
+      },
+      {
+        "steered_count": 42,
+        "unsteered_count": 672,
+        "total_tokens": 714,
+        "steering_fraction": 0.058823529411764705,
+        "no_steering_fraction": 0.9411764705882353
+      },
+      {
+        "steered_count": 46,
+        "unsteered_count": 380,
+        "total_tokens": 426,
+        "steering_fraction": 0.107981220657277,
+        "no_steering_fraction": 0.892018779342723
+      },
+      {
+        "steered_count": 36,
+        "unsteered_count": 488,
+        "total_tokens": 524,
+        "steering_fraction": 0.06870229007633588,
+        "no_steering_fraction": 0.9312977099236641
+      },
+      {
+        "steered_count": 41,
+        "unsteered_count": 1959,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0205,
+        "no_steering_fraction": 0.9795
+      },
+      {
+        "steered_count": 52,
+        "unsteered_count": 648,
+        "total_tokens": 700,
+        "steering_fraction": 0.07428571428571429,
+        "no_steering_fraction": 0.9257142857142857
+      },
+      {
+        "steered_count": 37,
+        "unsteered_count": 1963,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0185,
+        "no_steering_fraction": 0.9815
+      },
+      {
+        "steered_count": 56,
+        "unsteered_count": 531,
+        "total_tokens": 587,
+        "steering_fraction": 0.09540034071550256,
+        "no_steering_fraction": 0.9045996592844975
+      },
+      {
+        "steered_count": 46,
+        "unsteered_count": 337,
+        "total_tokens": 383,
+        "steering_fraction": 0.12010443864229765,
+        "no_steering_fraction": 0.8798955613577023
+      },
+      {
+        "steered_count": 47,
+        "unsteered_count": 353,
+        "total_tokens": 400,
+        "steering_fraction": 0.1175,
+        "no_steering_fraction": 0.8825
+      },
+      {
+        "steered_count": 36,
+        "unsteered_count": 402,
+        "total_tokens": 438,
+        "steering_fraction": 0.0821917808219178,
+        "no_steering_fraction": 0.9178082191780822
+      },
+      {
+        "steered_count": 45,
+        "unsteered_count": 514,
+        "total_tokens": 559,
+        "steering_fraction": 0.08050089445438283,
+        "no_steering_fraction": 0.9194991055456172
+      },
+      {
+        "steered_count": 34,
+        "unsteered_count": 388,
+        "total_tokens": 422,
+        "steering_fraction": 0.08056872037914692,
+        "no_steering_fraction": 0.919431279620853
+      },
+      {
+        "steered_count": 33,
+        "unsteered_count": 428,
+        "total_tokens": 461,
+        "steering_fraction": 0.07158351409978309,
+        "no_steering_fraction": 0.928416485900217
+      },
+      {
+        "steered_count": 44,
+        "unsteered_count": 1956,
+        "total_tokens": 2000,
+        "steering_fraction": 0.022,
+        "no_steering_fraction": 0.978
+      },
+      {
+        "steered_count": 10,
+        "unsteered_count": 1990,
+        "total_tokens": 2000,
+        "steering_fraction": 0.005,
+        "no_steering_fraction": 0.995
+      },
+      {
+        "steered_count": 61,
+        "unsteered_count": 1939,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0305,
+        "no_steering_fraction": 0.9695
+      },
+      {
+        "steered_count": 47,
+        "unsteered_count": 425,
+        "total_tokens": 472,
+        "steering_fraction": 0.09957627118644068,
+        "no_steering_fraction": 0.9004237288135594
+      },
+      {
+        "steered_count": 44,
+        "unsteered_count": 1956,
+        "total_tokens": 2000,
+        "steering_fraction": 0.022,
+        "no_steering_fraction": 0.978
+      },
+      {
+        "steered_count": 46,
+        "unsteered_count": 1954,
+        "total_tokens": 2000,
+        "steering_fraction": 0.023,
+        "no_steering_fraction": 0.977
+      },
+      {
+        "steered_count": 32,
+        "unsteered_count": 1968,
+        "total_tokens": 2000,
+        "steering_fraction": 0.016,
+        "no_steering_fraction": 0.984
+      },
+      {
+        "steered_count": 27,
+        "unsteered_count": 455,
+        "total_tokens": 482,
+        "steering_fraction": 0.056016597510373446,
+        "no_steering_fraction": 0.9439834024896265
+      },
+      {
+        "steered_count": 39,
+        "unsteered_count": 1961,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0195,
+        "no_steering_fraction": 0.9805
+      },
+      {
+        "steered_count": 42,
+        "unsteered_count": 545,
+        "total_tokens": 587,
+        "steering_fraction": 0.07155025553662692,
+        "no_steering_fraction": 0.9284497444633731
+      },
+      {
+        "steered_count": 50,
+        "unsteered_count": 633,
+        "total_tokens": 683,
+        "steering_fraction": 0.07320644216691069,
+        "no_steering_fraction": 0.9267935578330894
+      },
+      {
+        "steered_count": 59,
+        "unsteered_count": 806,
+        "total_tokens": 865,
+        "steering_fraction": 0.06820809248554913,
+        "no_steering_fraction": 0.9317919075144508
+      },
+      {
+        "steered_count": 58,
+        "unsteered_count": 541,
+        "total_tokens": 599,
+        "steering_fraction": 0.09682804674457429,
+        "no_steering_fraction": 0.9031719532554258
+      },
+      {
+        "steered_count": 38,
+        "unsteered_count": 1962,
+        "total_tokens": 2000,
+        "steering_fraction": 0.019,
+        "no_steering_fraction": 0.981
+      },
+      {
+        "steered_count": 44,
+        "unsteered_count": 427,
+        "total_tokens": 471,
+        "steering_fraction": 0.09341825902335456,
+        "no_steering_fraction": 0.9065817409766455
+      },
+      {
+        "steered_count": 43,
+        "unsteered_count": 489,
+        "total_tokens": 532,
+        "steering_fraction": 0.08082706766917293,
+        "no_steering_fraction": 0.9191729323308271
+      },
+      {
+        "steered_count": 41,
+        "unsteered_count": 328,
+        "total_tokens": 369,
+        "steering_fraction": 0.1111111111111111,
+        "no_steering_fraction": 0.8888888888888888
+      },
+      {
+        "steered_count": 38,
+        "unsteered_count": 1962,
+        "total_tokens": 2000,
+        "steering_fraction": 0.019,
+        "no_steering_fraction": 0.981
+      },
+      {
+        "steered_count": 42,
+        "unsteered_count": 364,
+        "total_tokens": 406,
+        "steering_fraction": 0.10344827586206896,
+        "no_steering_fraction": 0.896551724137931
+      },
+      {
+        "steered_count": 29,
+        "unsteered_count": 688,
+        "total_tokens": 717,
+        "steering_fraction": 0.040446304044630406,
+        "no_steering_fraction": 0.9595536959553695
+      },
+      {
+        "steered_count": 43,
+        "unsteered_count": 414,
+        "total_tokens": 457,
+        "steering_fraction": 0.09409190371991247,
+        "no_steering_fraction": 0.9059080962800875
+      },
+      {
+        "steered_count": 71,
+        "unsteered_count": 467,
+        "total_tokens": 538,
+        "steering_fraction": 0.13197026022304834,
+        "no_steering_fraction": 0.8680297397769516
+      },
+      {
+        "steered_count": 32,
+        "unsteered_count": 421,
+        "total_tokens": 453,
+        "steering_fraction": 0.0706401766004415,
+        "no_steering_fraction": 0.9293598233995585
+      },
+      {
+        "steered_count": 45,
+        "unsteered_count": 527,
+        "total_tokens": 572,
+        "steering_fraction": 0.07867132867132867,
+        "no_steering_fraction": 0.9213286713286714
+      },
+      {
+        "steered_count": 56,
+        "unsteered_count": 978,
+        "total_tokens": 1034,
+        "steering_fraction": 0.05415860735009671,
+        "no_steering_fraction": 0.9458413926499033
+      },
+      {
+        "steered_count": 47,
+        "unsteered_count": 1953,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0235,
+        "no_steering_fraction": 0.9765
+      },
+      {
+        "steered_count": 26,
+        "unsteered_count": 1974,
+        "total_tokens": 2000,
+        "steering_fraction": 0.013,
+        "no_steering_fraction": 0.987
+      },
+      {
+        "steered_count": 59,
+        "unsteered_count": 481,
+        "total_tokens": 540,
+        "steering_fraction": 0.10925925925925926,
+        "no_steering_fraction": 0.8907407407407407
+      },
+      {
+        "steered_count": 47,
+        "unsteered_count": 593,
+        "total_tokens": 640,
+        "steering_fraction": 0.0734375,
+        "no_steering_fraction": 0.9265625
+      },
+      {
+        "steered_count": 35,
+        "unsteered_count": 311,
+        "total_tokens": 346,
+        "steering_fraction": 0.10115606936416185,
+        "no_steering_fraction": 0.8988439306358381
+      },
+      {
+        "steered_count": 61,
+        "unsteered_count": 411,
+        "total_tokens": 472,
+        "steering_fraction": 0.1292372881355932,
+        "no_steering_fraction": 0.8707627118644068
+      },
+      {
+        "steered_count": 37,
+        "unsteered_count": 278,
+        "total_tokens": 315,
+        "steering_fraction": 0.11746031746031746,
+        "no_steering_fraction": 0.8825396825396825
+      },
+      {
+        "steered_count": 55,
+        "unsteered_count": 768,
+        "total_tokens": 823,
+        "steering_fraction": 0.06682867557715674,
+        "no_steering_fraction": 0.9331713244228432
+      },
+      {
+        "steered_count": 58,
+        "unsteered_count": 739,
+        "total_tokens": 797,
+        "steering_fraction": 0.07277289836888332,
+        "no_steering_fraction": 0.9272271016311167
+      },
+      {
+        "steered_count": 39,
+        "unsteered_count": 1961,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0195,
+        "no_steering_fraction": 0.9805
+      },
+      {
+        "steered_count": 27,
+        "unsteered_count": 362,
+        "total_tokens": 389,
+        "steering_fraction": 0.06940874035989718,
+        "no_steering_fraction": 0.9305912596401028
+      },
+      {
+        "steered_count": 56,
+        "unsteered_count": 620,
+        "total_tokens": 676,
+        "steering_fraction": 0.08284023668639054,
+        "no_steering_fraction": 0.9171597633136095
+      },
+      {
+        "steered_count": 52,
+        "unsteered_count": 475,
+        "total_tokens": 527,
+        "steering_fraction": 0.09867172675521822,
+        "no_steering_fraction": 0.9013282732447818
+      },
+      {
+        "steered_count": 28,
+        "unsteered_count": 1972,
+        "total_tokens": 2000,
+        "steering_fraction": 0.014,
+        "no_steering_fraction": 0.986
+      },
+      {
+        "steered_count": 39,
+        "unsteered_count": 387,
+        "total_tokens": 426,
+        "steering_fraction": 0.09154929577464789,
+        "no_steering_fraction": 0.9084507042253521
+      },
+      {
+        "steered_count": 54,
+        "unsteered_count": 413,
+        "total_tokens": 467,
+        "steering_fraction": 0.11563169164882227,
+        "no_steering_fraction": 0.8843683083511777
+      },
+      {
+        "steered_count": 31,
+        "unsteered_count": 1969,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0155,
+        "no_steering_fraction": 0.9845
+      },
+      {
+        "steered_count": 68,
+        "unsteered_count": 1932,
+        "total_tokens": 2000,
+        "steering_fraction": 0.034,
+        "no_steering_fraction": 0.966
+      },
+      {
+        "steered_count": 31,
+        "unsteered_count": 1969,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0155,
+        "no_steering_fraction": 0.9845
+      },
+      {
+        "steered_count": 61,
+        "unsteered_count": 1939,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0305,
+        "no_steering_fraction": 0.9695
+      },
+      {
+        "steered_count": 36,
+        "unsteered_count": 1964,
+        "total_tokens": 2000,
+        "steering_fraction": 0.018,
+        "no_steering_fraction": 0.982
+      },
+      {
+        "steered_count": 43,
+        "unsteered_count": 1957,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0215,
+        "no_steering_fraction": 0.9785
+      },
+      {
+        "steered_count": 54,
+        "unsteered_count": 1946,
+        "total_tokens": 2000,
+        "steering_fraction": 0.027,
+        "no_steering_fraction": 0.973
+      },
+      {
+        "steered_count": 50,
+        "unsteered_count": 553,
+        "total_tokens": 603,
+        "steering_fraction": 0.08291873963515754,
+        "no_steering_fraction": 0.9170812603648425
+      },
+      {
+        "steered_count": 32,
+        "unsteered_count": 388,
+        "total_tokens": 420,
+        "steering_fraction": 0.0761904761904762,
+        "no_steering_fraction": 0.9238095238095239
+      },
+      {
+        "steered_count": 46,
+        "unsteered_count": 1954,
+        "total_tokens": 2000,
+        "steering_fraction": 0.023,
+        "no_steering_fraction": 0.977
+      },
+      {
+        "steered_count": 50,
+        "unsteered_count": 508,
+        "total_tokens": 558,
+        "steering_fraction": 0.08960573476702509,
+        "no_steering_fraction": 0.910394265232975
+      },
+      {
+        "steered_count": 36,
+        "unsteered_count": 1964,
+        "total_tokens": 2000,
+        "steering_fraction": 0.018,
+        "no_steering_fraction": 0.982
+      },
+      {
+        "steered_count": 66,
+        "unsteered_count": 1934,
+        "total_tokens": 2000,
+        "steering_fraction": 0.033,
+        "no_steering_fraction": 0.967
+      },
+      {
+        "steered_count": 40,
+        "unsteered_count": 471,
+        "total_tokens": 511,
+        "steering_fraction": 0.07827788649706457,
+        "no_steering_fraction": 0.9217221135029354
+      },
+      {
+        "steered_count": 47,
+        "unsteered_count": 1953,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0235,
+        "no_steering_fraction": 0.9765
+      },
+      {
+        "steered_count": 60,
+        "unsteered_count": 354,
+        "total_tokens": 414,
+        "steering_fraction": 0.14492753623188406,
+        "no_steering_fraction": 0.855072463768116
+      },
+      {
+        "steered_count": 60,
+        "unsteered_count": 659,
+        "total_tokens": 719,
+        "steering_fraction": 0.08344923504867872,
+        "no_steering_fraction": 0.9165507649513213
+      },
+      {
+        "steered_count": 45,
+        "unsteered_count": 495,
+        "total_tokens": 540,
+        "steering_fraction": 0.08333333333333333,
+        "no_steering_fraction": 0.9166666666666666
+      },
+      {
+        "steered_count": 74,
+        "unsteered_count": 1926,
+        "total_tokens": 2000,
+        "steering_fraction": 0.037,
+        "no_steering_fraction": 0.963
+      },
+      {
+        "steered_count": 64,
+        "unsteered_count": 1936,
+        "total_tokens": 2000,
+        "steering_fraction": 0.032,
+        "no_steering_fraction": 0.968
+      },
+      {
+        "steered_count": 37,
+        "unsteered_count": 1963,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0185,
+        "no_steering_fraction": 0.9815
+      },
+      {
+        "steered_count": 55,
+        "unsteered_count": 1945,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0275,
+        "no_steering_fraction": 0.9725
+      },
+      {
+        "steered_count": 67,
+        "unsteered_count": 505,
+        "total_tokens": 572,
+        "steering_fraction": 0.11713286713286714,
+        "no_steering_fraction": 0.8828671328671329
+      },
+      {
+        "steered_count": 49,
+        "unsteered_count": 615,
+        "total_tokens": 664,
+        "steering_fraction": 0.07379518072289157,
+        "no_steering_fraction": 0.9262048192771084
+      },
+      {
+        "steered_count": 90,
+        "unsteered_count": 885,
+        "total_tokens": 975,
+        "steering_fraction": 0.09230769230769231,
+        "no_steering_fraction": 0.9076923076923077
+      },
+      {
+        "steered_count": 56,
+        "unsteered_count": 1944,
+        "total_tokens": 2000,
+        "steering_fraction": 0.028,
+        "no_steering_fraction": 0.972
+      },
+      {
+        "steered_count": 59,
+        "unsteered_count": 1941,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0295,
+        "no_steering_fraction": 0.9705
+      },
+      {
+        "steered_count": 51,
+        "unsteered_count": 1949,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0255,
+        "no_steering_fraction": 0.9745
+      },
+      {
+        "steered_count": 46,
+        "unsteered_count": 1954,
+        "total_tokens": 2000,
+        "steering_fraction": 0.023,
+        "no_steering_fraction": 0.977
+      },
+      {
+        "steered_count": 48,
+        "unsteered_count": 1952,
+        "total_tokens": 2000,
+        "steering_fraction": 0.024,
+        "no_steering_fraction": 0.976
+      },
+      {
+        "steered_count": 69,
+        "unsteered_count": 860,
+        "total_tokens": 929,
+        "steering_fraction": 0.07427341227125941,
+        "no_steering_fraction": 0.9257265877287406
+      },
+      {
+        "steered_count": 50,
+        "unsteered_count": 585,
+        "total_tokens": 635,
+        "steering_fraction": 0.07874015748031496,
+        "no_steering_fraction": 0.9212598425196851
+      },
+      {
+        "steered_count": 60,
+        "unsteered_count": 1940,
+        "total_tokens": 2000,
+        "steering_fraction": 0.03,
+        "no_steering_fraction": 0.97
+      },
+      {
+        "steered_count": 73,
+        "unsteered_count": 1024,
+        "total_tokens": 1097,
+        "steering_fraction": 0.06654512306289881,
+        "no_steering_fraction": 0.9334548769371012
+      },
+      {
+        "steered_count": 52,
+        "unsteered_count": 1948,
+        "total_tokens": 2000,
+        "steering_fraction": 0.026,
+        "no_steering_fraction": 0.974
+      },
+      {
+        "steered_count": 40,
+        "unsteered_count": 1960,
+        "total_tokens": 2000,
+        "steering_fraction": 0.02,
+        "no_steering_fraction": 0.98
+      },
+      {
+        "steered_count": 54,
+        "unsteered_count": 1946,
+        "total_tokens": 2000,
+        "steering_fraction": 0.027,
+        "no_steering_fraction": 0.973
+      },
+      {
+        "steered_count": 31,
+        "unsteered_count": 1969,
+        "total_tokens": 2000,
+        "steering_fraction": 0.0155,
+        "no_steering_fraction": 0.9845
+      },
+      {
+        "steered_count": 57,
+        "unsteered_count": 550,
+        "total_tokens": 607,
+        "steering_fraction": 0.09390444810543658,
+        "no_steering_fraction": 0.9060955518945635
+      },
+      {
+        "steered_count": 69,
+        "unsteered_count": 930,
+        "total_tokens": 999,
+        "steering_fraction": 0.06906906906906907,
+        "no_steering_fraction": 0.9309309309309309
+      },
+      {
+        "steered_count": 56,
+        "unsteered_count": 1944,
+        "total_tokens": 2000,
+        "steering_fraction": 0.028,
+        "no_steering_fraction": 0.972
+      }
+    ],
+    "average_stats": {
+      "steered_count": 46.67914438502674,
+      "unsteered_count": 959.2566844919786,
+      "total_tokens": 1005.9358288770053,
+      "steering_fraction": 0.06894330079921582,
+      "no_steering_fraction": 0.9310566992007842
+    }
+  },
+  "latent_usage": [
+    {
+      "Mathematical computation steps": 15.384615384615385,
+      "Declaring Procedural Steps": 53.84615384615385,
+      "Providing Definitions and Explanations": 21.153846153846153,
+      "Formula Definitions": 7.6923076923076925,
+      "Numerical Calculation Steps": 1.9230769230769231
+    },
+    {
+      "Mathematical computation steps": 10.606060606060606,
+      "Declaring Procedural Steps": 62.121212121212125,
+      "Providing Definitions and Explanations": 24.242424242424242,
+      "Formula Definitions": 3.0303030303030303
+    },
+    {
+      "Mathematical computation steps": 17.142857142857142,
+      "Declaring Procedural Steps": 55.714285714285715,
+      "Providing Definitions and Explanations": 7.142857142857142,
+      "Formula Definitions": 11.428571428571429,
+      "Numerical Calculation Steps": 8.571428571428571
+    },
+    {
+      "Mathematical computation steps": 10.76923076923077,
+      "Declaring Procedural Steps": 47.69230769230769,
+      "Providing Definitions and Explanations": 40.0,
+      "Formula Definitions": 1.5384615384615385
+    },
+    {
+      "Mathematical computation steps": 12.5,
+      "Declaring Procedural Steps": 64.58333333333334,
+      "Providing Definitions and Explanations": 18.75,
+      "Numerical Calculation Steps": 4.166666666666666
+    },
+    {
+      "Mathematical computation steps": 9.090909090909092,
+      "Providing Definitions and Explanations": 18.181818181818183,
+      "Declaring Procedural Steps": 72.72727272727273
+    },
+    {
+      "Mathematical computation steps": 22.535211267605636,
+      "Declaring Procedural Steps": 57.74647887323944,
+      "Providing Definitions and Explanations": 11.267605633802818,
+      "Formula Definitions": 7.042253521126761,
+      "Numerical Calculation Steps": 1.4084507042253522
+    },
+    {
+      "Mathematical computation steps": 17.77777777777778,
+      "Providing Definitions and Explanations": 11.11111111111111,
+      "Declaring Procedural Steps": 53.333333333333336,
+      "Formula Definitions": 11.11111111111111,
+      "Numerical Calculation Steps": 6.666666666666667
+    },
+    {
+      "Mathematical computation steps": 7.6923076923076925,
+      "Declaring Procedural Steps": 57.692307692307686,
+      "Providing Definitions and Explanations": 26.923076923076923,
+      "Formula Definitions": 1.9230769230769231,
+      "Numerical Calculation Steps": 5.769230769230769
+    },
+    {
+      "Mathematical computation steps": 10.0,
+      "Declaring Procedural Steps": 66.0,
+      "Providing Definitions and Explanations": 20.0,
+      "Formula Definitions": 2.0,
+      "Numerical Calculation Steps": 2.0
+    },
+    {
+      "Mathematical computation steps": 27.27272727272727,
+      "Declaring Procedural Steps": 42.42424242424242,
+      "Formula Definitions": 15.151515151515152,
+      "Providing Definitions and Explanations": 15.151515151515152
+    },
+    {
+      "Declaring Procedural Steps": 47.27272727272727,
+      "Mathematical computation steps": 3.6363636363636362,
+      "Providing Definitions and Explanations": 43.63636363636363,
+      "Formula Definitions": 5.454545454545454
+    },
+    {
+      "Mathematical computation steps": 10.81081081081081,
+      "Declaring Procedural Steps": 62.16216216216216,
+      "Providing Definitions and Explanations": 13.513513513513514,
+      "Formula Definitions": 13.513513513513514
+    },
+    {
+      "Mathematical computation steps": 3.4482758620689653,
+      "Declaring Procedural Steps": 72.41379310344827,
+      "Providing Definitions and Explanations": 20.689655172413794,
+      "Formula Definitions": 3.4482758620689653
+    },
+    {
+      "Mathematical computation steps": 21.62162162162162,
+      "Declaring Procedural Steps": 51.35135135135135,
+      "Providing Definitions and Explanations": 24.324324324324326,
+      "Formula Definitions": 2.7027027027027026
+    },
+    {
+      "Mathematical computation steps": 8.0,
+      "Declaring Procedural Steps": 62.0,
+      "Providing Definitions and Explanations": 22.0,
+      "Formula Definitions": 8.0
+    },
+    {
+      "Mathematical computation steps": 18.75,
+      "Declaring Procedural Steps": 62.5,
+      "Providing Definitions and Explanations": 18.75
+    },
+    {
+      "Declaring Procedural Steps": 58.730158730158735,
+      "Providing Definitions and Explanations": 15.873015873015872,
+      "Formula Definitions": 4.761904761904762,
+      "Mathematical computation steps": 20.634920634920633
+    },
+    {
+      "Mathematical computation steps": 13.636363636363635,
+      "Declaring Procedural Steps": 61.36363636363637,
+      "Providing Definitions and Explanations": 13.636363636363635,
+      "Formula Definitions": 9.090909090909092,
+      "Numerical Calculation Steps": 2.272727272727273
+    },
+    {
+      "Mathematical computation steps": 8.695652173913043,
+      "Declaring Procedural Steps": 63.04347826086957,
+      "Providing Definitions and Explanations": 23.91304347826087,
+      "Formula Definitions": 2.1739130434782608,
+      "Numerical Calculation Steps": 2.1739130434782608
+    },
+    {
+      "Mathematical computation steps": 24.324324324324326,
+      "Declaring Procedural Steps": 70.27027027027027,
+      "Providing Definitions and Explanations": 2.7027027027027026,
+      "Formula Definitions": 2.7027027027027026
+    },
+    {
+      "Mathematical computation steps": 28.57142857142857,
+      "Declaring Procedural Steps": 62.5,
+      "Formula Definitions": 5.357142857142857,
+      "Providing Definitions and Explanations": 3.571428571428571
+    },
+    {
+      "Declaring Procedural Steps": 38.297872340425535,
+      "Mathematical computation steps": 8.51063829787234,
+      "Providing Definitions and Explanations": 46.808510638297875,
+      "Formula Definitions": 6.382978723404255
+    },
+    {
+      "Mathematical computation steps": 13.20754716981132,
+      "Declaring Procedural Steps": 67.9245283018868,
+      "Providing Definitions and Explanations": 16.9811320754717,
+      "Formula Definitions": 1.8867924528301887
+    },
+    {
+      "Mathematical computation steps": 12.903225806451612,
+      "Declaring Procedural Steps": 53.2258064516129,
+      "Providing Definitions and Explanations": 25.806451612903224,
+      "Formula Definitions": 4.838709677419355,
+      "Numerical Calculation Steps": 3.225806451612903
+    },
+    {
+      "Mathematical computation steps": 9.859154929577464,
+      "Declaring Procedural Steps": 40.845070422535215,
+      "Providing Definitions and Explanations": 29.577464788732392,
+      "Formula Definitions": 15.492957746478872,
+      "Numerical Calculation Steps": 4.225352112676056
+    },
+    {
+      "Mathematical computation steps": 18.421052631578945,
+      "Declaring Procedural Steps": 68.42105263157895,
+      "Formula Definitions": 5.263157894736842,
+      "Providing Definitions and Explanations": 7.894736842105263
+    },
+    {
+      "Mathematical computation steps": 10.714285714285714,
+      "Declaring Procedural Steps": 69.64285714285714,
+      "Providing Definitions and Explanations": 12.5,
+      "Formula Definitions": 7.142857142857142
+    },
+    {
+      "Mathematical computation steps": 10.344827586206897,
+      "Declaring Procedural Steps": 43.103448275862064,
+      "Providing Definitions and Explanations": 41.37931034482759,
+      "Formula Definitions": 3.4482758620689653,
+      "Numerical Calculation Steps": 1.7241379310344827
+    },
+    {
+      "Declaring Procedural Steps": 57.14285714285714,
+      "Mathematical computation steps": 17.142857142857142,
+      "Providing Definitions and Explanations": 20.0,
+      "Formula Definitions": 2.857142857142857,
+      "Numerical Calculation Steps": 2.857142857142857
+    },
+    {
+      "Mathematical computation steps": 10.869565217391305,
+      "Declaring Procedural Steps": 63.04347826086957,
+      "Providing Definitions and Explanations": 21.73913043478261,
+      "Numerical Calculation Steps": 2.1739130434782608,
+      "Formula Definitions": 2.1739130434782608
+    },
+    {
+      "Mathematical computation steps": 12.76595744680851,
+      "Declaring Procedural Steps": 53.191489361702125,
+      "Providing Definitions and Explanations": 25.53191489361702,
+      "Formula Definitions": 2.127659574468085,
+      "Numerical Calculation Steps": 6.382978723404255
+    },
+    {
+      "Declaring Procedural Steps": 54.54545454545454,
+      "Providing Definitions and Explanations": 27.27272727272727,
+      "Mathematical computation steps": 18.181818181818183
+    },
+    {
+      "Mathematical computation steps": 6.896551724137931,
+      "Declaring Procedural Steps": 72.41379310344827,
+      "Providing Definitions and Explanations": 13.793103448275861,
+      "Formula Definitions": 3.4482758620689653,
+      "Numerical Calculation Steps": 3.4482758620689653
+    },
+    {
+      "Mathematical computation steps": 15.217391304347828,
+      "Declaring Procedural Steps": 54.347826086956516,
+      "Providing Definitions and Explanations": 10.869565217391305,
+      "Formula Definitions": 19.565217391304348
+    },
+    {
+      "Mathematical computation steps": 5.660377358490567,
+      "Declaring Procedural Steps": 66.0377358490566,
+      "Providing Definitions and Explanations": 22.641509433962266,
+      "Formula Definitions": 5.660377358490567
+    },
+    {
+      "Mathematical computation steps": 6.0606060606060606,
+      "Declaring Procedural Steps": 63.63636363636363,
+      "Providing Definitions and Explanations": 27.27272727272727,
+      "Formula Definitions": 3.0303030303030303
+    },
+    {
+      "Mathematical computation steps": 18.75,
+      "Declaring Procedural Steps": 54.166666666666664,
+      "Providing Definitions and Explanations": 27.083333333333332
+    },
+    {
+      "Mathematical computation steps": 9.523809523809524,
+      "Declaring Procedural Steps": 57.14285714285714,
+      "Formula Definitions": 4.761904761904762,
+      "Providing Definitions and Explanations": 28.57142857142857
+    },
+    {
+      "Mathematical computation steps": 12.698412698412698,
+      "Declaring Procedural Steps": 60.317460317460316,
+      "Providing Definitions and Explanations": 19.047619047619047,
+      "Formula Definitions": 7.936507936507936
+    },
+    {
+      "Mathematical computation steps": 7.2727272727272725,
+      "Declaring Procedural Steps": 58.18181818181818,
+      "Formula Definitions": 12.727272727272727,
+      "Providing Definitions and Explanations": 20.0,
+      "Numerical Calculation Steps": 1.8181818181818181
+    },
+    {
+      "Mathematical computation steps": 8.974358974358974,
+      "Declaring Procedural Steps": 67.94871794871796,
+      "Providing Definitions and Explanations": 21.794871794871796,
+      "Formula Definitions": 1.282051282051282
+    },
+    {
+      "Declaring Procedural Steps": 72.41379310344827,
+      "Providing Definitions and Explanations": 12.068965517241379,
+      "Mathematical computation steps": 6.896551724137931,
+      "Formula Definitions": 6.896551724137931,
+      "Numerical Calculation Steps": 1.7241379310344827
+    },
+    {
+      "Mathematical computation steps": 12.82051282051282,
+      "Declaring Procedural Steps": 74.35897435897436,
+      "Providing Definitions and Explanations": 7.6923076923076925,
+      "Formula Definitions": 2.564102564102564,
+      "Numerical Calculation Steps": 2.564102564102564
+    },
+    {
+      "Mathematical computation steps": 12.307692307692308,
+      "Declaring Procedural Steps": 47.69230769230769,
+      "Providing Definitions and Explanations": 40.0
+    },
+    {
+      "Mathematical computation steps": 13.043478260869565,
+      "Providing Definitions and Explanations": 13.043478260869565,
+      "Declaring Procedural Steps": 63.04347826086957,
+      "Formula Definitions": 6.521739130434782,
+      "Numerical Calculation Steps": 4.3478260869565215
+    },
+    {
+      "Mathematical computation steps": 19.642857142857142,
+      "Declaring Procedural Steps": 55.35714285714286,
+      "Providing Definitions and Explanations": 23.214285714285715,
+      "Formula Definitions": 1.7857142857142856
+    },
+    {
+      "Mathematical computation steps": 12.0,
+      "Declaring Procedural Steps": 64.0,
+      "Providing Definitions and Explanations": 22.0,
+      "Formula Definitions": 2.0
+    },
+    {
+      "Mathematical computation steps": 10.256410256410255,
+      "Declaring Procedural Steps": 58.97435897435898,
+      "Formula Definitions": 17.94871794871795,
+      "Providing Definitions and Explanations": 12.82051282051282
+    },
+    {
+      "Mathematical computation steps": 11.320754716981133,
+      "Declaring Procedural Steps": 66.0377358490566,
+      "Providing Definitions and Explanations": 18.867924528301888,
+      "Numerical Calculation Steps": 3.7735849056603774
+    },
+    {
+      "Declaring Procedural Steps": 64.86486486486487,
+      "Providing Definitions and Explanations": 27.027027027027028,
+      "Formula Definitions": 2.7027027027027026,
+      "Mathematical computation steps": 5.405405405405405
+    },
+    {
+      "Mathematical computation steps": 4.25531914893617,
+      "Declaring Procedural Steps": 51.06382978723404,
+      "Providing Definitions and Explanations": 44.680851063829785
+    },
+    {
+      "Mathematical computation steps": 28.57142857142857,
+      "Declaring Procedural Steps": 57.14285714285714,
+      "Providing Definitions and Explanations": 14.285714285714285
+    },
+    {
+      "Mathematical computation steps": 10.869565217391305,
+      "Declaring Procedural Steps": 65.21739130434783,
+      "Providing Definitions and Explanations": 21.73913043478261,
+      "Formula Definitions": 2.1739130434782608
+    },
+    {
+      "Declaring Procedural Steps": 63.1578947368421,
+      "Mathematical computation steps": 13.157894736842104,
+      "Numerical Calculation Steps": 5.263157894736842,
+      "Providing Definitions and Explanations": 18.421052631578945
+    },
+    {
+      "Mathematical computation steps": 5.714285714285714,
+      "Declaring Procedural Steps": 57.14285714285714,
+      "Providing Definitions and Explanations": 34.285714285714285,
+      "Formula Definitions": 2.857142857142857
+    },
+    {
+      "Mathematical computation steps": 10.81081081081081,
+      "Declaring Procedural Steps": 56.75675675675676,
+      "Formula Definitions": 2.7027027027027026,
+      "Providing Definitions and Explanations": 29.72972972972973
+    },
+    {
+      "Mathematical computation steps": 9.30232558139535,
+      "Declaring Procedural Steps": 48.837209302325576,
+      "Providing Definitions and Explanations": 41.86046511627907
+    },
+    {
+      "Mathematical computation steps": 4.838709677419355,
+      "Declaring Procedural Steps": 64.51612903225806,
+      "Providing Definitions and Explanations": 27.419354838709676,
+      "Formula Definitions": 3.225806451612903
+    },
+    {
+      "Declaring Procedural Steps": 44.827586206896555,
+      "Providing Definitions and Explanations": 13.793103448275861,
+      "Formula Definitions": 13.793103448275861,
+      "Mathematical computation steps": 24.137931034482758,
+      "Numerical Calculation Steps": 3.4482758620689653
+    },
+    {
+      "Mathematical computation steps": 20.930232558139537,
+      "Declaring Procedural Steps": 44.18604651162791,
+      "Providing Definitions and Explanations": 13.953488372093023,
+      "Formula Definitions": 20.930232558139537
+    },
+    {
+      "Declaring Procedural Steps": 68.75,
+      "Providing Definitions and Explanations": 18.75,
+      "Formula Definitions": 4.166666666666666,
+      "Mathematical computation steps": 8.333333333333332
+    },
+    {
+      "Mathematical computation steps": 24.242424242424242,
+      "Declaring Procedural Steps": 51.515151515151516,
+      "Formula Definitions": 9.090909090909092,
+      "Providing Definitions and Explanations": 15.151515151515152
+    },
+    {
+      "Mathematical computation steps": 17.02127659574468,
+      "Declaring Procedural Steps": 61.702127659574465,
+      "Providing Definitions and Explanations": 17.02127659574468,
+      "Formula Definitions": 4.25531914893617
+    },
+    {
+      "Mathematical computation steps": 10.81081081081081,
+      "Declaring Procedural Steps": 62.16216216216216,
+      "Providing Definitions and Explanations": 21.62162162162162,
+      "Formula Definitions": 5.405405405405405
+    },
+    {
+      "Declaring Procedural Steps": 60.46511627906976,
+      "Providing Definitions and Explanations": 18.6046511627907,
+      "Formula Definitions": 6.976744186046512,
+      "Mathematical computation steps": 11.627906976744185,
+      "Numerical Calculation Steps": 2.3255813953488373
+    },
+    {
+      "Mathematical computation steps": 15.909090909090908,
+      "Declaring Procedural Steps": 61.36363636363637,
+      "Formula Definitions": 9.090909090909092,
+      "Providing Definitions and Explanations": 11.363636363636363,
+      "Numerical Calculation Steps": 2.272727272727273
+    },
+    {
+      "Mathematical computation steps": 8.108108108108109,
+      "Declaring Procedural Steps": 72.97297297297297,
+      "Providing Definitions and Explanations": 18.91891891891892
+    },
+    {
+      "Mathematical computation steps": 7.317073170731707,
+      "Declaring Procedural Steps": 60.97560975609756,
+      "Providing Definitions and Explanations": 26.82926829268293,
+      "Numerical Calculation Steps": 4.878048780487805
+    },
+    {
+      "Mathematical computation steps": 12.280701754385964,
+      "Declaring Procedural Steps": 66.66666666666666,
+      "Providing Definitions and Explanations": 15.789473684210526,
+      "Formula Definitions": 3.508771929824561,
+      "Numerical Calculation Steps": 1.7543859649122806
+    },
+    {
+      "Mathematical computation steps": 15.789473684210526,
+      "Declaring Procedural Steps": 60.526315789473685,
+      "Formula Definitions": 5.263157894736842,
+      "Providing Definitions and Explanations": 18.421052631578945
+    },
+    {
+      "Mathematical computation steps": 11.11111111111111,
+      "Declaring Procedural Steps": 55.55555555555556,
+      "Providing Definitions and Explanations": 27.77777777777778,
+      "Numerical Calculation Steps": 5.555555555555555
+    },
+    {
+      "Declaring Procedural Steps": 52.0,
+      "Formula Definitions": 20.0,
+      "Numerical Calculation Steps": 4.0,
+      "Providing Definitions and Explanations": 12.0,
+      "Mathematical computation steps": 12.0
+    },
+    {
+      "Declaring Procedural Steps": 48.888888888888886,
+      "Providing Definitions and Explanations": 28.888888888888886,
+      "Formula Definitions": 6.666666666666667,
+      "Mathematical computation steps": 8.88888888888889,
+      "Numerical Calculation Steps": 6.666666666666667
+    },
+    {
+      "Mathematical computation steps": 9.75609756097561,
+      "Declaring Procedural Steps": 68.29268292682927,
+      "Providing Definitions and Explanations": 21.951219512195124
+    },
+    {
+      "Mathematical computation steps": 3.8461538461538463,
+      "Declaring Procedural Steps": 71.15384615384616,
+      "Providing Definitions and Explanations": 21.153846153846153,
+      "Formula Definitions": 3.8461538461538463
+    },
+    {
+      "Mathematical computation steps": 9.375,
+      "Providing Definitions and Explanations": 37.5,
+      "Declaring Procedural Steps": 53.125
+    },
+    {
+      "Mathematical computation steps": 11.428571428571429,
+      "Declaring Procedural Steps": 51.42857142857142,
+      "Providing Definitions and Explanations": 31.428571428571427,
+      "Formula Definitions": 2.857142857142857,
+      "Numerical Calculation Steps": 2.857142857142857
+    },
+    {
+      "Mathematical computation steps": 17.02127659574468,
+      "Declaring Procedural Steps": 44.680851063829785,
+      "Providing Definitions and Explanations": 29.78723404255319,
+      "Formula Definitions": 8.51063829787234
+    },
+    {
+      "Mathematical computation steps": 15.789473684210526,
+      "Declaring Procedural Steps": 71.05263157894737,
+      "Formula Definitions": 2.631578947368421,
+      "Providing Definitions and Explanations": 10.526315789473683
+    },
+    {
+      "Mathematical computation steps": 16.3265306122449,
+      "Declaring Procedural Steps": 55.10204081632652,
+      "Providing Definitions and Explanations": 26.53061224489796,
+      "Formula Definitions": 2.0408163265306123
+    },
+    {
+      "Declaring Procedural Steps": 53.191489361702125,
+      "Mathematical computation steps": 14.893617021276595,
+      "Formula Definitions": 8.51063829787234,
+      "Providing Definitions and Explanations": 23.404255319148938
+    },
+    {
+      "Mathematical computation steps": 15.09433962264151,
+      "Declaring Procedural Steps": 56.60377358490566,
+      "Formula Definitions": 1.8867924528301887,
+      "Providing Definitions and Explanations": 26.41509433962264
+    },
+    {
+      "Mathematical computation steps": 13.114754098360656,
+      "Declaring Procedural Steps": 60.65573770491803,
+      "Formula Definitions": 6.557377049180328,
+      "Providing Definitions and Explanations": 19.672131147540984
+    },
+    {
+      "Declaring Procedural Steps": 65.9090909090909,
+      "Providing Definitions and Explanations": 18.181818181818183,
+      "Mathematical computation steps": 9.090909090909092,
+      "Formula Definitions": 2.272727272727273,
+      "Numerical Calculation Steps": 4.545454545454546
+    },
+    {
+      "Mathematical computation steps": 13.513513513513514,
+      "Declaring Procedural Steps": 59.45945945945946,
+      "Providing Definitions and Explanations": 18.91891891891892,
+      "Formula Definitions": 8.108108108108109
+    },
+    {
+      "Declaring Procedural Steps": 28.57142857142857,
+      "Providing Definitions and Explanations": 14.285714285714285,
+      "Mathematical computation steps": 50.0,
+      "Numerical Calculation Steps": 7.142857142857142
+    },
+    {
+      "Mathematical computation steps": 10.16949152542373,
+      "Declaring Procedural Steps": 57.6271186440678,
+      "Providing Definitions and Explanations": 23.728813559322035,
+      "Formula Definitions": 6.779661016949152,
+      "Numerical Calculation Steps": 1.694915254237288
+    },
+    {
+      "Mathematical computation steps": 12.0,
+      "Declaring Procedural Steps": 44.0,
+      "Formula Definitions": 8.0,
+      "Providing Definitions and Explanations": 36.0
+    },
+    {
+      "Declaring Procedural Steps": 47.16981132075472,
+      "Mathematical computation steps": 16.9811320754717,
+      "Formula Definitions": 3.7735849056603774,
+      "Providing Definitions and Explanations": 28.30188679245283,
+      "Numerical Calculation Steps": 3.7735849056603774
+    },
+    {
+      "Mathematical computation steps": 4.25531914893617,
+      "Declaring Procedural Steps": 46.808510638297875,
+      "Providing Definitions and Explanations": 40.42553191489361,
+      "Formula Definitions": 8.51063829787234
+    },
+    {
+      "Mathematical computation steps": 19.047619047619047,
+      "Declaring Procedural Steps": 61.904761904761905,
+      "Formula Definitions": 4.761904761904762,
+      "Providing Definitions and Explanations": 14.285714285714285
+    },
+    {
+      "Mathematical computation steps": 2.380952380952381,
+      "Declaring Procedural Steps": 50.0,
+      "Providing Definitions and Explanations": 38.095238095238095,
+      "Formula Definitions": 9.523809523809524
+    },
+    {
+      "Declaring Procedural Steps": 69.56521739130434,
+      "Providing Definitions and Explanations": 4.3478260869565215,
+      "Mathematical computation steps": 23.91304347826087,
+      "Formula Definitions": 2.1739130434782608
+    },
+    {
+      "Mathematical computation steps": 11.11111111111111,
+      "Declaring Procedural Steps": 69.44444444444444,
+      "Formula Definitions": 8.333333333333332,
+      "Providing Definitions and Explanations": 8.333333333333332,
+      "Numerical Calculation Steps": 2.7777777777777777
+    },
+    {
+      "Mathematical computation steps": 9.75609756097561,
+      "Declaring Procedural Steps": 60.97560975609756,
+      "Providing Definitions and Explanations": 21.951219512195124,
+      "Numerical Calculation Steps": 4.878048780487805,
+      "Formula Definitions": 2.4390243902439024
+    },
+    {
+      "Mathematical computation steps": 21.153846153846153,
+      "Declaring Procedural Steps": 51.92307692307693,
+      "Providing Definitions and Explanations": 23.076923076923077,
+      "Formula Definitions": 3.8461538461538463
+    },
+    {
+      "Mathematical computation steps": 37.83783783783784,
+      "Declaring Procedural Steps": 37.83783783783784,
+      "Formula Definitions": 10.81081081081081,
+      "Providing Definitions and Explanations": 10.81081081081081,
+      "Numerical Calculation Steps": 2.7027027027027026
+    },
+    {
+      "Mathematical computation steps": 16.071428571428573,
+      "Declaring Procedural Steps": 48.214285714285715,
+      "Providing Definitions and Explanations": 26.785714285714285,
+      "Formula Definitions": 7.142857142857142,
+      "Numerical Calculation Steps": 1.7857142857142856
+    },
+    {
+      "Mathematical computation steps": 6.521739130434782,
+      "Declaring Procedural Steps": 60.86956521739131,
+      "Formula Definitions": 4.3478260869565215,
+      "Providing Definitions and Explanations": 26.08695652173913,
+      "Numerical Calculation Steps": 2.1739130434782608
+    },
+    {
+      "Mathematical computation steps": 17.02127659574468,
+      "Declaring Procedural Steps": 61.702127659574465,
+      "Formula Definitions": 4.25531914893617,
+      "Providing Definitions and Explanations": 17.02127659574468
+    },
+    {
+      "Mathematical computation steps": 16.666666666666664,
+      "Declaring Procedural Steps": 72.22222222222221,
+      "Providing Definitions and Explanations": 8.333333333333332,
+      "Formula Definitions": 2.7777777777777777
+    },
+    {
+      "Mathematical computation steps": 11.11111111111111,
+      "Declaring Procedural Steps": 48.888888888888886,
+      "Formula Definitions": 4.444444444444445,
+      "Providing Definitions and Explanations": 31.11111111111111,
+      "Numerical Calculation Steps": 4.444444444444445
+    },
+    {
+      "Mathematical computation steps": 2.941176470588235,
+      "Declaring Procedural Steps": 55.88235294117647,
+      "Providing Definitions and Explanations": 32.35294117647059,
+      "Formula Definitions": 8.823529411764707
+    },
+    {
+      "Mathematical computation steps": 12.121212121212121,
+      "Declaring Procedural Steps": 54.54545454545454,
+      "Providing Definitions and Explanations": 27.27272727272727,
+      "Formula Definitions": 6.0606060606060606
+    },
+    {
+      "Mathematical computation steps": 27.27272727272727,
+      "Declaring Procedural Steps": 45.45454545454545,
+      "Providing Definitions and Explanations": 22.727272727272727,
+      "Numerical Calculation Steps": 4.545454545454546
+    },
+    {
+      "Declaring Procedural Steps": 60.0,
+      "Mathematical computation steps": 40.0
+    },
+    {
+      "Mathematical computation steps": 18.0327868852459,
+      "Declaring Procedural Steps": 44.26229508196721,
+      "Providing Definitions and Explanations": 26.229508196721312,
+      "Formula Definitions": 11.475409836065573
+    },
+    {
+      "Mathematical computation steps": 12.76595744680851,
+      "Declaring Procedural Steps": 59.57446808510638,
+      "Providing Definitions and Explanations": 25.53191489361702,
+      "Formula Definitions": 2.127659574468085
+    },
+    {
+      "Mathematical computation steps": 11.363636363636363,
+      "Declaring Procedural Steps": 75.0,
+      "Providing Definitions and Explanations": 11.363636363636363,
+      "Formula Definitions": 2.272727272727273
+    },
+    {
+      "Mathematical computation steps": 8.695652173913043,
+      "Declaring Procedural Steps": 69.56521739130434,
+      "Providing Definitions and Explanations": 15.217391304347828,
+      "Formula Definitions": 4.3478260869565215,
+      "Numerical Calculation Steps": 2.1739130434782608
+    },
+    {
+      "Declaring Procedural Steps": 50.0,
+      "Providing Definitions and Explanations": 21.875,
+      "Mathematical computation steps": 21.875,
+      "Formula Definitions": 6.25
+    },
+    {
+      "Declaring Procedural Steps": 62.96296296296296,
+      "Providing Definitions and Explanations": 29.629629629629626,
+      "Mathematical computation steps": 7.4074074074074066
+    },
+    {
+      "Mathematical computation steps": 20.51282051282051,
+      "Declaring Procedural Steps": 61.53846153846154,
+      "Formula Definitions": 2.564102564102564,
+      "Providing Definitions and Explanations": 10.256410256410255,
+      "Numerical Calculation Steps": 5.128205128205128
+    },
+    {
+      "Declaring Procedural Steps": 57.14285714285714,
+      "Numerical Calculation Steps": 4.761904761904762,
+      "Mathematical computation steps": 14.285714285714285,
+      "Providing Definitions and Explanations": 23.809523809523807
+    },
+    {
+      "Mathematical computation steps": 8.0,
+      "Declaring Procedural Steps": 66.0,
+      "Providing Definitions and Explanations": 24.0,
+      "Formula Definitions": 2.0
+    },
+    {
+      "Mathematical computation steps": 20.33898305084746,
+      "Declaring Procedural Steps": 61.016949152542374,
+      "Providing Definitions and Explanations": 16.94915254237288,
+      "Formula Definitions": 1.694915254237288
+    },
+    {
+      "Mathematical computation steps": 13.793103448275861,
+      "Declaring Procedural Steps": 62.06896551724138,
+      "Providing Definitions and Explanations": 22.413793103448278,
+      "Formula Definitions": 1.7241379310344827
+    },
+    {
+      "Mathematical computation steps": 10.526315789473683,
+      "Declaring Procedural Steps": 36.84210526315789,
+      "Providing Definitions and Explanations": 47.368421052631575,
+      "Formula Definitions": 2.631578947368421,
+      "Numerical Calculation Steps": 2.631578947368421
+    },
+    {
+      "Declaring Procedural Steps": 63.63636363636363,
+      "Providing Definitions and Explanations": 22.727272727272727,
+      "Formula Definitions": 4.545454545454546,
+      "Mathematical computation steps": 6.8181818181818175,
+      "Numerical Calculation Steps": 2.272727272727273
+    },
+    {
+      "Declaring Procedural Steps": 60.46511627906976,
+      "Formula Definitions": 16.27906976744186,
+      "Providing Definitions and Explanations": 16.27906976744186,
+      "Mathematical computation steps": 6.976744186046512
+    },
+    {
+      "Declaring Procedural Steps": 63.41463414634146,
+      "Formula Definitions": 9.75609756097561,
+      "Mathematical computation steps": 12.195121951219512,
+      "Providing Definitions and Explanations": 12.195121951219512,
+      "Numerical Calculation Steps": 2.4390243902439024
+    },
+    {
+      "Mathematical computation steps": 5.263157894736842,
+      "Declaring Procedural Steps": 68.42105263157895,
+      "Providing Definitions and Explanations": 21.052631578947366,
+      "Formula Definitions": 5.263157894736842
+    },
+    {
+      "Declaring Procedural Steps": 47.61904761904761,
+      "Providing Definitions and Explanations": 40.476190476190474,
+      "Numerical Calculation Steps": 2.380952380952381,
+      "Mathematical computation steps": 7.142857142857142,
+      "Formula Definitions": 2.380952380952381
+    },
+    {
+      "Mathematical computation steps": 20.689655172413794,
+      "Declaring Procedural Steps": 58.620689655172406,
+      "Providing Definitions and Explanations": 20.689655172413794
+    },
+    {
+      "Mathematical computation steps": 9.30232558139535,
+      "Declaring Procedural Steps": 62.7906976744186,
+      "Providing Definitions and Explanations": 23.25581395348837,
+      "Formula Definitions": 2.3255813953488373,
+      "Numerical Calculation Steps": 2.3255813953488373
+    },
+    {
+      "Declaring Procedural Steps": 39.436619718309856,
+      "Mathematical computation steps": 11.267605633802818,
+      "Formula Definitions": 19.718309859154928,
+      "Providing Definitions and Explanations": 29.577464788732392
+    },
+    {
+      "Mathematical computation steps": 15.625,
+      "Declaring Procedural Steps": 56.25,
+      "Providing Definitions and Explanations": 15.625,
+      "Formula Definitions": 9.375,
+      "Numerical Calculation Steps": 3.125
+    },
+    {
+      "Mathematical computation steps": 15.555555555555555,
+      "Declaring Procedural Steps": 55.55555555555556,
+      "Formula Definitions": 2.2222222222222223,
+      "Providing Definitions and Explanations": 26.666666666666668
+    },
+    {
+      "Mathematical computation steps": 19.642857142857142,
+      "Declaring Procedural Steps": 75.0,
+      "Formula Definitions": 1.7857142857142856,
+      "Providing Definitions and Explanations": 3.571428571428571
+    },
+    {
+      "Mathematical computation steps": 19.148936170212767,
+      "Declaring Procedural Steps": 53.191489361702125,
+      "Providing Definitions and Explanations": 23.404255319148938,
+      "Formula Definitions": 4.25531914893617
+    },
+    {
+      "Mathematical computation steps": 15.384615384615385,
+      "Declaring Procedural Steps": 50.0,
+      "Providing Definitions and Explanations": 30.76923076923077,
+      "Numerical Calculation Steps": 3.8461538461538463
+    },
+    {
+      "Declaring Procedural Steps": 64.40677966101694,
+      "Formula Definitions": 8.47457627118644,
+      "Providing Definitions and Explanations": 20.33898305084746,
+      "Mathematical computation steps": 6.779661016949152
+    },
+    {
+      "Declaring Procedural Steps": 74.46808510638297,
+      "Providing Definitions and Explanations": 8.51063829787234,
+      "Formula Definitions": 2.127659574468085,
+      "Mathematical computation steps": 8.51063829787234,
+      "Numerical Calculation Steps": 6.382978723404255
+    },
+    {
+      "Declaring Procedural Steps": 62.857142857142854,
+      "Mathematical computation steps": 8.571428571428571,
+      "Formula Definitions": 8.571428571428571,
+      "Providing Definitions and Explanations": 20.0
+    },
+    {
+      "Mathematical computation steps": 11.475409836065573,
+      "Declaring Procedural Steps": 67.21311475409836,
+      "Providing Definitions and Explanations": 11.475409836065573,
+      "Numerical Calculation Steps": 4.918032786885246,
+      "Formula Definitions": 4.918032786885246
+    },
+    {
+      "Mathematical computation steps": 5.405405405405405,
+      "Declaring Procedural Steps": 51.35135135135135,
+      "Providing Definitions and Explanations": 43.24324324324324
+    },
+    {
+      "Mathematical computation steps": 12.727272727272727,
+      "Declaring Procedural Steps": 70.9090909090909,
+      "Providing Definitions and Explanations": 14.545454545454545,
+      "Formula Definitions": 1.8181818181818181
+    },
+    {
+      "Mathematical computation steps": 8.620689655172415,
+      "Declaring Procedural Steps": 51.724137931034484,
+      "Providing Definitions and Explanations": 25.862068965517242,
+      "Formula Definitions": 13.793103448275861
+    },
+    {
+      "Declaring Procedural Steps": 46.15384615384615,
+      "Numerical Calculation Steps": 10.256410256410255,
+      "Providing Definitions and Explanations": 30.76923076923077,
+      "Mathematical computation steps": 7.6923076923076925,
+      "Formula Definitions": 5.128205128205128
+    },
+    {
+      "Declaring Procedural Steps": 74.07407407407408,
+      "Mathematical computation steps": 3.7037037037037033,
+      "Providing Definitions and Explanations": 18.51851851851852,
+      "Numerical Calculation Steps": 3.7037037037037033
+    },
+    {
+      "Mathematical computation steps": 14.285714285714285,
+      "Declaring Procedural Steps": 64.28571428571429,
+      "Providing Definitions and Explanations": 10.714285714285714,
+      "Formula Definitions": 8.928571428571429,
+      "Numerical Calculation Steps": 1.7857142857142856
+    },
+    {
+      "Mathematical computation steps": 9.615384615384617,
+      "Declaring Procedural Steps": 57.692307692307686,
+      "Providing Definitions and Explanations": 32.69230769230769
+    },
+    {
+      "Mathematical computation steps": 3.571428571428571,
+      "Declaring Procedural Steps": 60.71428571428571,
+      "Providing Definitions and Explanations": 35.714285714285715
+    },
+    {
+      "Mathematical computation steps": 10.256410256410255,
+      "Declaring Procedural Steps": 46.15384615384615,
+      "Providing Definitions and Explanations": 33.33333333333333,
+      "Formula Definitions": 5.128205128205128,
+      "Numerical Calculation Steps": 5.128205128205128
+    },
+    {
+      "Mathematical computation steps": 12.962962962962962,
+      "Declaring Procedural Steps": 50.0,
+      "Providing Definitions and Explanations": 33.33333333333333,
+      "Formula Definitions": 1.8518518518518516,
+      "Numerical Calculation Steps": 1.8518518518518516
+    },
+    {
+      "Mathematical computation steps": 6.451612903225806,
+      "Declaring Procedural Steps": 77.41935483870968,
+      "Providing Definitions and Explanations": 16.129032258064516
+    },
+    {
+      "Declaring Procedural Steps": 67.64705882352942,
+      "Providing Definitions and Explanations": 14.705882352941178,
+      "Mathematical computation steps": 13.23529411764706,
+      "Formula Definitions": 2.941176470588235,
+      "Numerical Calculation Steps": 1.4705882352941175
+    },
+    {
+      "Mathematical computation steps": 16.129032258064516,
+      "Declaring Procedural Steps": 67.74193548387096,
+      "Providing Definitions and Explanations": 12.903225806451612,
+      "Formula Definitions": 3.225806451612903
+    },
+    {
+      "Mathematical computation steps": 11.475409836065573,
+      "Declaring Procedural Steps": 52.459016393442624,
+      "Providing Definitions and Explanations": 31.147540983606557,
+      "Formula Definitions": 4.918032786885246
+    },
+    {
+      "Declaring Procedural Steps": 69.44444444444444,
+      "Providing Definitions and Explanations": 13.88888888888889,
+      "Numerical Calculation Steps": 2.7777777777777777,
+      "Formula Definitions": 5.555555555555555,
+      "Mathematical computation steps": 8.333333333333332
+    },
+    {
+      "Declaring Procedural Steps": 67.44186046511628,
+      "Mathematical computation steps": 6.976744186046512,
+      "Formula Definitions": 6.976744186046512,
+      "Providing Definitions and Explanations": 18.6046511627907
+    },
+    {
+      "Mathematical computation steps": 9.25925925925926,
+      "Declaring Procedural Steps": 38.88888888888889,
+      "Providing Definitions and Explanations": 44.44444444444444,
+      "Formula Definitions": 7.4074074074074066
+    },
+    {
+      "Mathematical computation steps": 8.0,
+      "Declaring Procedural Steps": 60.0,
+      "Providing Definitions and Explanations": 18.0,
+      "Formula Definitions": 6.0,
+      "Numerical Calculation Steps": 8.0
+    },
+    {
+      "Declaring Procedural Steps": 71.875,
+      "Providing Definitions and Explanations": 9.375,
+      "Formula Definitions": 12.5,
+      "Mathematical computation steps": 3.125,
+      "Numerical Calculation Steps": 3.125
+    },
+    {
+      "Declaring Procedural Steps": 52.17391304347826,
+      "Providing Definitions and Explanations": 32.608695652173914,
+      "Formula Definitions": 6.521739130434782,
+      "Mathematical computation steps": 6.521739130434782,
+      "Numerical Calculation Steps": 2.1739130434782608
+    },
+    {
+      "Mathematical computation steps": 6.0,
+      "Declaring Procedural Steps": 56.00000000000001,
+      "Formula Definitions": 4.0,
+      "Providing Definitions and Explanations": 30.0,
+      "Numerical Calculation Steps": 4.0
+    },
+    {
+      "Mathematical computation steps": 11.11111111111111,
+      "Declaring Procedural Steps": 77.77777777777779,
+      "Providing Definitions and Explanations": 8.333333333333332,
+      "Formula Definitions": 2.7777777777777777
+    },
+    {
+      "Declaring Procedural Steps": 42.42424242424242,
+      "Providing Definitions and Explanations": 36.36363636363637,
+      "Mathematical computation steps": 7.575757575757576,
+      "Formula Definitions": 13.636363636363635
+    },
+    {
+      "Declaring Procedural Steps": 70.0,
+      "Providing Definitions and Explanations": 15.0,
+      "Formula Definitions": 5.0,
+      "Mathematical computation steps": 7.5,
+      "Numerical Calculation Steps": 2.5
+    },
+    {
+      "Declaring Procedural Steps": 65.95744680851064,
+      "Providing Definitions and Explanations": 10.638297872340425,
+      "Mathematical computation steps": 12.76595744680851,
+      "Formula Definitions": 10.638297872340425
+    },
+    {
+      "Declaring Procedural Steps": 68.33333333333333,
+      "Formula Definitions": 5.0,
+      "Providing Definitions and Explanations": 11.666666666666666,
+      "Mathematical computation steps": 6.666666666666667,
+      "Numerical Calculation Steps": 8.333333333333332
+    },
+    {
+      "Mathematical computation steps": 3.3333333333333335,
+      "Declaring Procedural Steps": 70.0,
+      "Providing Definitions and Explanations": 18.333333333333332,
+      "Formula Definitions": 6.666666666666667,
+      "Numerical Calculation Steps": 1.6666666666666667
+    },
+    {
+      "Mathematical computation steps": 6.666666666666667,
+      "Declaring Procedural Steps": 64.44444444444444,
+      "Providing Definitions and Explanations": 24.444444444444443,
+      "Numerical Calculation Steps": 2.2222222222222223,
+      "Formula Definitions": 2.2222222222222223
+    },
+    {
+      "Declaring Procedural Steps": 56.75675675675676,
+      "Mathematical computation steps": 5.405405405405405,
+      "Providing Definitions and Explanations": 31.08108108108108,
+      "Formula Definitions": 6.756756756756757
+    },
+    {
+      "Declaring Procedural Steps": 60.9375,
+      "Providing Definitions and Explanations": 26.5625,
+      "Formula Definitions": 7.8125,
+      "Mathematical computation steps": 4.6875
+    },
+    {
+      "Mathematical computation steps": 32.432432432432435,
+      "Declaring Procedural Steps": 35.13513513513514,
+      "Providing Definitions and Explanations": 21.62162162162162,
+      "Formula Definitions": 8.108108108108109,
+      "Numerical Calculation Steps": 2.7027027027027026
+    },
+    {
+      "Declaring Procedural Steps": 63.63636363636363,
+      "Formula Definitions": 14.545454545454545,
+      "Mathematical computation steps": 10.909090909090908,
+      "Providing Definitions and Explanations": 10.909090909090908
+    },
+    {
+      "Declaring Procedural Steps": 50.74626865671642,
+      "Providing Definitions and Explanations": 28.35820895522388,
+      "Formula Definitions": 13.432835820895523,
+      "Mathematical computation steps": 7.462686567164178
+    },
+    {
+      "Declaring Procedural Steps": 69.38775510204081,
+      "Formula Definitions": 10.204081632653061,
+      "Providing Definitions and Explanations": 8.16326530612245,
+      "Mathematical computation steps": 12.244897959183673
+    },
+    {
+      "Mathematical computation steps": 10.0,
+      "Declaring Procedural Steps": 54.44444444444444,
+      "Providing Definitions and Explanations": 23.333333333333332,
+      "Formula Definitions": 11.11111111111111,
+      "Numerical Calculation Steps": 1.1111111111111112
+    },
+    {
+      "Declaring Procedural Steps": 50.0,
+      "Providing Definitions and Explanations": 41.07142857142857,
+      "Formula Definitions": 3.571428571428571,
+      "Mathematical computation steps": 5.357142857142857
+    },
+    {
+      "Declaring Procedural Steps": 59.32203389830508,
+      "Formula Definitions": 15.254237288135593,
+      "Mathematical computation steps": 8.47457627118644,
+      "Providing Definitions and Explanations": 13.559322033898304,
+      "Numerical Calculation Steps": 3.389830508474576
+    },
+    {
+      "Mathematical computation steps": 5.88235294117647,
+      "Declaring Procedural Steps": 58.82352941176471,
+      "Numerical Calculation Steps": 1.9607843137254901,
+      "Formula Definitions": 5.88235294117647,
+      "Providing Definitions and Explanations": 27.450980392156865
+    },
+    {
+      "Mathematical computation steps": 19.565217391304348,
+      "Declaring Procedural Steps": 52.17391304347826,
+      "Providing Definitions and Explanations": 26.08695652173913,
+      "Formula Definitions": 2.1739130434782608
+    },
+    {
+      "Mathematical computation steps": 2.083333333333333,
+      "Declaring Procedural Steps": 54.166666666666664,
+      "Providing Definitions and Explanations": 43.75
+    },
+    {
+      "Declaring Procedural Steps": 71.01449275362319,
+      "Formula Definitions": 2.898550724637681,
+      "Providing Definitions and Explanations": 10.144927536231885,
+      "Mathematical computation steps": 11.594202898550725,
+      "Numerical Calculation Steps": 4.3478260869565215
+    },
+    {
+      "Mathematical computation steps": 14.000000000000002,
+      "Declaring Procedural Steps": 57.99999999999999,
+      "Providing Definitions and Explanations": 16.0,
+      "Formula Definitions": 10.0,
+      "Numerical Calculation Steps": 2.0
+    },
+    {
+      "Declaring Procedural Steps": 60.0,
+      "Providing Definitions and Explanations": 35.0,
+      "Mathematical computation steps": 3.3333333333333335,
+      "Formula Definitions": 1.6666666666666667
+    },
+    {
+      "Mathematical computation steps": 10.95890410958904,
+      "Declaring Procedural Steps": 53.42465753424658,
+      "Formula Definitions": 9.58904109589041,
+      "Providing Definitions and Explanations": 26.027397260273972
+    },
+    {
+      "Mathematical computation steps": 13.461538461538462,
+      "Declaring Procedural Steps": 61.53846153846154,
+      "Providing Definitions and Explanations": 21.153846153846153,
+      "Formula Definitions": 3.8461538461538463
+    },
+    {
+      "Mathematical computation steps": 7.5,
+      "Declaring Procedural Steps": 47.5,
+      "Providing Definitions and Explanations": 25.0,
+      "Formula Definitions": 20.0
+    },
+    {
+      "Declaring Procedural Steps": 59.25925925925925,
+      "Providing Definitions and Explanations": 33.33333333333333,
+      "Formula Definitions": 5.555555555555555,
+      "Mathematical computation steps": 1.8518518518518516
+    },
+    {
+      "Mathematical computation steps": 25.806451612903224,
+      "Declaring Procedural Steps": 48.38709677419355,
+      "Providing Definitions and Explanations": 25.806451612903224
+    },
+    {
+      "Declaring Procedural Steps": 68.42105263157895,
+      "Numerical Calculation Steps": 3.508771929824561,
+      "Providing Definitions and Explanations": 26.31578947368421,
+      "Mathematical computation steps": 1.7543859649122806
+    },
+    {
+      "Mathematical computation steps": 13.043478260869565,
+      "Declaring Procedural Steps": 50.72463768115942,
+      "Providing Definitions and Explanations": 31.88405797101449,
+      "Formula Definitions": 4.3478260869565215
+    },
+    {
+      "Mathematical computation steps": 7.142857142857142,
+      "Declaring Procedural Steps": 69.64285714285714,
+      "Providing Definitions and Explanations": 19.642857142857142,
+      "Formula Definitions": 1.7857142857142856,
+      "Numerical Calculation Steps": 1.7857142857142856
+    }
+  ],
+  "accuracies": {
+    "base_model": 14.43850267379679,
+    "thinking_model": 14.973262032085561,
+    "hybrid_model": 13.903743315508022
+  }
+}
