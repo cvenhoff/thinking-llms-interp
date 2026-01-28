@@ -96,11 +96,12 @@ def main(args):
                     clustering_data = load_trained_clustering_data(model_name, layer, n_clusters, 'sae_topk')
                     cluster_centers = clustering_data['cluster_centers']
                     
-                    cluster_labels = predict_clusters(all_activations, clustering_data, model_name, layer, n_clusters)
-                    
+                    cluster_labels = predict_clusters(all_activations, clustering_data, model_name, layer, n_clusters, require_sae_mean=False)
+
                     representative_examples = generate_representative_examples(
                         cluster_centers, all_texts, cluster_labels, all_activations,
-                        clustering_data=clustering_data, model_id=model_name, layer=layer, n_clusters=n_clusters
+                        clustering_data=clustering_data, model_id=model_name, layer=layer, n_clusters=n_clusters,
+                        require_sae_mean=False,
                     )
 
                     # Update JSON data with a new 'examples' key for the cluster size

@@ -265,7 +265,7 @@ def load_trained_clustering_data(model_id, layer, n_clusters, method):
         return clustering_data
 
 
-def predict_clusters(activations, clustering_data, model_id=None, layer=None, n_clusters=None):
+def predict_clusters(activations, clustering_data, model_id=None, layer=None, n_clusters=None, require_sae_mean=True):
     """
     Predict cluster labels for new activations using loaded clustering data.
     
@@ -378,21 +378,20 @@ def predict_clusters(activations, clustering_data, model_id=None, layer=None, n_
         
         from utils.sae import load_sae
         import torch
-        
-        # Load the SAE
-        sae, _ = load_sae(model_id, layer, n_clusters)
-        
+
+        sae, _ = load_sae(model_id, layer, n_clusters, require_activation_mean=require_sae_mean)
+
         # Convert activations to torch tensor and move to appropriate device
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         sae = sae.to(device)
         activations_tensor = torch.from_numpy(activations).float().to(device)
-        
+
         # Use SAE encoder to get latent activations
         with torch.no_grad():
             encoded_activations = sae.encoder(activations_tensor - sae.b_dec)
             # Get the cluster assignment as the argmax of encoder activations
             cluster_labels = encoded_activations.argmax(dim=1).cpu().numpy()
-        
+
         return cluster_labels
     
     else:
@@ -1048,7 +1047,7 @@ def compute_semantic_orthogonality(categories, model="gpt-4.1-mini", orthogonali
     }
 
 
-def generate_representative_examples(cluster_centers, texts, cluster_labels, example_activations, clustering_data=None, model_id=None, layer=None, n_clusters=None):
+def generate_representative_examples(cluster_centers, texts, cluster_labels, example_activations, clustering_data=None, model_id=None, layer=None, n_clusters=None, require_sae_mean=True):
     """
     Generate representative examples for each cluster.
 
@@ -1100,10 +1099,9 @@ def generate_representative_examples(cluster_centers, texts, cluster_labels, exa
         # Import load_sae from utils.sae
         from utils.sae import load_sae
         import torch
-        
-        # Load the SAE
-        sae, _ = load_sae(model_id, layer, n_clusters)
-        
+
+        sae, _ = load_sae(model_id, layer, n_clusters, require_activation_mean=require_sae_mean)
+
         # Convert activations to torch tensor and move to appropriate device
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         sae = sae.to(device)
