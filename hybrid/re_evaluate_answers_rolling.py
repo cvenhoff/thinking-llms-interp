@@ -91,6 +91,12 @@ def parse_args() -> argparse.Namespace:
         help="If set, only re-evaluate records where eos.thinking is true, and compute stats on that subset.",
     )
     parser.add_argument(
+        "--all-finished",
+        action="store_true",
+        default=False,
+        help="If set, only include records where thinking, base, AND hybrid all ended with EOS.",
+    )
+    parser.add_argument(
         "--recompute-only",
         action="store_true",
         help="Read existing judge results and print stats without re-running evaluation or modifying files.",
@@ -215,6 +221,31 @@ def _thinking_finished(record: Dict[str, Any]) -> bool:
     eos = record.get("eos", {})
     assert isinstance(eos, dict), "record['eos'] must be a dict when present"
     return bool(eos.get("thinking", False))
+
+
+def _all_finished(record: Dict[str, Any]) -> bool:
+    """Return True only if thinking, base, and hybrid all ended with EOS."""
+    eos = record.get("eos", {})
+    assert isinstance(eos, dict), "record['eos'] must be a dict when present"
+    return (
+        bool(eos.get("thinking", False))
+        and bool(eos.get("base", False))
+        and bool(eos.get("hybrid", False))
+    )
+
+
+def _record_included(
+    record: Dict[str, Any],
+    *,
+    only_finished_thinking: bool = False,
+    all_finished: bool = False,
+) -> bool:
+    """Check whether a record passes the EOS inclusion filters."""
+    if all_finished and not _all_finished(record):
+        return False
+    if only_finished_thinking and not _thinking_finished(record):
+        return False
+    return True
 
 
 def _matches_filter(filename: str, filter_patterns: List[str], exclude_patterns: Optional[List[str]] = None) -> bool:
@@ -624,6 +655,7 @@ def collect_all_prompts(
     max_records_per_file: Optional[int] = None,
     *,
     only_finished_thinking: bool = False,
+    all_finished: bool = False,
     target_repetitions: int = 1,
 ) -> Tuple[List[str], List[Tuple[str, int, str]]]:
     """
@@ -633,6 +665,7 @@ def collect_all_prompts(
         files: List of (prefix, paths) tuples
         max_records_per_file: If set, limit to this many records per file (for debug mode)
         only_finished_thinking: If True, skip records where thinking didn't finish
+        all_finished: If True, skip records where any of thinking/base/hybrid didn't finish
         target_repetitions: Target number of judge reps per record/model.
             Existing reps are preserved; only the shortfall is submitted.
 
@@ -663,7 +696,7 @@ def collect_all_prompts(
 
             included_indices: List[int] = []
             for idx, record in enumerate(records):
-                if only_finished_thinking and (not _thinking_finished(record)):
+                if not _record_included(record, only_finished_thinking=only_finished_thinking, all_finished=all_finished):
                     continue
                 included_indices.append(idx)
             if max_records_per_file is not None:
@@ -707,6 +740,7 @@ def update_all_files(
     responses: Dict[int, str],
     *,
     only_finished_thinking: bool = False,
+    all_finished: bool = False,
 ) -> Dict[str, Dict[str, Any]]:
     """
     Update all files with judge responses (multi-rep aware).
@@ -756,7 +790,7 @@ def update_all_files(
             # Determine which records are included for stats
             all_included_list: List[int] = []
             for idx, record in enumerate(records):
-                if only_finished_thinking and (not _thinking_finished(record)):
+                if not _record_included(record, only_finished_thinking=only_finished_thinking, all_finished=all_finished):
                     continue
                 all_included_list.append(idx)
             all_included = set(all_included_list)
@@ -846,6 +880,7 @@ def compute_stats_from_existing(
     files: List[Tuple[str, List[str]]],
     *,
     only_finished_thinking: bool = False,
+    all_finished: bool = False,
 ) -> Dict[str, Dict[str, Any]]:
     """
     Read existing judge results from files and compute stats without modifying anything.
@@ -874,8 +909,7 @@ def compute_stats_from_existing(
                 records = [json.loads(line) for line in src if line.strip()]
 
             for record in records:
-                # Skip if only_finished_thinking and thinking didn't finish
-                if only_finished_thinking and (not _thinking_finished(record)):
+                if not _record_included(record, only_finished_thinking=only_finished_thinking, all_finished=all_finished):
                     continue
 
                 prefix_total += 1
@@ -930,6 +964,7 @@ def _print_stats(
     files: List[Tuple[str, List[str]]],
     per_prefix_stats: Dict[str, Dict[str, Any]],
     only_finished_thinking: bool,
+    all_finished: bool = False,
     recompute_only: bool = False,
 ) -> None:
     """Print per-model results, including per-rep statistics when available."""
@@ -939,14 +974,20 @@ def _print_stats(
     total_records = sum(s["total"] for s in per_prefix_stats.values())
 
     action = "Read" if recompute_only else "Re-evaluated"
-    subset = "finished-thinking " if only_finished_thinking else ""
+    if all_finished:
+        subset = "all-finished "
+    elif only_finished_thinking:
+        subset = "finished-thinking "
+    else:
+        subset = ""
     print(f"\n{action} {total_records} {subset}records across {total_files} files.")
 
     for prefix, stats in per_prefix_stats.items():
         prefix_name = os.path.basename(prefix).replace(".jsonl", "")
         n = stats["total"]
         if n == 0:
-            print(f"\n[WARNING] Skipping {prefix_name}: 0 records" + (" with finished thinking" if only_finished_thinking else ""))
+            filter_desc = " with all-finished" if all_finished else (" with finished thinking" if only_finished_thinking else "")
+            print(f"\n[WARNING] Skipping {prefix_name}: 0 records{filter_desc}")
             continue
 
         thinking_correct = stats["correct"]["thinking"]
@@ -1013,6 +1054,7 @@ def main() -> None:
     rolling_dir = args.rolling_dir or _default_rolling_dir()
     assert os.path.isdir(rolling_dir), f"Rolling directory not found: {rolling_dir}"
     only_finished_thinking = bool(getattr(args, "only_finished_thinking", False))
+    all_finished_flag = bool(getattr(args, "all_finished", False))
 
     # Parse model filter
     exclude_patterns: Optional[List[str]] = None
@@ -1062,6 +1104,7 @@ def main() -> None:
             files,
             max_records_per_file=max_records,
             only_finished_thinking=only_finished_thinking,
+            all_finished=all_finished_flag,
             target_repetitions=target_reps,
         )
 
@@ -1085,7 +1128,7 @@ def main() -> None:
                         if not line:
                             continue
                         rec = json.loads(line)
-                        if only_finished_thinking and not _thinking_finished(rec):
+                        if not _record_included(rec, only_finished_thinking=only_finished_thinking, all_finished=all_finished_flag):
                             continue
                         n_records += 1
                         judges = rec.get("judges", {})
@@ -1110,8 +1153,9 @@ def main() -> None:
         per_prefix_stats = compute_stats_from_existing(
             files,
             only_finished_thinking=only_finished_thinking,
+            all_finished=all_finished_flag,
         )
-        _print_stats(files, per_prefix_stats, only_finished_thinking, recompute_only=True)
+        _print_stats(files, per_prefix_stats, only_finished_thinking, all_finished=all_finished_flag, recompute_only=True)
         return
 
     if args.debug:
@@ -1124,6 +1168,7 @@ def main() -> None:
         files,
         max_records_per_file=max_records,
         only_finished_thinking=only_finished_thinking,
+        all_finished=all_finished_flag,
         target_repetitions=target_reps,
     )
     print(f"Collected {len(prompts)} prompts total (shortfall from target {target_reps} reps)")
@@ -1154,10 +1199,11 @@ def main() -> None:
         prompt_mapping,
         responses,
         only_finished_thinking=only_finished_thinking,
+        all_finished=all_finished_flag,
     )
 
     # Print per-model results
-    _print_stats(files, per_prefix_stats, only_finished_thinking)
+    _print_stats(files, per_prefix_stats, only_finished_thinking, all_finished=all_finished_flag)
 
 
 if __name__ == "__main__":
