@@ -71,8 +71,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=5000,
-        help="Maximum requests per batch file (default: 5000).",
+        default=10000,
+        help="Maximum requests per batch file (default: 10000).",
     )
     parser.add_argument(
         "--dry-run",
@@ -1055,7 +1055,7 @@ def main() -> None:
     target_reps = int(getattr(args, "judge_repetitions", 5))
 
     if args.dry_run:
-        # In dry-run, still collect prompts to show shortfall counts
+        # In dry-run, collect prompts to show shortfall counts, and scan existing reps
         print(f"\n[DRY RUN] Target judge repetitions: {target_reps}")
         max_records = 1 if args.debug else None
         prompts, prompt_mapping = collect_all_prompts(
@@ -1064,7 +1064,44 @@ def main() -> None:
             only_finished_thinking=only_finished_thinking,
             target_repetitions=target_reps,
         )
-        print(f"Would submit {len(prompts)} prompts (shortfall from target {target_reps} reps). Exiting.")
+
+        # Per-file breakdown: prompts needed, and min/max existing reps
+        per_file_prompts: Dict[str, int] = {}
+        for _, (path, _, _) in enumerate(prompt_mapping):
+            per_file_prompts[path] = per_file_prompts.get(path, 0) + 1
+
+        # Scan existing reps per file
+        print(f"\nPer-file breakdown:")
+        for prefix, paths in files:
+            for path in paths:
+                n_prompts = per_file_prompts.get(path, 0)
+                # Scan records for min/max existing reps
+                min_reps = None
+                max_reps = None
+                n_records = 0
+                with open(path, "r", encoding="utf-8") as src:
+                    for line in src:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        rec = json.loads(line)
+                        if only_finished_thinking and not _thinking_finished(rec):
+                            continue
+                        n_records += 1
+                        judges = rec.get("judges", {})
+                        for key, _ in MODEL_SPECS:
+                            entry = _normalize_judge_entry(judges.get(key, {}))
+                            n = len(entry["repetitions"])
+                            if min_reps is None or n < min_reps:
+                                min_reps = n
+                            if max_reps is None or n > max_reps:
+                                max_reps = n
+                min_reps = min_reps or 0
+                max_reps = max_reps or 0
+                basename = os.path.basename(path)
+                print(f"  {basename}: {n_records} records, {n_prompts} new prompts, existing reps: min={min_reps} max={max_reps}")
+
+        print(f"\nTotal: would submit {len(prompts)} prompts (shortfall from target {target_reps} reps). Exiting.")
         return
 
     # Recompute-only mode: read existing judge results and print stats
