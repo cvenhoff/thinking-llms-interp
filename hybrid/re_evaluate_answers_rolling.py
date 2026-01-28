@@ -101,6 +101,12 @@ def parse_args() -> argparse.Namespace:
         default=5,
         help="Target number of independent judge repetitions per record (default: 5). Existing reps are preserved; only the shortfall is submitted.",
     )
+    parser.add_argument(
+        "--dataset-filter",
+        type=str,
+        default=None,
+        help="Comma-separated list of dataset names to include (e.g. 'math500,gsm8k'). If not set, all datasets are included.",
+    )
     return parser.parse_known_args()[0]
 
 
@@ -233,6 +239,7 @@ def _list_all_rollings(
     rolling_dir: str,
     filter_patterns: Optional[List[str]] = None,
     exclude_patterns: Optional[List[str]] = None,
+    dataset_filter: Optional[List[str]] = None,
 ) -> List[Tuple[str, List[str]]]:
     files: Dict[str, List[Any]] = {}
     for name in os.listdir(rolling_dir):
@@ -243,9 +250,14 @@ def _list_all_rollings(
         # Skip vector_stats files
         if "_vector_stats" in name:
             continue
-        # Apply filter if specified
+        # Apply model filter if specified
         if filter_patterns is not None:
             if not _matches_filter(name, filter_patterns, exclude_patterns):
+                continue
+        # Apply dataset filter if specified
+        if dataset_filter is not None:
+            dataset = _extract_dataset_from_filename(name)
+            if dataset not in dataset_filter:
                 continue
         full_path = os.path.join(rolling_dir, name)
         prefix, part = _split_prefix_parts(full_path)
@@ -1002,7 +1014,7 @@ def main() -> None:
     assert os.path.isdir(rolling_dir), f"Rolling directory not found: {rolling_dir}"
     only_finished_thinking = bool(getattr(args, "only_finished_thinking", False))
 
-    # Parse filter
+    # Parse model filter
     exclude_patterns: Optional[List[str]] = None
     if args.filter == "all":
         filter_patterns = None
@@ -1013,13 +1025,22 @@ def main() -> None:
     else:
         filter_patterns = [p.strip() for p in args.filter.split(",")]
 
+    # Parse dataset filter
+    dataset_filter: Optional[List[str]] = None
+    if args.dataset_filter:
+        dataset_filter = [d.strip().lower() for d in args.dataset_filter.split(",")]
+
     # Get files to process
     if args.prefix:
         prefix = _resolve_prefix(args.prefix, rolling_dir)
-        files = [(prefix, _list_ordered_files(prefix))]
+        all_paths = _list_ordered_files(prefix)
+        if dataset_filter is not None:
+            all_paths = [p for p in all_paths if _extract_dataset_from_filename(p) in dataset_filter]
+            assert all_paths, f"No files matched dataset filter {dataset_filter} for prefix {prefix}"
+        files = [(prefix, all_paths)]
         print(f"Found {len(files[0][1])} files for prefix {prefix}")
     else:
-        files = _list_all_rollings(rolling_dir, filter_patterns, exclude_patterns)
+        files = _list_all_rollings(rolling_dir, filter_patterns, exclude_patterns, dataset_filter)
         if not files:
             print(f"No rolling files found in {rolling_dir} matching filter: {args.filter}")
             return
