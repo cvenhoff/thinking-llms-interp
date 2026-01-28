@@ -4,6 +4,7 @@
     "rolling_llama-3.1-8b_gsm8k.jsonl"
   ],
   "num_problems": 500,
+  "skipped_no_details": 0,
   "total_tokens": 261796,
   "total_steered_tokens": 36788,
   "avg_steered_tokens_per_problem": 73.576,

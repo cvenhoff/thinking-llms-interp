@@ -51,6 +51,7 @@ def _analyze_file(path: str, *, top_k: Optional[int]) -> Dict[str, object]:
 
 def _analyze_group(paths: List[str], *, display_name: str, top_k: Optional[int]) -> Dict[str, object]:
     num_records: int = 0
+    skipped_no_details: int = 0
 
     steered_tokens_total: int = 0
     tokens_total: int = 0
@@ -71,11 +72,10 @@ def _analyze_group(paths: List[str], *, display_name: str, top_k: Optional[int])
     for path in paths:
         for rec in _iter_jsonl(path):
             num_records += 1
-            assert "hybrid_details" in rec, "Missing 'hybrid_details' in record"
-            hd = rec["hybrid_details"]
-            assert isinstance(hd, dict)
-            assert "steering_selection" in hd, "Missing 'steering_selection'"
-            assert "per_token" in hd, "Missing 'per_token'"
+            hd = rec.get("hybrid_details")
+            if not isinstance(hd, dict) or "steering_selection" not in hd or "per_token" not in hd:
+                skipped_no_details += 1
+                continue
 
             steering_selection = hd["steering_selection"]
             per_token = hd["per_token"]
@@ -125,6 +125,27 @@ def _analyze_group(paths: List[str], *, display_name: str, top_k: Optional[int])
                     window_to_count[w] = window_to_count.get(w, 0) + 1
 
     assert num_records > 0, f"No records found in {display_name}"
+    analyzed = num_records - skipped_no_details
+    if analyzed == 0:
+        return {
+            "file": display_name,
+            "source_files": [os.path.basename(p) for p in paths],
+            "num_problems": num_records,
+            "skipped_no_details": skipped_no_details,
+            "total_tokens": 0,
+            "total_steered_tokens": 0,
+            "avg_steered_tokens_per_problem": 0.0,
+            "avg_tokens_per_problem": 0.0,
+            "avg_steered_fraction": 0.0,
+            "avg_steered_fraction_per_problem": 0.0,
+            "records_missing_per_token": 0,
+            "most_used_latent_title": None,
+            "most_used_latent_key": None,
+            "top_latent_titles": [],
+            "top_latent_keys": [],
+            "top_coefficients": [],
+            "top_windows": [],
+        }
     assert tokens_total > 0, "No generated tokens recorded"
 
     avg_steered_tokens_per_problem = sum(per_problem_steered_counts) / len(per_problem_steered_counts)
@@ -154,6 +175,7 @@ def _analyze_group(paths: List[str], *, display_name: str, top_k: Optional[int])
         "file": display_name,
         "source_files": [os.path.basename(p) for p in paths],
         "num_problems": num_records,
+        "skipped_no_details": skipped_no_details,
         "total_tokens": tokens_total,
         "total_steered_tokens": steered_tokens_total,
         "avg_steered_tokens_per_problem": avg_steered_tokens_per_problem,
@@ -230,12 +252,23 @@ def main() -> None:
     print(f"Scanning {total_files} rolling files across {total_groups} groups in {rolling_dir}\n")
     for prefix, paths in groups:
         display_name = os.path.basename(prefix)
-        stats = _analyze_group(paths, display_name=display_name, top_k=args.top_k)
+        try:
+            stats = _analyze_group(paths, display_name=display_name, top_k=args.top_k)
+        except Exception as e:
+            print(f"== {display_name} ==")
+            print(f"[ERROR] Skipping: {e}\n")
+            continue
         print(f"== {stats['file']} ==")
         if len(stats["source_files"]) > 1:
             joined = ", ".join(stats["source_files"])
             print(f"source parts: {joined}")
         print(f"problems: {stats['num_problems']}")
+        skipped = int(stats.get("skipped_no_details", 0))
+        if skipped > 0:
+            print(f"records without hybrid_details (skipped): {skipped}")
+        if stats["total_tokens"] == 0:
+            print(f"no steering data available\n")
+            continue
         print(f"avg steered tokens/problem: {stats['avg_steered_tokens_per_problem']:.2f}")
         print(f"avg total tokens/problem: {stats['avg_tokens_per_problem']:.2f}")
         print(f"avg steered fraction: {stats['avg_steered_fraction']:.3f}")

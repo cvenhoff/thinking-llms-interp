@@ -1,0 +1,149 @@
+{
+  "file": "rolling_qwen2.5-7b_mbpp_only_finished_thinking_steered_temp_0.7.jsonl",
+  "source_files": [
+    "rolling_qwen2.5-7b_mbpp_only_finished_thinking_steered_temp_0.7.jsonl"
+  ],
+  "num_problems": 34,
+  "skipped_no_details": 2,
+  "total_tokens": 58066,
+  "total_steered_tokens": 3512,
+  "avg_steered_tokens_per_problem": 109.75,
+  "avg_tokens_per_problem": 1814.5625,
+  "avg_steered_fraction": 0.06048289877036476,
+  "avg_steered_fraction_per_problem": 0.06388835873094706,
+  "records_missing_per_token": 0,
+  "most_used_latent_title": "Outlining Reasoning Steps",
+  "most_used_latent_key": "idx8",
+  "top_latent_titles": [
+    [
+      "Outlining Reasoning Steps",
+      1847
+    ],
+    [
+      "Performing Arithmetic Steps",
+      488
+    ],
+    [
+      "Formula Evaluation and Numeric Calculation",
+      274
+    ],
+    [
+      "Concept Definition",
+      247
+    ],
+    [
+      "Reporting Inference Results",
+      220
+    ],
+    [
+      "Listing Given Data",
+      213
+    ],
+    [
+      "Solution Outline",
+      114
+    ],
+    [
+      "Recalling Legal Rules",
+      59
+    ],
+    [
+      "Formula Recall",
+      43
+    ],
+    [
+      "Recalling Background Knowledge",
+      7
+    ]
+  ],
+  "top_latent_keys": [
+    [
+      "idx8",
+      1847
+    ],
+    [
+      "idx2",
+      488
+    ],
+    [
+      "idx3",
+      274
+    ],
+    [
+      "idx9",
+      247
+    ],
+    [
+      "idx6",
+      220
+    ],
+    [
+      "idx4",
+      213
+    ],
+    [
+      "idx1",
+      114
+    ],
+    [
+      "idx7",
+      59
+    ],
+    [
+      "idx5",
+      43
+    ],
+    [
+      "idx0",
+      7
+    ]
+  ],
+  "top_coefficients": [
+    [
+      0.1,
+      2225
+    ],
+    [
+      0.2,
+      469
+    ],
+    [
+      0.3,
+      247
+    ],
+    [
+      0.5,
+      206
+    ],
+    [
+      0.7,
+      204
+    ],
+    [
+      1.0,
+      161
+    ]
+  ],
+  "top_windows": [
+    [
+      0,
+      1507
+    ],
+    [
+      -1,
+      719
+    ],
+    [
+      -15,
+      528
+    ],
+    [
+      -50,
+      412
+    ],
+    [
+      -100,
+      346
+    ]
+  ]
+}

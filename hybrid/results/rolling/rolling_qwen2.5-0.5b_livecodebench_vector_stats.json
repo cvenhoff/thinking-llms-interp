@@ -1,0 +1,166 @@
+{
+  "file": "rolling_qwen2.5-0.5b_livecodebench.jsonl",
+  "source_files": [
+    "rolling_qwen2.5-0.5b_livecodebench.jsonl",
+    "rolling_qwen2.5-0.5b_livecodebench_0.jsonl"
+  ],
+  "num_problems": 394,
+  "skipped_no_details": 0,
+  "total_tokens": 745200,
+  "total_steered_tokens": 17649,
+  "avg_steered_tokens_per_problem": 44.79441624365482,
+  "avg_tokens_per_problem": 1891.3705583756346,
+  "avg_steered_fraction": 0.023683574879227055,
+  "avg_steered_fraction_per_problem": 0.027180191180003987,
+  "records_missing_per_token": 0,
+  "most_used_latent_title": "Algebraic Manipulation Steps",
+  "most_used_latent_key": "idx0",
+  "top_latent_titles": [
+    [
+      "Algebraic Manipulation Steps",
+      9296
+    ],
+    [
+      "Background Knowledge Statements",
+      2148
+    ],
+    [
+      "Answer Declarations",
+      2080
+    ],
+    [
+      "Symbol and Term Definitions",
+      1306
+    ],
+    [
+      "Articulating Subtasks",
+      895
+    ],
+    [
+      "Symbolic Derivation",
+      874
+    ],
+    [
+      "Action Step Specification",
+      563
+    ],
+    [
+      "Stating Known Equations",
+      220
+    ],
+    [
+      "Legal Findings and Conclusions",
+      162
+    ],
+    [
+      "Arithmetic Computation",
+      105
+    ]
+  ],
+  "top_latent_keys": [
+    [
+      "idx0",
+      9296
+    ],
+    [
+      "idx8",
+      2148
+    ],
+    [
+      "idx4",
+      2080
+    ],
+    [
+      "idx2",
+      1306
+    ],
+    [
+      "idx9",
+      895
+    ],
+    [
+      "idx5",
+      874
+    ],
+    [
+      "idx7",
+      563
+    ],
+    [
+      "idx6",
+      220
+    ],
+    [
+      "idx3",
+      162
+    ],
+    [
+      "idx1",
+      105
+    ]
+  ],
+  "top_coefficients": [
+    [
+      0.1,
+      9822
+    ],
+    [
+      0.2,
+      1780
+    ],
+    [
+      0.3,
+      1234
+    ],
+    [
+      0.4,
+      1041
+    ],
+    [
+      0.5,
+      967
+    ],
+    [
+      0.6,
+      845
+    ],
+    [
+      0.7,
+      651
+    ],
+    [
+      0.8,
+      522
+    ],
+    [
+      0.9,
+      401
+    ],
+    [
+      1.0,
+      386
+    ]
+  ],
+  "top_windows": [
+    [
+      0,
+      12635
+    ],
+    [
+      -1,
+      1652
+    ],
+    [
+      -15,
+      1489
+    ],
+    [
+      -50,
+      1023
+    ],
+    [
+      -100,
+      850
+    ]
+  ]
+}

@@ -1,0 +1,125 @@
+{
+  "file": "rolling_qwen2.5-32b_mbpp_only_finished_thinking_disable_steering_in_code_blocks.jsonl",
+  "source_files": [
+    "rolling_qwen2.5-32b_mbpp_only_finished_thinking_disable_steering_in_code_blocks.jsonl"
+  ],
+  "num_problems": 155,
+  "skipped_no_details": 30,
+  "total_tokens": 19336,
+  "total_steered_tokens": 2647,
+  "avg_steered_tokens_per_problem": 21.176,
+  "avg_tokens_per_problem": 154.688,
+  "avg_steered_fraction": 0.13689491104675217,
+  "avg_steered_fraction_per_problem": 0.1768720195092885,
+  "records_missing_per_token": 0,
+  "most_used_latent_title": "Brainstorming Additional Aspects",
+  "most_used_latent_key": "idx1",
+  "top_latent_titles": [
+    [
+      "Brainstorming Additional Aspects",
+      1265
+    ],
+    [
+      "Stating Known Equations",
+      464
+    ],
+    [
+      "Presenting Conclusions",
+      240
+    ],
+    [
+      "Proposing Causal Hypotheses",
+      233
+    ],
+    [
+      "Numeric computations",
+      151
+    ],
+    [
+      "Recalling Domain Knowledge",
+      128
+    ],
+    [
+      "Planning Next Steps",
+      88
+    ],
+    [
+      "Articulating the Next Subgoal",
+      47
+    ],
+    [
+      "Adjusting problem framing",
+      31
+    ]
+  ],
+  "top_latent_keys": [
+    [
+      "idx1",
+      1265
+    ],
+    [
+      "idx6",
+      464
+    ],
+    [
+      "idx9",
+      240
+    ],
+    [
+      "idx3",
+      233
+    ],
+    [
+      "idx2",
+      151
+    ],
+    [
+      "idx4",
+      128
+    ],
+    [
+      "idx8",
+      88
+    ],
+    [
+      "idx7",
+      47
+    ],
+    [
+      "idx0",
+      31
+    ]
+  ],
+  "top_coefficients": [
+    [
+      0.5,
+      2381
+    ],
+    [
+      0.9,
+      68
+    ],
+    [
+      1.0,
+      58
+    ],
+    [
+      0.8,
+      54
+    ],
+    [
+      0.6,
+      43
+    ],
+    [
+      0.7,
+      43
+    ]
+  ],
+  "top_windows": [
+    [
+      0,
+      2647
+    ]
+  ]
+}

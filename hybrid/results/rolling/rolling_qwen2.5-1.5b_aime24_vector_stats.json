@@ -1,0 +1,125 @@
+{
+  "file": "rolling_qwen2.5-1.5b_aime24.jsonl",
+  "source_files": [
+    "rolling_qwen2.5-1.5b_aime24.jsonl"
+  ],
+  "num_problems": 30,
+  "skipped_no_details": 0,
+  "total_tokens": 40795,
+  "total_steered_tokens": 1004,
+  "avg_steered_tokens_per_problem": 33.46666666666667,
+  "avg_tokens_per_problem": 1359.8333333333333,
+  "avg_steered_fraction": 0.02461085917391837,
+  "avg_steered_fraction_per_problem": 0.03280261560182608,
+  "records_missing_per_token": 0,
+  "most_used_latent_title": "Declaring Procedural Steps",
+  "most_used_latent_key": "idx3",
+  "top_latent_titles": [
+    [
+      "Declaring Procedural Steps",
+      509
+    ],
+    [
+      "Mathematical computation steps",
+      235
+    ],
+    [
+      "Formula Definitions",
+      117
+    ],
+    [
+      "Providing Definitions and Explanations",
+      91
+    ],
+    [
+      "Numerical Calculation Steps",
+      52
+    ]
+  ],
+  "top_latent_keys": [
+    [
+      "idx3",
+      509
+    ],
+    [
+      "idx4",
+      235
+    ],
+    [
+      "idx2",
+      117
+    ],
+    [
+      "idx0",
+      91
+    ],
+    [
+      "idx1",
+      52
+    ]
+  ],
+  "top_coefficients": [
+    [
+      0.1,
+      530
+    ],
+    [
+      0.2,
+      119
+    ],
+    [
+      0.3,
+      75
+    ],
+    [
+      0.4,
+      63
+    ],
+    [
+      0.6,
+      50
+    ],
+    [
+      0.7,
+      39
+    ],
+    [
+      0.5,
+      34
+    ],
+    [
+      0.9,
+      34
+    ],
+    [
+      0.8,
+      33
+    ],
+    [
+      1.0,
+      27
+    ]
+  ],
+  "top_windows": [
+    [
+      0,
+      682
+    ],
+    [
+      -50,
+      92
+    ],
+    [
+      -15,
+      88
+    ],
+    [
+      -1,
+      80
+    ],
+    [
+      -100,
+      62
+    ]
+  ]
+}

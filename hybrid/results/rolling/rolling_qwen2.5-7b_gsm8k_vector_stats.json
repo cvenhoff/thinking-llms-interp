@@ -1,0 +1,166 @@
+{
+  "file": "rolling_qwen2.5-7b_gsm8k.jsonl",
+  "source_files": [
+    "rolling_qwen2.5-7b_gsm8k.jsonl",
+    "rolling_qwen2.5-7b_gsm8k_0.jsonl"
+  ],
+  "num_problems": 500,
+  "skipped_no_details": 0,
+  "total_tokens": 579931,
+  "total_steered_tokens": 26612,
+  "avg_steered_tokens_per_problem": 53.224,
+  "avg_tokens_per_problem": 1159.862,
+  "avg_steered_fraction": 0.04588821773624793,
+  "avg_steered_fraction_per_problem": 0.062010556751197245,
+  "records_missing_per_token": 0,
+  "most_used_latent_title": "Outlining Reasoning Steps",
+  "most_used_latent_key": "idx8",
+  "top_latent_titles": [
+    [
+      "Outlining Reasoning Steps",
+      9016
+    ],
+    [
+      "Performing Arithmetic Steps",
+      6234
+    ],
+    [
+      "Reporting Inference Results",
+      4802
+    ],
+    [
+      "Listing Given Data",
+      3153
+    ],
+    [
+      "Formula Evaluation and Numeric Calculation",
+      1957
+    ],
+    [
+      "Formula Recall",
+      462
+    ],
+    [
+      "Concept Definition",
+      439
+    ],
+    [
+      "Solution Outline",
+      324
+    ],
+    [
+      "Recalling Legal Rules",
+      212
+    ],
+    [
+      "Recalling Background Knowledge",
+      13
+    ]
+  ],
+  "top_latent_keys": [
+    [
+      "idx8",
+      9016
+    ],
+    [
+      "idx2",
+      6234
+    ],
+    [
+      "idx6",
+      4802
+    ],
+    [
+      "idx4",
+      3153
+    ],
+    [
+      "idx3",
+      1957
+    ],
+    [
+      "idx5",
+      462
+    ],
+    [
+      "idx9",
+      439
+    ],
+    [
+      "idx1",
+      324
+    ],
+    [
+      "idx7",
+      212
+    ],
+    [
+      "idx0",
+      13
+    ]
+  ],
+  "top_coefficients": [
+    [
+      0.1,
+      9941
+    ],
+    [
+      0.7,
+      2069
+    ],
+    [
+      0.6,
+      2055
+    ],
+    [
+      0.8,
+      1922
+    ],
+    [
+      0.5,
+      1913
+    ],
+    [
+      0.4,
+      1885
+    ],
+    [
+      0.9,
+      1810
+    ],
+    [
+      0.3,
+      1723
+    ],
+    [
+      1.0,
+      1696
+    ],
+    [
+      0.2,
+      1598
+    ]
+  ],
+  "top_windows": [
+    [
+      0,
+      16733
+    ],
+    [
+      -15,
+      3573
+    ],
+    [
+      -50,
+      2421
+    ],
+    [
+      -1,
+      2404
+    ],
+    [
+      -100,
+      1481
+    ]
+  ]
+}

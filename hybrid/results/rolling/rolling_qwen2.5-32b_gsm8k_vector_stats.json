@@ -4,6 +4,7 @@
     "rolling_qwen2.5-32b_gsm8k.jsonl"
   ],
   "num_problems": 500,
+  "skipped_no_details": 0,
   "total_tokens": 150185,
   "total_steered_tokens": 15427,
   "avg_steered_tokens_per_problem": 30.854,

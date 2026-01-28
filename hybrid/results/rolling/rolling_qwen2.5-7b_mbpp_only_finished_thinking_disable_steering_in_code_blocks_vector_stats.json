@@ -1,0 +1,149 @@
+{
+  "file": "rolling_qwen2.5-7b_mbpp_only_finished_thinking_disable_steering_in_code_blocks.jsonl",
+  "source_files": [
+    "rolling_qwen2.5-7b_mbpp_only_finished_thinking_disable_steering_in_code_blocks.jsonl"
+  ],
+  "num_problems": 39,
+  "skipped_no_details": 2,
+  "total_tokens": 50605,
+  "total_steered_tokens": 2931,
+  "avg_steered_tokens_per_problem": 79.21621621621621,
+  "avg_tokens_per_problem": 1367.7027027027027,
+  "avg_steered_fraction": 0.057919177946843196,
+  "avg_steered_fraction_per_problem": 0.06930417077668477,
+  "records_missing_per_token": 0,
+  "most_used_latent_title": "Outlining Reasoning Steps",
+  "most_used_latent_key": "idx8",
+  "top_latent_titles": [
+    [
+      "Outlining Reasoning Steps",
+      1645
+    ],
+    [
+      "Performing Arithmetic Steps",
+      429
+    ],
+    [
+      "Reporting Inference Results",
+      198
+    ],
+    [
+      "Listing Given Data",
+      193
+    ],
+    [
+      "Concept Definition",
+      190
+    ],
+    [
+      "Formula Evaluation and Numeric Calculation",
+      152
+    ],
+    [
+      "Formula Recall",
+      68
+    ],
+    [
+      "Solution Outline",
+      37
+    ],
+    [
+      "Recalling Legal Rules",
+      13
+    ],
+    [
+      "Recalling Background Knowledge",
+      6
+    ]
+  ],
+  "top_latent_keys": [
+    [
+      "idx8",
+      1645
+    ],
+    [
+      "idx2",
+      429
+    ],
+    [
+      "idx6",
+      198
+    ],
+    [
+      "idx4",
+      193
+    ],
+    [
+      "idx9",
+      190
+    ],
+    [
+      "idx3",
+      152
+    ],
+    [
+      "idx5",
+      68
+    ],
+    [
+      "idx1",
+      37
+    ],
+    [
+      "idx7",
+      13
+    ],
+    [
+      "idx0",
+      6
+    ]
+  ],
+  "top_coefficients": [
+    [
+      0.1,
+      1245
+    ],
+    [
+      1.0,
+      504
+    ],
+    [
+      0.7,
+      462
+    ],
+    [
+      0.5,
+      409
+    ],
+    [
+      0.2,
+      156
+    ],
+    [
+      0.3,
+      155
+    ]
+  ],
+  "top_windows": [
+    [
+      0,
+      2015
+    ],
+    [
+      -15,
+      332
+    ],
+    [
+      -1,
+      272
+    ],
+    [
+      -50,
+      180
+    ],
+    [
+      -100,
+      132
+    ]
+  ]
+}

@@ -5,6 +5,7 @@
     "rolling_llama-3.1-8b_math500_0.jsonl"
   ],
   "num_problems": 500,
+  "skipped_no_details": 0,
   "total_tokens": 518084,
   "total_steered_tokens": 45980,
   "avg_steered_tokens_per_problem": 91.96,

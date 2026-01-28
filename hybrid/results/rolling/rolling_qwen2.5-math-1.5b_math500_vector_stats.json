@@ -4,6 +4,7 @@
     "rolling_qwen2.5-math-1.5b_math500.jsonl"
   ],
   "num_problems": 500,
+  "skipped_no_details": 0,
   "total_tokens": 378520,
   "total_steered_tokens": 32082,
   "avg_steered_tokens_per_problem": 64.164,
