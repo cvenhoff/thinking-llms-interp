@@ -118,6 +118,8 @@ def parse_args():
     )
     parser.add_argument('--random-guardrail', action='store_true', default=False,
                       help='If set, select among steered candidates uniformly at random instead of by thinking-model perplexity')
+    parser.add_argument('--base-guardrail', action='store_true', default=False,
+                      help='If set, select among steered candidates by base-model perplexity instead of thinking-model perplexity')
     parser.add_argument(
         '--judge-repetitions',
         type=int,
@@ -141,6 +143,8 @@ def _result_suffix(args):
         s += "_random-vectors"
     if getattr(args, "random_guardrail", False):
         s += "_random-guardrail"
+    if getattr(args, "base_guardrail", False):
+        s += "_base-guardrail"
     custom = getattr(args, "results_suffix", "")
     if custom:
         assert isinstance(custom, str)
@@ -153,14 +157,15 @@ def _result_suffix(args):
     return s
 
 def _is_ablation(args):
-    return bool(getattr(args, "only_bias", False) or getattr(args, "random_firing", False) or getattr(args, "random_vectors", False) or getattr(args, "random_guardrail", False))
+    return bool(getattr(args, "only_bias", False) or getattr(args, "random_firing", False) or getattr(args, "random_vectors", False) or getattr(args, "random_guardrail", False) or getattr(args, "base_guardrail", False))
 
 def _ablation_flags_str(args):
     return (
         f"only-bias={bool(getattr(args, 'only_bias', False))}, "
         f"random-firing={bool(getattr(args, 'random_firing', False))}, "
         f"random-vectors={bool(getattr(args, 'random_vectors', False))}, "
-        f"random-guardrail={bool(getattr(args, 'random_guardrail', False))}"
+        f"random-guardrail={bool(getattr(args, 'random_guardrail', False))}, "
+        f"base-guardrail={bool(getattr(args, 'base_guardrail', False))}"
     )
 
 def get_next_token(logits, temperature, model, input_ids=None):
@@ -322,6 +327,7 @@ def hybrid_generate_token(
     random_firing: bool = False,
     random_vectors: bool = False,
     random_guardrail: bool = False,
+    base_guardrail: bool = False,
 ):
     """Per-token variant of hybrid generation.
 
@@ -463,7 +469,8 @@ def hybrid_generate_token(
             base_tokenizer,
             base_output_ids,
         )
-        del _last_logits_unsteered
+        if not base_guardrail:
+            del _last_logits_unsteered
 
         # Compute thinking model logits at current position (for gating and guardrail)
         with torch.inference_mode():
@@ -490,6 +497,8 @@ def hybrid_generate_token(
             chosen_window = None
             del candidate_tokens
             del last_logits_thinking
+            if base_guardrail:
+                del _last_logits_unsteered
         else:
             # Build candidate tokens; compute initial steered candidate after gating
             if use_perplexity_guardrail:
@@ -589,8 +598,10 @@ def hybrid_generate_token(
                 chosen_window = int(w0)
                 del candidate_tokens
                 del last_logits_thinking
+                if base_guardrail:
+                    del _last_logits_unsteered
 
-        # 3) Evaluate perplexity of each candidate under thinking model and pick best (if steering performed and guardrail enabled)
+        # 3) Evaluate perplexity of each candidate and pick best (if steering performed and guardrail enabled)
         if perform_steering and use_perplexity_guardrail:
             if random_guardrail:
                 # Ablation: pick uniformly at random instead of by thinking-model perplexity
@@ -598,6 +609,16 @@ def hybrid_generate_token(
                 chosen_cand = candidate_tokens[chosen_idx]
                 p = get_perplexity(chosen_cand["tok_str"], last_logits_thinking, thinking_model)
                 chosen_cand["perplexity"] = p
+            elif base_guardrail:
+                # Ablation: score candidates by base-model perplexity instead of thinking-model
+                best = None
+                for idx, cand in enumerate(candidate_tokens):
+                    p = get_perplexity(cand["tok_str"], _last_logits_unsteered, base_model)
+                    cand["perplexity"] = p
+                    if best is None or p < best[0]:
+                        best = (p, idx)
+                assert best is not None
+                chosen_cand = candidate_tokens[best[1]]
             else:
                 best = None  # tuple(perplexity, index)
                 for idx, cand in enumerate(candidate_tokens):
@@ -615,6 +636,8 @@ def hybrid_generate_token(
             chosen_window = chosen_cand.get("window", None)
             del candidate_tokens
             del last_logits_thinking
+            if base_guardrail:
+                del _last_logits_unsteered
             torch.cuda.empty_cache()
 
 
@@ -1079,6 +1102,7 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
         random_firing=bool(args.random_firing),
         random_vectors=bool(args.random_vectors),
         random_guardrail=bool(getattr(args, "random_guardrail", False)),
+        base_guardrail=bool(getattr(args, "base_guardrail", False)),
     )
     hybrid_response = f"{cold_start_text}{base_tokenizer.decode(hybrid_output_ids[0][len(base_input_with_cold_start[0]):], skip_special_tokens=True)}"
     print(hybrid_response)
@@ -1891,6 +1915,7 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             random_firing=bool(args.random_firing),
             random_vectors=bool(args.random_vectors),
             random_guardrail=bool(getattr(args, "random_guardrail", False)),
+            base_guardrail=bool(getattr(args, "base_guardrail", False)),
         )
         hybrid_tokens = len(hybrid_output_ids[0]) - len(base_input_with_cold_start[0])
         hybrid_response = f"{cold_start_text}{base_tokenizer.decode(hybrid_output_ids[0][len(base_input_with_cold_start[0]):], skip_special_tokens=True)}"
