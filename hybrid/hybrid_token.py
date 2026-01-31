@@ -472,9 +472,6 @@ def hybrid_generate_token(
             base_tokenizer,
             base_output_ids,
         )
-        if not base_guardrail:
-            del _last_logits_unsteered
-
         # Compute thinking model logits at current position (for gating and guardrail)
         with torch.inference_mode():
             with thinking_model.trace(thinking_output_ids) as tracer:
@@ -500,8 +497,6 @@ def hybrid_generate_token(
             chosen_window = None
             del candidate_tokens
             del last_logits_thinking
-            if base_guardrail:
-                del _last_logits_unsteered
         else:
             # Build candidate tokens; compute initial steered candidate after gating
             if use_guardrail:
@@ -601,8 +596,6 @@ def hybrid_generate_token(
                 chosen_window = int(w0)
                 del candidate_tokens
                 del last_logits_thinking
-                if base_guardrail:
-                    del _last_logits_unsteered
 
         # 3) Evaluate perplexity of each candidate and pick best (if steering performed and guardrail enabled)
         if perform_steering and use_guardrail:
@@ -639,10 +632,13 @@ def hybrid_generate_token(
             chosen_window = chosen_cand.get("window", None)
             del candidate_tokens
             del last_logits_thinking
-            if base_guardrail:
-                del _last_logits_unsteered
             torch.cuda.empty_cache()
 
+        # Clean up base logits (kept alive for base_guardrail scoring)
+        try:
+            del _last_logits_unsteered
+        except NameError:
+            pass
 
         # 4) Append chosen token to both sequences
         base_tok_ids = base_tokenizer.encode(
