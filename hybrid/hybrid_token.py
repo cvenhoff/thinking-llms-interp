@@ -349,6 +349,9 @@ def hybrid_generate_token(
         except Exception:
             pass
 
+    # Any guardrail variant implies multi-config candidate generation + selection
+    use_guardrail = use_perplexity_guardrail or random_guardrail or base_guardrail
+
     # Clone inputs so we do not modify the originals in-place
     base_output_ids = base_input_ids.clone()
     thinking_output_ids = thinking_input_ids.clone()
@@ -501,7 +504,7 @@ def hybrid_generate_token(
                 del _last_logits_unsteered
         else:
             # Build candidate tokens; compute initial steered candidate after gating
-            if use_perplexity_guardrail:
+            if use_guardrail:
                 coef_list = coefficients if (coefficients is not None and len(coefficients) > 0) else [coefficient]
                 win_list = token_windows if (token_windows is not None and len(token_windows) > 0) else [-1]
                 c0 = float(coef_list[0])
@@ -547,7 +550,7 @@ def hybrid_generate_token(
                 "tok": tok_steered0,
                 "tok_str": tok_steered0_str,
             })
-            if use_perplexity_guardrail:
+            if use_guardrail:
                 for coef in coef_list:
                     for win in win_list:
                         if float(coef) == c0 and int(win) == w0:
@@ -602,7 +605,7 @@ def hybrid_generate_token(
                     del _last_logits_unsteered
 
         # 3) Evaluate perplexity of each candidate and pick best (if steering performed and guardrail enabled)
-        if perform_steering and use_perplexity_guardrail:
+        if perform_steering and use_guardrail:
             if random_guardrail:
                 # Ablation: pick uniformly at random instead of by thinking-model perplexity
                 chosen_idx = int(torch.randint(low=0, high=len(candidate_tokens), size=(1,)).item())
