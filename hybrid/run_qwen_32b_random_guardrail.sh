@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+python hybrid_token.py --dataset math500 --thinking_model qwen/QwQ-32B --base_model Qwen/Qwen2.5-32B --steering_layer 24  --sae_layer 27 --n_clusters 10 --max_new_tokens 2000  --max_thinking_tokens 2000 --random-guardrail --results-suffix random_guardrail --disable-sae-mean
