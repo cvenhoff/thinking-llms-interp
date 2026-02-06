@@ -132,6 +132,13 @@ def parse_args():
     )
     args, unknown = parser.parse_known_args()
     assert not unknown, f"Unknown arguments: {unknown}"
+    # Validate incompatible flag combinations
+    if getattr(args, "skip_thinking", False) and getattr(args, "only_finished_thinking", False):
+        raise ValueError("--skip-thinking and --only-finished-thinking cannot be used together")
+    if getattr(args, "skip_thinking", False) and getattr(args, "all_finished", False):
+        raise ValueError("--skip-thinking and --all-finished cannot be used together")
+    if getattr(args, "skip_base", False) and getattr(args, "all_finished", False):
+        raise ValueError("--skip-base and --all-finished cannot be used together")
     # Special handling: if [1] is provided, treat as "all tokens"
     if isinstance(args.token_windows, list) and len(args.token_windows) == 1 and int(args.token_windows[0]) == 1:
         args.token_windows = [0]
@@ -162,6 +169,14 @@ def _result_suffix(args):
 
 def _is_ablation(args):
     return bool(getattr(args, "only_bias", False) or getattr(args, "random_firing", False) or getattr(args, "random_vectors", False) or getattr(args, "random_guardrail", False) or getattr(args, "base_guardrail", False))
+
+def _skip_thinking(args):
+    """Return True if standalone thinking generation is skipped."""
+    return _is_ablation(args) or getattr(args, "skip_thinking", False)
+
+def _skip_base(args):
+    """Return True if standalone base generation is skipped."""
+    return _is_ablation(args) or getattr(args, "skip_base", False)
 
 def _ablation_flags_str(args):
     return (
@@ -1808,7 +1823,7 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             except Exception:
                 thinking_eos_end = False
 
-        if (not _is_ablation(args)) and (not getattr(args, 'skip_thinking', False)) and only_finished_thinking and (not bool(thinking_eos_end)):
+        if (not _is_ablation(args)) and only_finished_thinking and (not bool(thinking_eos_end)):
             skipped_unfinished_thinking += 1
             print(
                 f"[Skip] Thinking model did not end with EOS (generated {thinking_tokens}/{int(args.max_thinking_tokens)} tokens). "
@@ -1994,19 +2009,21 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
                 return result
             return [result]
 
-        if _is_ablation(args):
-            print(f"Ablation: evaluating hybrid only ({_ablation_flags_str(args)})")
+        # Evaluate each model (skip if not generated)
+        if _skip_thinking(args):
             thinking_reps = [{"correct": False, "raw": "SKIPPED"}]
-            base_reps = [{"correct": False, "raw": "SKIPPED"}]
-            hybrid_result = evaluate_answer(clean_hybrid_answer, correct_answer, question, "Hybrid Model", dataset_type=dataset_type, test_list=test_list, n_repetitions=n_judge_reps)
-            hybrid_reps = [{"correct": c, "raw": r} for c, r in _eval_to_reps(hybrid_result)]
         else:
             thinking_result = evaluate_answer(clean_thinking_answer, correct_answer, question, "Thinking Model", dataset_type=dataset_type, test_list=test_list, n_repetitions=n_judge_reps)
             thinking_reps = [{"correct": c, "raw": r} for c, r in _eval_to_reps(thinking_result)]
+
+        if _skip_base(args):
+            base_reps = [{"correct": False, "raw": "SKIPPED"}]
+        else:
             base_result = evaluate_answer(clean_base_answer, correct_answer, question, "Base Model", dataset_type=dataset_type, test_list=test_list, n_repetitions=n_judge_reps)
             base_reps = [{"correct": c, "raw": r} for c, r in _eval_to_reps(base_result)]
-            hybrid_result = evaluate_answer(clean_hybrid_answer, correct_answer, question, "Hybrid Model", dataset_type=dataset_type, test_list=test_list, n_repetitions=n_judge_reps)
-            hybrid_reps = [{"correct": c, "raw": r} for c, r in _eval_to_reps(hybrid_result)]
+
+        hybrid_result = evaluate_answer(clean_hybrid_answer, correct_answer, question, "Hybrid Model", dataset_type=dataset_type, test_list=test_list, n_repetitions=n_judge_reps)
+        hybrid_reps = [{"correct": c, "raw": r} for c, r in _eval_to_reps(hybrid_result)]
 
         thinking_judge_entry = _build_judge_entry(thinking_reps)
         base_judge_entry = _build_judge_entry(base_reps)
@@ -2041,8 +2058,8 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
                 "hybrid": hybrid_judge_entry,
             },
             "eos": {
-                "thinking": bool(thinking_eos_end) if (not _is_ablation(args)) else False,
-                "base": bool(base_eos_end) if (not _is_ablation(args)) else False,
+                "thinking": bool(thinking_eos_end) if (not _skip_thinking(args)) else None,
+                "base": bool(base_eos_end) if (not _skip_base(args)) else None,
                 "hybrid": bool(hybrid_eos_end),
             },
             "hybrid_details": {
@@ -2068,38 +2085,47 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             print(f"\nCurrent Results after {so_far_cum} finished-thinking tasks:")
         else:
             print(f"\nCurrent Results after {so_far_cum} tasks:")
-        if not _is_ablation(args):
+        if not _skip_thinking(args):
             print(f"Thinking Model: {cum_thinking}/{so_far_cum} correct ({(cum_thinking/so_far_cum)*100:.1f}%)")
+        if not _skip_base(args):
             print(f"Base Model: {cum_base}/{so_far_cum} correct ({(cum_base/so_far_cum)*100:.1f}%)")
         print(f"Hybrid Model: {cum_hybrid}/{so_far_cum} correct ({(cum_hybrid/so_far_cum)*100:.1f}%)")
         # Concise gap recovery and EOS summary so far
         so_far = so_far_cum
-        base_acc_now = (cum_base / so_far * 100) if not _is_ablation(args) else 0.0
-        thinking_acc_now = (cum_thinking / so_far * 100) if not _is_ablation(args) else 0.0
+        base_acc_now = (cum_base / so_far * 100) if not _skip_base(args) else 0.0
+        thinking_acc_now = (cum_thinking / so_far * 100) if not _skip_thinking(args) else 0.0
         hybrid_acc_now = (cum_hybrid / so_far * 100)
-        gap_now = abs(thinking_acc_now - base_acc_now) if not _is_ablation(args) else 0.0
+        gap_now = abs(thinking_acc_now - base_acc_now) if (not _skip_thinking(args) and not _skip_base(args)) else 0.0
         if gap_now > 0:
             recovered_now = (hybrid_acc_now - min(base_acc_now, thinking_acc_now)) / gap_now
             print(f"Gap recovered by hybrid: {max(0.0, recovered_now)*100:.1f}% of |Thinking-Base|")
+        elif _skip_thinking(args) or _skip_base(args):
+            pass  # Don't print gap when either is skipped
         else:
             print("Gap recovered by hybrid: n/a")
         # EOS percentages: report combined across previous + current only
-        if _is_ablation(args):
+        if _skip_thinking(args) and _skip_base(args):
             cum_den = prev_eos_known.get('hybrid', 0) + included_counter
             cum_hybrid_eos = prev_eos_counts.get('hybrid', 0) + sum(results['hybrid_eos'])
             cum_pct = (cum_hybrid_eos / cum_den) * 100 if cum_den > 0 else 0.0
             print(f"EOS endings (% across all {so_far_cum} tasks): hybrid {cum_pct:.1f}")
         else:
-            cum_den_base = prev_eos_known.get('base', 0) + included_counter
-            cum_den_thinking = prev_eos_known.get('thinking', 0) + included_counter
             cum_den_hybrid = prev_eos_known.get('hybrid', 0) + included_counter
-            cum_base_eos = prev_eos_counts.get('base', 0) + sum(results['base_eos'])
-            cum_thinking_eos = prev_eos_counts.get('thinking', 0) + sum(results['thinking_eos'])
             cum_hybrid_eos = prev_eos_counts.get('hybrid', 0) + sum(results['hybrid_eos'])
-            cum_base_pct = (cum_base_eos / cum_den_base) * 100 if cum_den_base > 0 else 0.0
-            cum_thinking_pct = (cum_thinking_eos / cum_den_thinking) * 100 if cum_den_thinking > 0 else 0.0
             cum_hybrid_pct = (cum_hybrid_eos / cum_den_hybrid) * 100 if cum_den_hybrid > 0 else 0.0
-            print(f"EOS endings (% across all {so_far_cum} tasks): base {cum_base_pct:.1f}, thinking {cum_thinking_pct:.1f}, hybrid {cum_hybrid_pct:.1f}")
+            eos_parts = []
+            if not _skip_base(args):
+                cum_den_base = prev_eos_known.get('base', 0) + included_counter
+                cum_base_eos = prev_eos_counts.get('base', 0) + sum(results['base_eos'])
+                cum_base_pct = (cum_base_eos / cum_den_base) * 100 if cum_den_base > 0 else 0.0
+                eos_parts.append(f"base {cum_base_pct:.1f}")
+            if not _skip_thinking(args):
+                cum_den_thinking = prev_eos_known.get('thinking', 0) + included_counter
+                cum_thinking_eos = prev_eos_counts.get('thinking', 0) + sum(results['thinking_eos'])
+                cum_thinking_pct = (cum_thinking_eos / cum_den_thinking) * 100 if cum_den_thinking > 0 else 0.0
+                eos_parts.append(f"thinking {cum_thinking_pct:.1f}")
+            eos_parts.append(f"hybrid {cum_hybrid_pct:.1f}")
+            print(f"EOS endings (% across all {so_far_cum} tasks): {', '.join(eos_parts)}")
         
         # Clean up to prevent memory leaks
         del thinking_input_ids, base_input_ids, thinking_outputs
