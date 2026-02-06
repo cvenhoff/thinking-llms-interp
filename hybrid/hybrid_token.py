@@ -120,6 +120,10 @@ def parse_args():
                       help='If set, select among steered candidates uniformly at random instead of by thinking-model perplexity')
     parser.add_argument('--base-guardrail', action='store_true', default=False,
                       help='If set, select among steered candidates by base-model perplexity instead of thinking-model perplexity')
+    parser.add_argument('--skip-thinking', action='store_true', default=False,
+                      help='Skip standalone thinking model generation (still used for hybrid steering)')
+    parser.add_argument('--skip-base', action='store_true', default=False,
+                      help='Skip standalone base model generation')
     parser.add_argument(
         '--judge-repetitions',
         type=int,
@@ -1782,8 +1786,11 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         print("-" * 80)
         print(base_prompt)
         print("-" * 80)
-        if _is_ablation(args):
-            print(f"Ablation: skipping thinking model generation ({_ablation_flags_str(args)})")
+        if _is_ablation(args) or getattr(args, 'skip_thinking', False):
+            if _is_ablation(args):
+                print(f"Ablation: skipping thinking model generation ({_ablation_flags_str(args)})")
+            else:
+                print("Skipping standalone thinking model generation (--skip-thinking)")
             thinking_outputs = None
             thinking_response = ""
             thinking_tokens = 0
@@ -1801,7 +1808,7 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             except Exception:
                 thinking_eos_end = False
 
-        if (not _is_ablation(args)) and only_finished_thinking and (not bool(thinking_eos_end)):
+        if (not _is_ablation(args)) and (not getattr(args, 'skip_thinking', False)) and only_finished_thinking and (not bool(thinking_eos_end)):
             skipped_unfinished_thinking += 1
             print(
                 f"[Skip] Thinking model did not end with EOS (generated {thinking_tokens}/{int(args.max_thinking_tokens)} tokens). "
@@ -1845,8 +1852,11 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         results["thinking_eos"].append(bool(thinking_eos_end))
 
         # Base model (skip in ablation)
-        if _is_ablation(args):
-            print(f"Ablation: skipping base model generation ({_ablation_flags_str(args)})")
+        if _is_ablation(args) or getattr(args, 'skip_base', False):
+            if _is_ablation(args):
+                print(f"Ablation: skipping base model generation ({_ablation_flags_str(args)})")
+            else:
+                print("Skipping standalone base model generation (--skip-base)")
             base_response = ""
             base_tokens = 0
             base_eos_end = False
