@@ -433,7 +433,6 @@ def hybrid_generate_token(
             torch.cuda.empty_cache()
 
         if random_firing:
-            print("Ablation flag active: random-firing=True (sampling latent uniformly)")
             latent_key = available_steer_keys[int(torch.randint(low=0, high=len(available_steer_keys), size=(1,)).item())]
             assert latent_key in key_to_idx, f"Selected latent key {latent_key} not in descriptions"
             latent_id = int(key_to_idx[latent_key])
