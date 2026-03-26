@@ -1,0 +1,438 @@
+{
+  "metadata": {
+    "base_model": "Qwen/Qwen2.5-32B",
+    "thinking_model": "qwen/QwQ-32B",
+    "dataset": "math500",
+    "temperature": 0.0,
+    "coefficients": [
+      0.5,
+      0.6,
+      0.7,
+      0.8,
+      0.9,
+      1.0
+    ],
+    "n_tasks": 17
+  },
+  "answer_lengths": {
+    "base_model": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "thinking_model": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "hybrid_model": [
+      645,
+      333,
+      644,
+      123,
+      176,
+      174,
+      343,
+      446,
+      242,
+      363,
+      224,
+      1618,
+      249,
+      329,
+      297,
+      432,
+      119
+    ],
+    "avg_base": 0.0,
+    "avg_thinking": 0.0,
+    "avg_hybrid": 397.47058823529414
+  },
+  "steering_stats": {
+    "no_steering_fractions": [
+      0.8996138996138996,
+      0.9399141630901288,
+      0.936986301369863,
+      0.8404907975460123,
+      0.9076923076923077,
+      0.8844765342960289,
+      0.860655737704918,
+      0.8474204171240395,
+      0.9260204081632653,
+      0.8954869358669834,
+      0.9342507645259939,
+      0.89,
+      0.8978102189781022,
+      0.9298418972332015,
+      0.8511796733212341,
+      0.8840304182509505,
+      0.8848167539267016
+    ],
+    "avg_no_steering": 0.8947463075708018,
+    "detailed_stats": [
+      {
+        "steered_count": 130,
+        "unsteered_count": 1165,
+        "total_tokens": 1295,
+        "steering_fraction": 0.10038610038610038,
+        "no_steering_fraction": 0.8996138996138996
+      },
+      {
+        "steered_count": 42,
+        "unsteered_count": 657,
+        "total_tokens": 699,
+        "steering_fraction": 0.060085836909871244,
+        "no_steering_fraction": 0.9399141630901288
+      },
+      {
+        "steered_count": 69,
+        "unsteered_count": 1026,
+        "total_tokens": 1095,
+        "steering_fraction": 0.06301369863013699,
+        "no_steering_fraction": 0.936986301369863
+      },
+      {
+        "steered_count": 26,
+        "unsteered_count": 137,
+        "total_tokens": 163,
+        "steering_fraction": 0.15950920245398773,
+        "no_steering_fraction": 0.8404907975460123
+      },
+      {
+        "steered_count": 30,
+        "unsteered_count": 295,
+        "total_tokens": 325,
+        "steering_fraction": 0.09230769230769231,
+        "no_steering_fraction": 0.9076923076923077
+      },
+      {
+        "steered_count": 32,
+        "unsteered_count": 245,
+        "total_tokens": 277,
+        "steering_fraction": 0.11552346570397112,
+        "no_steering_fraction": 0.8844765342960289
+      },
+      {
+        "steered_count": 102,
+        "unsteered_count": 630,
+        "total_tokens": 732,
+        "steering_fraction": 0.13934426229508196,
+        "no_steering_fraction": 0.860655737704918
+      },
+      {
+        "steered_count": 139,
+        "unsteered_count": 772,
+        "total_tokens": 911,
+        "steering_fraction": 0.1525795828759605,
+        "no_steering_fraction": 0.8474204171240395
+      },
+      {
+        "steered_count": 29,
+        "unsteered_count": 363,
+        "total_tokens": 392,
+        "steering_fraction": 0.07397959183673469,
+        "no_steering_fraction": 0.9260204081632653
+      },
+      {
+        "steered_count": 88,
+        "unsteered_count": 754,
+        "total_tokens": 842,
+        "steering_fraction": 0.10451306413301663,
+        "no_steering_fraction": 0.8954869358669834
+      },
+      {
+        "steered_count": 43,
+        "unsteered_count": 611,
+        "total_tokens": 654,
+        "steering_fraction": 0.06574923547400612,
+        "no_steering_fraction": 0.9342507645259939
+      },
+      {
+        "steered_count": 220,
+        "unsteered_count": 1780,
+        "total_tokens": 2000,
+        "steering_fraction": 0.11,
+        "no_steering_fraction": 0.89
+      },
+      {
+        "steered_count": 56,
+        "unsteered_count": 492,
+        "total_tokens": 548,
+        "steering_fraction": 0.10218978102189781,
+        "no_steering_fraction": 0.8978102189781022
+      },
+      {
+        "steered_count": 71,
+        "unsteered_count": 941,
+        "total_tokens": 1012,
+        "steering_fraction": 0.07015810276679842,
+        "no_steering_fraction": 0.9298418972332015
+      },
+      {
+        "steered_count": 82,
+        "unsteered_count": 469,
+        "total_tokens": 551,
+        "steering_fraction": 0.14882032667876588,
+        "no_steering_fraction": 0.8511796733212341
+      },
+      {
+        "steered_count": 122,
+        "unsteered_count": 930,
+        "total_tokens": 1052,
+        "steering_fraction": 0.11596958174904944,
+        "no_steering_fraction": 0.8840304182509505
+      },
+      {
+        "steered_count": 22,
+        "unsteered_count": 169,
+        "total_tokens": 191,
+        "steering_fraction": 0.11518324607329843,
+        "no_steering_fraction": 0.8848167539267016
+      }
+    ],
+    "average_stats": {
+      "steered_count": 76.6470588235294,
+      "unsteered_count": 672.7058823529412,
+      "total_tokens": 749.3529411764706,
+      "steering_fraction": 0.10525369242919821,
+      "no_steering_fraction": 0.8947463075708018
+    }
+  },
+  "latent_usage": [
+    {
+      "Adjusting problem framing": 11.538461538461538,
+      "Presenting Conclusions": 11.538461538461538,
+      "Proposing Causal Hypotheses": 10.76923076923077,
+      "Numeric computations": 10.76923076923077,
+      "Articulating the Next Subgoal": 12.307692307692308,
+      "Brainstorming Additional Aspects": 10.76923076923077,
+      "Planning Next Steps": 7.6923076923076925,
+      "Stating Known Equations": 4.615384615384616,
+      "Recalling Domain Knowledge": 12.307692307692308,
+      "Drawing Deductive Inferences": 7.6923076923076925
+    },
+    {
+      "Drawing Deductive Inferences": 21.428571428571427,
+      "Proposing Causal Hypotheses": 4.761904761904762,
+      "Numeric computations": 16.666666666666664,
+      "Presenting Conclusions": 11.904761904761903,
+      "Articulating the Next Subgoal": 9.523809523809524,
+      "Planning Next Steps": 9.523809523809524,
+      "Recalling Domain Knowledge": 11.904761904761903,
+      "Brainstorming Additional Aspects": 4.761904761904762,
+      "Stating Known Equations": 7.142857142857142,
+      "Adjusting problem framing": 2.380952380952381
+    },
+    {
+      "Proposing Causal Hypotheses": 11.594202898550725,
+      "Articulating the Next Subgoal": 14.492753623188406,
+      "Recalling Domain Knowledge": 7.246376811594203,
+      "Drawing Deductive Inferences": 10.144927536231885,
+      "Planning Next Steps": 7.246376811594203,
+      "Presenting Conclusions": 14.492753623188406,
+      "Adjusting problem framing": 10.144927536231885,
+      "Brainstorming Additional Aspects": 10.144927536231885,
+      "Stating Known Equations": 10.144927536231885,
+      "Numeric computations": 4.3478260869565215
+    },
+    {
+      "Presenting Conclusions": 19.230769230769234,
+      "Articulating the Next Subgoal": 7.6923076923076925,
+      "Drawing Deductive Inferences": 7.6923076923076925,
+      "Recalling Domain Knowledge": 7.6923076923076925,
+      "Planning Next Steps": 7.6923076923076925,
+      "Stating Known Equations": 7.6923076923076925,
+      "Brainstorming Additional Aspects": 19.230769230769234,
+      "Proposing Causal Hypotheses": 3.8461538461538463,
+      "Adjusting problem framing": 11.538461538461538,
+      "Numeric computations": 7.6923076923076925
+    },
+    {
+      "Proposing Causal Hypotheses": 13.333333333333334,
+      "Presenting Conclusions": 10.0,
+      "Stating Known Equations": 6.666666666666667,
+      "Brainstorming Additional Aspects": 10.0,
+      "Numeric computations": 16.666666666666664,
+      "Adjusting problem framing": 13.333333333333334,
+      "Drawing Deductive Inferences": 6.666666666666667,
+      "Recalling Domain Knowledge": 10.0,
+      "Articulating the Next Subgoal": 6.666666666666667,
+      "Planning Next Steps": 6.666666666666667
+    },
+    {
+      "Drawing Deductive Inferences": 15.625,
+      "Presenting Conclusions": 6.25,
+      "Articulating the Next Subgoal": 12.5,
+      "Adjusting problem framing": 12.5,
+      "Stating Known Equations": 6.25,
+      "Brainstorming Additional Aspects": 6.25,
+      "Numeric computations": 9.375,
+      "Planning Next Steps": 12.5,
+      "Recalling Domain Knowledge": 9.375,
+      "Proposing Causal Hypotheses": 9.375
+    },
+    {
+      "Stating Known Equations": 12.745098039215685,
+      "Adjusting problem framing": 10.784313725490197,
+      "Recalling Domain Knowledge": 7.8431372549019605,
+      "Proposing Causal Hypotheses": 8.823529411764707,
+      "Presenting Conclusions": 16.666666666666664,
+      "Drawing Deductive Inferences": 8.823529411764707,
+      "Articulating the Next Subgoal": 8.823529411764707,
+      "Brainstorming Additional Aspects": 7.8431372549019605,
+      "Numeric computations": 9.803921568627452,
+      "Planning Next Steps": 7.8431372549019605
+    },
+    {
+      "Recalling Domain Knowledge": 12.23021582733813,
+      "Planning Next Steps": 16.546762589928058,
+      "Numeric computations": 7.194244604316546,
+      "Drawing Deductive Inferences": 10.071942446043165,
+      "Adjusting problem framing": 10.071942446043165,
+      "Brainstorming Additional Aspects": 12.949640287769784,
+      "Proposing Causal Hypotheses": 10.071942446043165,
+      "Articulating the Next Subgoal": 5.755395683453238,
+      "Stating Known Equations": 9.352517985611511,
+      "Presenting Conclusions": 5.755395683453238
+    },
+    {
+      "Articulating the Next Subgoal": 17.24137931034483,
+      "Drawing Deductive Inferences": 10.344827586206897,
+      "Presenting Conclusions": 17.24137931034483,
+      "Recalling Domain Knowledge": 17.24137931034483,
+      "Brainstorming Additional Aspects": 13.793103448275861,
+      "Adjusting problem framing": 6.896551724137931,
+      "Proposing Causal Hypotheses": 13.793103448275861,
+      "Planning Next Steps": 3.4482758620689653
+    },
+    {
+      "Drawing Deductive Inferences": 12.5,
+      "Adjusting problem framing": 9.090909090909092,
+      "Articulating the Next Subgoal": 6.8181818181818175,
+      "Numeric computations": 10.227272727272728,
+      "Proposing Causal Hypotheses": 18.181818181818183,
+      "Stating Known Equations": 12.5,
+      "Planning Next Steps": 10.227272727272728,
+      "Recalling Domain Knowledge": 12.5,
+      "Presenting Conclusions": 5.681818181818182,
+      "Brainstorming Additional Aspects": 2.272727272727273
+    },
+    {
+      "Numeric computations": 9.30232558139535,
+      "Adjusting problem framing": 9.30232558139535,
+      "Articulating the Next Subgoal": 13.953488372093023,
+      "Drawing Deductive Inferences": 16.27906976744186,
+      "Stating Known Equations": 9.30232558139535,
+      "Presenting Conclusions": 11.627906976744185,
+      "Planning Next Steps": 13.953488372093023,
+      "Brainstorming Additional Aspects": 6.976744186046512,
+      "Recalling Domain Knowledge": 6.976744186046512,
+      "Proposing Causal Hypotheses": 2.3255813953488373
+    },
+    {
+      "Adjusting problem framing": 11.818181818181818,
+      "Drawing Deductive Inferences": 6.8181818181818175,
+      "Stating Known Equations": 12.727272727272727,
+      "Brainstorming Additional Aspects": 11.363636363636363,
+      "Articulating the Next Subgoal": 8.636363636363637,
+      "Numeric computations": 10.909090909090908,
+      "Recalling Domain Knowledge": 11.363636363636363,
+      "Presenting Conclusions": 6.363636363636363,
+      "Proposing Causal Hypotheses": 6.8181818181818175,
+      "Planning Next Steps": 13.18181818181818
+    },
+    {
+      "Adjusting problem framing": 10.714285714285714,
+      "Presenting Conclusions": 8.928571428571429,
+      "Planning Next Steps": 8.928571428571429,
+      "Recalling Domain Knowledge": 17.857142857142858,
+      "Brainstorming Additional Aspects": 7.142857142857142,
+      "Stating Known Equations": 7.142857142857142,
+      "Drawing Deductive Inferences": 14.285714285714285,
+      "Numeric computations": 14.285714285714285,
+      "Proposing Causal Hypotheses": 5.357142857142857,
+      "Articulating the Next Subgoal": 5.357142857142857
+    },
+    {
+      "Proposing Causal Hypotheses": 7.042253521126761,
+      "Brainstorming Additional Aspects": 7.042253521126761,
+      "Drawing Deductive Inferences": 9.859154929577464,
+      "Numeric computations": 14.084507042253522,
+      "Presenting Conclusions": 11.267605633802818,
+      "Planning Next Steps": 7.042253521126761,
+      "Recalling Domain Knowledge": 8.450704225352112,
+      "Adjusting problem framing": 15.492957746478872,
+      "Articulating the Next Subgoal": 9.859154929577464,
+      "Stating Known Equations": 9.859154929577464
+    },
+    {
+      "Numeric computations": 10.975609756097562,
+      "Adjusting problem framing": 13.414634146341465,
+      "Brainstorming Additional Aspects": 12.195121951219512,
+      "Articulating the Next Subgoal": 13.414634146341465,
+      "Stating Known Equations": 8.536585365853659,
+      "Recalling Domain Knowledge": 9.75609756097561,
+      "Planning Next Steps": 6.097560975609756,
+      "Presenting Conclusions": 12.195121951219512,
+      "Drawing Deductive Inferences": 9.75609756097561,
+      "Proposing Causal Hypotheses": 3.6585365853658534
+    },
+    {
+      "Adjusting problem framing": 7.377049180327869,
+      "Recalling Domain Knowledge": 8.19672131147541,
+      "Stating Known Equations": 18.0327868852459,
+      "Proposing Causal Hypotheses": 10.655737704918032,
+      "Brainstorming Additional Aspects": 7.377049180327869,
+      "Planning Next Steps": 9.836065573770492,
+      "Presenting Conclusions": 8.19672131147541,
+      "Articulating the Next Subgoal": 8.19672131147541,
+      "Drawing Deductive Inferences": 9.836065573770492,
+      "Numeric computations": 12.295081967213115
+    },
+    {
+      "Proposing Causal Hypotheses": 18.181818181818183,
+      "Recalling Domain Knowledge": 13.636363636363635,
+      "Planning Next Steps": 18.181818181818183,
+      "Articulating the Next Subgoal": 4.545454545454546,
+      "Presenting Conclusions": 4.545454545454546,
+      "Stating Known Equations": 13.636363636363635,
+      "Drawing Deductive Inferences": 9.090909090909092,
+      "Adjusting problem framing": 4.545454545454546,
+      "Brainstorming Additional Aspects": 4.545454545454546,
+      "Numeric computations": 9.090909090909092
+    }
+  ],
+  "accuracies": {
+    "base_model": 0.0,
+    "thinking_model": 0.0,
+    "hybrid_model": 70.58823529411765
+  }
+}
