@@ -120,6 +120,11 @@ def parse_args():
                       help='If set, select among steered candidates uniformly at random instead of by thinking-model perplexity')
     parser.add_argument('--base-guardrail', action='store_true', default=False,
                       help='If set, select among steered candidates by base-model perplexity instead of thinking-model perplexity')
+    parser.add_argument('--thinking-engine', type=str, default='nnsight',
+                      choices=['nnsight', 'vllm'],
+                      help='Engine for standalone thinking generation. vllm pre-generates all '
+                           'traces in one batch before the main loop. Hybrid generation always '
+                           'uses nnsight (activation patching required).')
     parser.add_argument('--skip-thinking', action='store_true', default=False,
                       help='Skip standalone thinking model generation (still used for hybrid steering)')
     parser.add_argument('--skip-base', action='store_true', default=False,
@@ -1640,9 +1645,98 @@ def save_detailed_results(results, args, thinking_model_id, base_model_id):
     print(f"Detailed results saved to {filename}")
     return detailed_data
 
-def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenizer, 
+def vllm_pregenerate(dataset, args, thinking_model_name):
+    """Pre-generate all thinking traces in a single batched vLLM call.
+
+    Returns dict[int, str] mapping dataset index to response text, and
+    dict[int, bool] mapping dataset index to whether the response ended with EOS.
+    """
+    from vllm import LLM, SamplingParams
+    from transformers import AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained(thinking_model_name)
+    model = LLM(
+        model=thinking_model_name,
+        tensor_parallel_size=torch.cuda.device_count(),
+        dtype="bfloat16",
+        max_model_len=512 + args.max_thinking_tokens,
+    )
+
+    prompts = []
+    indices = []
+    for i, item in enumerate(dataset):
+        if i >= args.n_tasks:
+            break
+        # Use the same prompt formatting as the main loop for each dataset
+        if args.dataset == "gsm8k":
+            question = item["question"]
+        elif args.dataset in ("aime24", "aime25", "math500"):
+            question = item["problem"]
+        elif args.dataset == "mbpp":
+            question = item["text"]
+            test_cases_hint = "\n".join(item.get("test_list", []))
+            tests_section = f"\n\nPublic Tests:\n{test_cases_hint}" if test_cases_hint else ""
+            question = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{tests_section}"
+        elif args.dataset == "livecodebench":
+            question = item["question_content"]
+            public_tests_raw = item.get("public_test_cases", "[]")
+            public_tests = json.loads(public_tests_raw) if public_tests_raw else []
+            public_test_list = [f"# Test {j+1}:\n- Input:\n{t['input']}\n- Output:\n{t['output']}" for j, t in enumerate(public_tests)] if public_tests else []
+            test_cases_hint = "\n\n".join(public_test_list) if public_test_list else ""
+            tests_section = f"\n\nPublic Tests:\n\n{test_cases_hint}" if test_cases_hint else ""
+            starter_code = item.get("starter_code", "")
+            starter_hint = f"\n\nStarter code:\n```python\n{starter_code}\n```" if starter_code else ""
+            question = f"{CODING_TASK_PREFIX}\n\nProblem: {item['question_content']}{starter_hint}{tests_section}"
+        elif args.dataset == "medqa":
+            options = item["options"]
+            options_str = "\n".join([f"{k}. {v}" for k, v in options.items()])
+            question = f"{item['question']}\n\nOptions:\n{options_str}\n\nPlease select the correct answer (A, B, C, or D) and explain your reasoning."
+        elif args.dataset == "legalbench":
+            if "text" in item:
+                question = item["text"]
+            else:
+                question = str(item)
+            base_prompt_template = item.get("base_prompt", None)
+            if base_prompt_template:
+                task_prefix = "Task: Answer the following legal question. Explain your reasoning step by step.\n\nContext:\n"
+                question = task_prefix + base_prompt_template.replace("{{text}}", question)
+        else:
+            question = item.get("problem", item.get("question", str(item)))
+
+        prompt = tokenizer.apply_chat_template(
+            [{"role": "user", "content": question}],
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+        prompts.append(prompt)
+        indices.append(i)
+
+    sampling_params = SamplingParams(
+        max_tokens=args.max_thinking_tokens,
+        temperature=args.temperature,
+    )
+    print(f"vLLM: generating {len(prompts)} traces (max_tokens={args.max_thinking_tokens}, "
+          f"tp={torch.cuda.device_count()})...")
+    outputs = model.generate(prompts, sampling_params)
+
+    cache = {}
+    eos_cache = {}
+    for idx, o in zip(indices, outputs):
+        cache[idx] = o.outputs[0].text
+        eos_cache[idx] = o.outputs[0].finish_reason == "stop"
+
+    # Free GPU memory before nnsight loads
+    del model
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    return cache, eos_cache
+
+
+def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
                   sae, steering_vectors, descriptions, args, dataset, thinking_model_id, base_model_id,
-                  prev_completed: int = 0, prev_counts: Optional[dict] = None):
+                  prev_completed: int = 0, prev_counts: Optional[dict] = None,
+                  thinking_cache: Optional[dict] = None, thinking_eos_cache: Optional[dict] = None):
 
     def clear_gpu_memory():
         if torch.cuda.is_available():
@@ -1783,16 +1877,22 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             thinking_prompt = question
             base_prompt = f"Task: Answer the question below. Explain your reasoning step by step.\n\n\n\nQuestion:\n{question}\n\nStep by step answer:\n"
 
-        thinking_input_ids = thinking_tokenizer.apply_chat_template(
-            [{"role": "user", "content": thinking_prompt}],
-            add_generation_prompt=True,
-            return_tensors="pt"
-        ).to(thinking_model.device).to(torch.long)
+        if thinking_tokenizer is not None and thinking_model is not None:
+            thinking_input_ids = thinking_tokenizer.apply_chat_template(
+                [{"role": "user", "content": thinking_prompt}],
+                add_generation_prompt=True,
+                return_tensors="pt"
+            ).to(thinking_model.device).to(torch.long)
+        else:
+            thinking_input_ids = None
 
-        base_input_ids = base_tokenizer.encode(
-            base_prompt,
-            return_tensors="pt"
-        ).to(base_model.device).to(torch.long)
+        if base_tokenizer is not None and base_model is not None:
+            base_input_ids = base_tokenizer.encode(
+                base_prompt,
+                return_tensors="pt"
+            ).to(base_model.device).to(torch.long)
+        else:
+            base_input_ids = None
         
         # Thinking model (skip in ablation)
         print("\n" + "-" * 80)
@@ -1800,7 +1900,14 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         print("-" * 80)
         print(base_prompt)
         print("-" * 80)
-        if _is_ablation(args) or getattr(args, 'skip_thinking', False):
+        if thinking_cache is not None and i in thinking_cache:
+            # vLLM path: use pre-generated response
+            print("Using vLLM pre-generated thinking trace...")
+            thinking_response = thinking_cache[i]
+            thinking_outputs = None  # no nnsight tensor -- hybrid will be skipped
+            thinking_eos_end = thinking_eos_cache.get(i, False) if thinking_eos_cache else False
+            thinking_tokens = len(thinking_response.split())  # approximate word count
+        elif _is_ablation(args) or getattr(args, 'skip_thinking', False):
             if _is_ablation(args):
                 print(f"Ablation: skipping thinking model generation ({_ablation_flags_str(args)})")
             else:
@@ -1865,8 +1972,8 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         results["thinking_lengths"].append(len(thinking_response.split()) if thinking_response else 0)
         results["thinking_eos"].append(bool(thinking_eos_end))
 
-        # Base model (skip in ablation)
-        if _is_ablation(args) or getattr(args, 'skip_base', False):
+        # Base model (skip in ablation, or when vLLM thinking engine is used)
+        if _is_ablation(args) or getattr(args, 'skip_base', False) or (thinking_cache is not None and thinking_outputs is None):
             if _is_ablation(args):
                 print(f"Ablation: skipping base model generation ({_ablation_flags_str(args)})")
             else:
@@ -1900,52 +2007,62 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         results["base_lengths"].append(len(base_response.split()) if base_response else 0)
         results["base_eos"].append(bool(base_eos_end))
         
-        # Hybrid token-level
-        print("Generating with Hybrid Approach (Token-Level)...")
-        clear_gpu_memory()
-        base_input_with_cold_start, thinking_input_with_cold_start, cold_start_text = prepare_cold_start(
-            thinking_outputs,
-            thinking_input_ids,
-            base_input_ids,
-            thinking_tokenizer=thinking_tokenizer,
-            base_tokenizer=base_tokenizer,
-            n_cold_start_tokens=args.n_cold_start_tokens,
-        )
-        hybrid_output_ids, token_latent_info, per_token_perplexity, token_position, steering_selection, hybrid_eos_end = hybrid_generate_token(
-            thinking_model=thinking_model,
-            base_model=base_model,
-            base_tokenizer=base_tokenizer,
-            thinking_input_ids=thinking_input_with_cold_start,
-            base_input_ids=base_input_with_cold_start,
-            max_new_tokens=args.max_new_tokens,
-            steering_layer=args.steering_layer,
-            sae_layer=args.sae_layer,
-            sae=sae,
-            steering_vectors=steering_vectors,
-            latent_descriptions=descriptions,
-            steered_temperature=float(args.steered_temperature),
-            disable_steering_in_code_blocks=bool(getattr(args, "disable_steering_in_code_blocks", False)),
-            initial_generated_text=cold_start_text,
-            coefficient=(args.coefficients[0] if args.coefficients else 0.3),
-            coefficients=args.coefficients,
-            token_windows=args.token_windows,
-            verbose=False,
-            use_perplexity_guardrail=args.use_perplexity_guardrail,
-            show_progress=args.show_progress,
-            disagreement_only=(not args.disable_disagreement_only),
-            collect_details=bool(args.store_per_token_details),
-            only_bias=bool(args.only_bias),
-            random_firing=bool(args.random_firing),
-            random_vectors=bool(args.random_vectors),
-            random_guardrail=bool(getattr(args, "random_guardrail", False)),
-            base_guardrail=bool(getattr(args, "base_guardrail", False)),
-        )
-        hybrid_tokens = len(hybrid_output_ids[0]) - len(base_input_with_cold_start[0])
-        hybrid_response = f"{cold_start_text}{base_tokenizer.decode(hybrid_output_ids[0][len(base_input_with_cold_start[0]):], skip_special_tokens=True)}"
-        del hybrid_output_ids, base_input_with_cold_start, thinking_input_with_cold_start
-        clear_gpu_memory()
+        # Hybrid token-level (requires nnsight thinking_outputs for activation patching)
+        if thinking_outputs is None and thinking_cache is not None:
+            # vLLM was used for thinking -- no nnsight tensor available.
+            # Base and hybrid generation require thinking_outputs; skip both.
+            print("Skipping hybrid generation (vLLM thinking engine -- no activation tensor)")
+            hybrid_response = ""
+            hybrid_tokens = 0
+            hybrid_eos_end = False
+            token_latent_info = []
+            steering_selection = []
+        else:
+            print("Generating with Hybrid Approach (Token-Level)...")
+            clear_gpu_memory()
+            base_input_with_cold_start, thinking_input_with_cold_start, cold_start_text = prepare_cold_start(
+                thinking_outputs,
+                thinking_input_ids,
+                base_input_ids,
+                thinking_tokenizer=thinking_tokenizer,
+                base_tokenizer=base_tokenizer,
+                n_cold_start_tokens=args.n_cold_start_tokens,
+            )
+            hybrid_output_ids, token_latent_info, per_token_perplexity, token_position, steering_selection, hybrid_eos_end = hybrid_generate_token(
+                thinking_model=thinking_model,
+                base_model=base_model,
+                base_tokenizer=base_tokenizer,
+                thinking_input_ids=thinking_input_with_cold_start,
+                base_input_ids=base_input_with_cold_start,
+                max_new_tokens=args.max_new_tokens,
+                steering_layer=args.steering_layer,
+                sae_layer=args.sae_layer,
+                sae=sae,
+                steering_vectors=steering_vectors,
+                latent_descriptions=descriptions,
+                steered_temperature=float(args.steered_temperature),
+                disable_steering_in_code_blocks=bool(getattr(args, "disable_steering_in_code_blocks", False)),
+                initial_generated_text=cold_start_text,
+                coefficient=(args.coefficients[0] if args.coefficients else 0.3),
+                coefficients=args.coefficients,
+                token_windows=args.token_windows,
+                verbose=False,
+                use_perplexity_guardrail=args.use_perplexity_guardrail,
+                show_progress=args.show_progress,
+                disagreement_only=(not args.disable_disagreement_only),
+                collect_details=bool(args.store_per_token_details),
+                only_bias=bool(args.only_bias),
+                random_firing=bool(args.random_firing),
+                random_vectors=bool(args.random_vectors),
+                random_guardrail=bool(getattr(args, "random_guardrail", False)),
+                base_guardrail=bool(getattr(args, "base_guardrail", False)),
+            )
+            hybrid_tokens = len(hybrid_output_ids[0]) - len(base_input_with_cold_start[0])
+            hybrid_response = f"{cold_start_text}{base_tokenizer.decode(hybrid_output_ids[0][len(base_input_with_cold_start[0]):], skip_special_tokens=True)}"
+            del hybrid_output_ids, base_input_with_cold_start, thinking_input_with_cold_start
+            clear_gpu_memory()
         results["hybrid_answers"].append(hybrid_response)
-        results["hybrid_lengths"].append(len(hybrid_response.split()))
+        results["hybrid_lengths"].append(len(hybrid_response.split()) if hybrid_response else 0)
         results["hybrid_eos"].append(bool(hybrid_eos_end))
         
         # Store token latent info and steering selection (optional to reduce RAM)
@@ -2127,16 +2244,34 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             print(f"EOS endings (% across all {so_far_cum} tasks): {', '.join(eos_parts)}")
         
         # Clean up to prevent memory leaks
-        del thinking_input_ids, base_input_ids, thinking_outputs
+        try:
+            del thinking_input_ids, base_input_ids, thinking_outputs
+        except NameError:
+            pass
         try:
             del token_latent_info, per_token_perplexity, token_position
-        except Exception:
+        except (NameError, UnboundLocalError):
             pass
-        del steering_selection
-        del thinking_response, base_response, hybrid_response
-        del clean_thinking_answer, clean_base_answer, clean_hybrid_answer
-        del latent_counts, latent_percentages, steering_stats
-        del cold_start_text
+        try:
+            del steering_selection
+        except NameError:
+            pass
+        try:
+            del thinking_response, base_response, hybrid_response
+        except NameError:
+            pass
+        try:
+            del clean_thinking_answer, clean_base_answer, clean_hybrid_answer
+        except NameError:
+            pass
+        try:
+            del latent_counts, latent_percentages, steering_stats
+        except NameError:
+            pass
+        try:
+            del cold_start_text
+        except NameError:
+            pass
         torch.cuda.empty_cache()
         gc.collect()
 
@@ -2351,8 +2486,25 @@ elif args.dataset == "legalbench":
     print(f"Loaded {len(all_examples)} LegalBench examples ({LEGALBENCH_EXAMPLES_PER_SUBSET} per subset from {len(folders)} subsets, skipped {skipped_long} long examples)")
     dataset = all_examples  # type: ignore
 
-# %% Load models and SAE
-thinking_model, thinking_tokenizer, base_model, base_tokenizer, sae, steering_vectors, descriptions, thinking_model_id, base_model_id = load_models_and_sae(args)
+# %% Pre-generate with vLLM if requested (before loading nnsight models)
+thinking_cache = None
+thinking_eos_cache = None
+if getattr(args, 'thinking_engine', 'nnsight') == 'vllm':
+    print("Pre-generating thinking traces with vLLM...")
+    thinking_cache, thinking_eos_cache = vllm_pregenerate(dataset, args, args.thinking_model)
+    print(f"vLLM pre-generation complete: {len(thinking_cache)} traces cached.")
+
+# %% Load models and SAE (skip if vLLM handles everything)
+needs_nnsight = (getattr(args, 'thinking_engine', 'nnsight') == 'nnsight') or not getattr(args, 'skip_base', False)
+if needs_nnsight:
+    thinking_model, thinking_tokenizer, base_model, base_tokenizer, sae, steering_vectors, descriptions, thinking_model_id, base_model_id = load_models_and_sae(args)
+else:
+    print("Skipping nnsight model loading (vLLM thinking engine + --skip-base)")
+    thinking_model = thinking_tokenizer = base_model = base_tokenizer = sae = None
+    steering_vectors = {}
+    descriptions = {}
+    thinking_model_id = args.thinking_model.split('/')[-1].lower()
+    base_model_id = args.base_model.split('/')[-1].lower()
 
 # %% Auto-resume from rolling results if present
 completed = _count_completed_tasks(args, base_model_id, thinking_model_id)
@@ -2366,11 +2518,12 @@ if completed > 0:
     args.eval_start_idx = int(completed)
     args.n_tasks = int(args.n_tasks) - int(completed)
 
-# %% Run an example (optional)
+# %% Run an example (optional, requires nnsight)
 if args.run_example:
+    assert needs_nnsight, "--run_example requires nnsight models (incompatible with --thinking-engine vllm + --skip-base)"
     print("\n===== Running Example =====")
     thinking_response, base_response, hybrid_response, token_latent_info, steering_selection = run_example(
-        thinking_model, thinking_tokenizer, base_model, base_tokenizer, 
+        thinking_model, thinking_tokenizer, base_model, base_tokenizer,
         sae, steering_vectors, descriptions, args, dataset
     )
 
@@ -2391,6 +2544,7 @@ results = run_evaluation(
     thinking_model, thinking_tokenizer, base_model, base_tokenizer,
     sae, steering_vectors, descriptions, args, dataset, thinking_model_id, base_model_id,
     prev_completed=prev_completed_count, prev_counts=prev_correct_counts,
+    thinking_cache=thinking_cache, thinking_eos_cache=thinking_eos_cache,
 )
 
 # Save detailed results
