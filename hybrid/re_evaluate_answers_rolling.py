@@ -184,7 +184,7 @@ def _extract_model_from_filename(filename: str) -> Optional[str]:
     # Datasets are: gsm8k, math500, aime, mbpp, livecodebench
     parts = rest.split("_")
     # Find where the dataset starts
-    datasets = {"gsm8k", "math500", "aime", "mbpp", "livecodebench", "medqa", "legalbench"}
+    datasets = {"gsm8k", "math500", "aime", "aime24", "aime25", "mbpp", "livecodebench", "medqa", "legalbench", "gpqa"}
     model_parts = []
     for part in parts:
         if part in datasets:
@@ -205,7 +205,7 @@ def _extract_dataset_from_filename(filename: str) -> Optional[str]:
     # Handle part numbers like _0, _1
     rest = re.sub(r"_\d+$", "", rest)
     # Find dataset in the parts
-    datasets = {"gsm8k", "math500", "aime", "mbpp", "livecodebench", "medqa", "legalbench"}
+    datasets = {"gsm8k", "math500", "aime", "aime24", "aime25", "mbpp", "livecodebench", "medqa", "legalbench", "gpqa"}
     parts = rest.split("_")
     for part in parts:
         if part in datasets:
@@ -214,7 +214,7 @@ def _extract_dataset_from_filename(filename: str) -> Optional[str]:
 
 
 CODING_DATASETS = {"mbpp", "livecodebench"}
-MCQA_DATASETS = {"medqa"}  # Multiple choice QA datasets
+MCQA_DATASETS = {"medqa", "gpqa"}  # Multiple choice QA datasets
 TEXT_CLASSIFICATION_DATASETS = {"legalbench"}  # Text classification datasets
 
 def _thinking_finished(record: Dict[str, Any]) -> bool:
