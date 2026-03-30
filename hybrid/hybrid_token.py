@@ -33,13 +33,13 @@ except Exception:
 from datasets import load_dataset
 
 CODING_DATASETS = {"mbpp", "livecodebench"}
-MCQA_DATASETS = {"medqa"}  # Multiple choice QA datasets
+MCQA_DATASETS = {"medqa", "gpqa"}  # Multiple choice QA datasets
 TEXT_CLASSIFICATION_DATASETS = {"legalbench"}  # Text classification datasets
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Evaluate hybrid model on datasets (token-level steering)')
-    parser.add_argument('--dataset', type=str, choices=['gsm8k', 'math500', "aime24", "aime25", "mbpp", "livecodebench", "medqa", "legalbench"], default='aime24',
-                      help='Dataset to evaluate on (gsm8k, math500, aime24, aime25, mbpp, livecodebench, medqa, or legalbench)')
+    parser.add_argument('--dataset', type=str, choices=['gsm8k', 'math500', "aime24", "aime25", "mbpp", "livecodebench", "medqa", "legalbench", "gpqa"], default='aime24',
+                      help='Dataset to evaluate on (gsm8k, math500, aime24, aime25, mbpp, livecodebench, medqa, legalbench, or gpqa)')
     parser.add_argument('--thinking_model', type=str, default='Qwen/QwQ-32B',
                       help='Model for thinking/perplexity')
     parser.add_argument('--base_model', type=str, default='Qwen/Qwen2.5-32B',
@@ -988,6 +988,26 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
                     "answer_text": item["answer"],  # Full text for context
                     "options": options
                 }
+            elif args.dataset == "gpqa":
+                import random as _random
+                options_raw = [
+                    item["Correct Answer"],
+                    item["Incorrect Answer 1"],
+                    item["Incorrect Answer 2"],
+                    item["Incorrect Answer 3"],
+                ]
+                # Deterministic shuffle seeded on question content to be reproducible
+                _rng = _random.Random(item["Question"][:50])
+                _rng.shuffle(options_raw)
+                letter_to_option = {letter: opt for letter, opt in zip("ABCD", options_raw)}
+                correct_letter = [k for k, v in letter_to_option.items() if v == item["Correct Answer"]][0]
+                options_str = "\n".join([f"{k}. {v}" for k, v in letter_to_option.items()])
+                example = {
+                    "question": f"{item['Question']}\n\nOptions:\n{options_str}",
+                    "answer": correct_letter,
+                    "answer_text": item["Correct Answer"],
+                    "options": letter_to_option,
+                }
             elif args.dataset == "legalbench":
                 # LegalBench - variable format across subsets
                 # Get the text content to insert into the prompt
@@ -1027,6 +1047,9 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
         # Multiple choice medical question - ask for the answer letter
         thinking_prompt = f"{question}\n\nPlease select the correct answer (A, B, C, or D) and explain your reasoning."
         base_prompt = f"Task: Answer the following medical question by selecting the correct option (A, B, C, or D). Explain your reasoning step by step.\n\n{question}\n\nStep by step answer:\n"
+    elif args.dataset == "gpqa":
+        thinking_prompt = f"{question}\n\nPlease select the correct answer (A, B, C, or D) and explain your reasoning."
+        base_prompt = f"Task: Answer the following science question by selecting the correct option (A, B, C, or D). Explain your reasoning step by step.\n\n{question}\n\nStep by step answer:\n"
     elif args.dataset == "legalbench":
         # Legal reasoning - use task-specific prompt template from GitHub
         base_prompt_template = example.get("base_prompt_template")
@@ -1835,6 +1858,23 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             correct_answer = item["answer_idx"]  # Letter (A/B/C/D)
             test_list = None
             starter_code = ""
+        elif args.dataset == "gpqa":
+            import random as _random
+            options_raw = [
+                item["Correct Answer"],
+                item["Incorrect Answer 1"],
+                item["Incorrect Answer 2"],
+                item["Incorrect Answer 3"],
+            ]
+            _rng = _random.Random(item["Question"][:50])
+            _rng.shuffle(options_raw)
+            letter_to_option = {letter: opt for letter, opt in zip("ABCD", options_raw)}
+            correct_letter = [k for k, v in letter_to_option.items() if v == item["Correct Answer"]][0]
+            options_str = "\n".join([f"{k}. {v}" for k, v in letter_to_option.items()])
+            question = f"{item['Question']}\n\nOptions:\n{options_str}"
+            correct_answer = correct_letter
+            test_list = None
+            starter_code = ""
         elif args.dataset == "legalbench":
             # LegalBench - variable format across subsets
             # Get raw text content (will be inserted into prompt template)
@@ -1865,6 +1905,9 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             # Multiple choice medical question - ask for the answer letter
             thinking_prompt = f"{question}\n\nPlease select the correct answer (A, B, C, or D) and explain your reasoning."
             base_prompt = f"Task: Answer the following medical question by selecting the correct option (A, B, C, or D). Explain your reasoning step by step.\n\n{question}\n\nStep by step answer:\n"
+        elif args.dataset == "gpqa":
+            thinking_prompt = f"{question}\n\nPlease select the correct answer (A, B, C, or D) and explain your reasoning."
+            base_prompt = f"Task: Answer the following science question by selecting the correct option (A, B, C, or D). Explain your reasoning step by step.\n\n{question}\n\nStep by step answer:\n"
         elif args.dataset == "legalbench":
             # Legal reasoning - use task-specific prompt template from GitHub
             task_prefix = "Task: Answer the following legal question. Explain your reasoning step by step.\n\nContext:\n"
@@ -2408,6 +2451,9 @@ elif args.dataset == "livecodebench":
 elif args.dataset == "medqa":
     # MedQA USMLE 4-option multiple choice - medical licensing exam questions (first 500)
     dataset = load_dataset("GBaker/MedQA-USMLE-4-options")["test"].select(range(500))  # type: ignore
+elif args.dataset == "gpqa":
+    # GPQA Diamond - PhD-level science multiple choice (198 questions)
+    dataset = load_dataset("Idavidrein/gpqa", "gpqa_diamond")["train"]  # type: ignore
 elif args.dataset == "legalbench":
     # LegalBench - legal reasoning benchmark with 162 subsets
     # Load first 5 short examples from each subset (loading script deprecated, fetch TSV directly)
