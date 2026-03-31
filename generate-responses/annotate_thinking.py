@@ -27,10 +27,9 @@ args, _ = parser.parse_known_args()
 
 
 def split_into_sentences(text):
-    """Split text into sentences using regex while preserving delimiters"""
-    # Split on sentence boundaries but keep the delimiters
-    sentences = re.split(r'(?<=[.!?;])', text)
-    return [sentence.strip() for sentence in sentences if sentence.strip()]
+    """Split text into sentences — delegates to the canonical implementation
+    in utils.utils to stay consistent with SAE training."""
+    return utils.split_into_sentences(text)
 
 
 def process_responses(responses_file, model, tokenizer, sae, layer, output_file, model_name):
@@ -74,18 +73,17 @@ def process_responses(responses_file, model, tokenizer, sae, layer, output_file,
         annotated_thinking = ""
         
         for sentence in sentences:
-            # Find this sentence in the full response
-            # Pattern to match either at start of string or after punctuation/newlines
-            pattern = r'(?:^|(?:[.?!;\n]|\n\n))\s*(' + re.escape(sentence) + ')'
-            match = re.search(pattern, full_response)
-            sentence_pos = match.start(1) if match else -1
+            # Find this sentence in the full response — use .find() to match
+            # the SAE training pipeline (utils.process_saved_responses)
+            sentence_pos = full_response.find(sentence)
             if sentence_pos < 0:
                 # Sentence not found in full response
                 continue
                 
             # Get token positions for this sentence
+            # NOTE: token_end uses len(sentence) (not len-1) to match training
             token_start = char_to_token.get(sentence_pos)
-            token_end = char_to_token.get(sentence_pos + len(sentence) - 1)
+            token_end = char_to_token.get(sentence_pos + len(sentence))
             
             if token_start is None or token_end is None or token_start >= token_end or token_start >= activations.shape[1] or token_end > activations.shape[1]:
                 # Invalid token range

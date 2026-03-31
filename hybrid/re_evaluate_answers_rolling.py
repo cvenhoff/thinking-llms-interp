@@ -184,7 +184,7 @@ def _extract_model_from_filename(filename: str) -> Optional[str]:
     # Datasets are: gsm8k, math500, aime, mbpp, livecodebench
     parts = rest.split("_")
     # Find where the dataset starts
-    datasets = {"gsm8k", "math500", "aime", "mbpp", "livecodebench", "medqa", "legalbench"}
+    datasets = {"gsm8k", "math500", "aime", "mbpp", "livecodebench", "medqa", "gpqa", "legalbench"}
     model_parts = []
     for part in parts:
         if part in datasets:
@@ -205,7 +205,7 @@ def _extract_dataset_from_filename(filename: str) -> Optional[str]:
     # Handle part numbers like _0, _1
     rest = re.sub(r"_\d+$", "", rest)
     # Find dataset in the parts
-    datasets = {"gsm8k", "math500", "aime", "mbpp", "livecodebench", "medqa", "legalbench"}
+    datasets = {"gsm8k", "math500", "aime", "mbpp", "livecodebench", "medqa", "gpqa", "legalbench"}
     parts = rest.split("_")
     for part in parts:
         if part in datasets:
@@ -214,7 +214,7 @@ def _extract_dataset_from_filename(filename: str) -> Optional[str]:
 
 
 CODING_DATASETS = {"mbpp", "livecodebench"}
-MCQA_DATASETS = {"medqa"}  # Multiple choice QA datasets
+MCQA_DATASETS = {"medqa", "gpqa"}  # Multiple choice QA datasets
 TEXT_CLASSIFICATION_DATASETS = {"legalbench"}  # Text classification datasets
 
 def _thinking_finished(record: Dict[str, Any]) -> bool:
@@ -771,6 +771,7 @@ def update_all_files(
     # Process each file group
     for prefix, paths in tqdm(files, desc="Updating files", unit="prefix"):
         prefix_total = 0
+        prefix_skipped_filter = 0
         prefix_correct: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
         prefix_changed: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
         prefix_eos: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
@@ -823,6 +824,8 @@ def update_all_files(
                 # Stats for included records
                 if idx in all_included:
                     prefix_total += 1
+                    if record.get("skipped"):
+                        prefix_skipped_filter += 1
                     has_multi_reps = False
                     for key, _ in MODEL_SPECS:
                         entry = record["judges"][key]
@@ -871,6 +874,8 @@ def update_all_files(
             "per_rep_correct": prefix_per_rep_correct,
             "agreement": prefix_agreement,
             "n_with_reps": prefix_n_with_reps,
+            "n_skipped_filter": prefix_skipped_filter,
+            "n_hybrid_ran": prefix_total - prefix_skipped_filter,
         }
 
     return per_prefix_stats
@@ -898,6 +903,7 @@ def compute_stats_from_existing(
 
     for prefix, paths in tqdm(files, desc="Computing stats", unit="prefix"):
         prefix_total = 0
+        prefix_skipped_filter = 0
         prefix_correct: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
         prefix_eos: Dict[str, int] = {key: 0 for key, _ in MODEL_SPECS}
         prefix_per_rep_correct: Dict[str, List[int]] = {key: [] for key, _ in MODEL_SPECS}
@@ -913,6 +919,8 @@ def compute_stats_from_existing(
                     continue
 
                 prefix_total += 1
+                if record.get("skipped"):
+                    prefix_skipped_filter += 1
 
                 # Read existing judge results
                 judges = record.get("judges", {})
@@ -955,6 +963,8 @@ def compute_stats_from_existing(
             "per_rep_correct": prefix_per_rep_correct,
             "agreement": prefix_agreement,
             "n_with_reps": prefix_n_with_reps,
+            "n_skipped_filter": prefix_skipped_filter,
+            "n_hybrid_ran": prefix_total - prefix_skipped_filter,
         }
 
     return per_prefix_stats
@@ -993,54 +1003,72 @@ def _print_stats(
         thinking_correct = stats["correct"]["thinking"]
         base_correct = stats["correct"]["base"]
         hybrid_correct = stats["correct"]["hybrid"]
-
-        thinking_acc = thinking_correct / n * 100
-        base_acc = base_correct / n * 100
-        hybrid_acc = hybrid_correct / n * 100
+        n_skipped_filter = stats.get("n_skipped_filter", 0)
+        n_hybrid_ran = stats.get("n_hybrid_ran", n)
 
         print(f"\n===== {prefix_name} =====")
 
-        n_with_reps = stats.get("n_with_reps", 0)
-        per_rep_correct = stats.get("per_rep_correct", {})
-        agreement = stats.get("agreement", {})
-
-        for key, label in MODEL_SPECS:
-            correct_count = stats["correct"][key]
-            acc = correct_count / n * 100
-            print(f"{label}: {correct_count}/{n} correct ({acc:.1f}%) [majority vote]")
-
-            # Per-rep statistics (only when records have >1 rep)
-            rep_counts = per_rep_correct.get(key, [])
-            n_reps = len(rep_counts)
-            if n_reps > 1 and n_with_reps > 0:
-                per_rep_accs = [c / n * 100 for c in rep_counts]
-                mean_acc = sum(per_rep_accs) / n_reps
-                if n_reps > 1:
-                    variance = sum((a - mean_acc) ** 2 for a in per_rep_accs) / (n_reps - 1)
-                    std_acc = _math.sqrt(variance)
-                else:
-                    std_acc = 0.0
-                # 95% CI using t-distribution approximation (for small N use 2.0 as rough factor)
-                if n_reps >= 30:
-                    t_val = 1.96
-                elif n_reps >= 10:
-                    t_val = 2.228
-                else:
-                    t_val = 2.776  # df=4 (conservative for small N)
-                ci_half = t_val * std_acc / _math.sqrt(n_reps) if n_reps > 1 else 0.0
-                ci_lo = mean_acc - ci_half
-                ci_hi = mean_acc + ci_half
-                agree_count = agreement.get(key, 0)
-                agree_pct = agree_count / n_with_reps * 100 if n_with_reps > 0 else 0.0
-                print(f"  Per-rep mean: {mean_acc:.1f}% +/- {std_acc:.1f}%  |  95% CI: [{ci_lo:.1f}%, {ci_hi:.1f}%]  |  Agreement: {agree_pct:.1f}%")
-
-        # Gap recovered by hybrid
-        gap = abs(thinking_acc - base_acc)
-        if gap > 0:
-            recovered = (hybrid_acc - min(base_acc, thinking_acc)) / gap
-            print(f"Gap recovered by hybrid: {max(0.0, recovered) * 100:.1f}% of |Thinking-Base|")
+        if n_skipped_filter > 0 and n_hybrid_ran > 0:
+            # Filtered mode: report over tasks where all 3 ran
+            hybrid_acc_filtered = hybrid_correct / n_hybrid_ran * 100
+            print(f"Total tasks: {n} ({n_hybrid_ran} hybrid-ran, {n_skipped_filter} skipped by filter)")
+            print(f"  [Reporting over {n_hybrid_ran} tasks where base was wrong & thinking was right]")
+            print(f"  Thinking Model: {n_hybrid_ran}/{n_hybrid_ran} correct (100.0%) — by filter definition")
+            print(f"  Base Model: 0/{n_hybrid_ran} correct (0.0%) — by filter definition")
+            print(f"  Hybrid Model: {hybrid_correct}/{n_hybrid_ran} correct ({hybrid_acc_filtered:.1f}%)")
+            print(f"  Gap recovered by hybrid: {hybrid_acc_filtered:.1f}% of |Thinking-Base|")
+            # Also show overall reference
+            thinking_acc = thinking_correct / n * 100
+            base_acc = base_correct / n * 100
+            print(f"\n  [Reference — all {n} tasks]")
+            print(f"  Thinking Model: {thinking_correct}/{n} correct ({thinking_acc:.1f}%)")
+            print(f"  Base Model: {base_correct}/{n} correct ({base_acc:.1f}%)")
         else:
-            print("Gap recovered by hybrid: n/a")
+            thinking_acc = thinking_correct / n * 100
+            base_acc = base_correct / n * 100
+            hybrid_acc = hybrid_correct / n * 100
+
+            n_with_reps = stats.get("n_with_reps", 0)
+            per_rep_correct = stats.get("per_rep_correct", {})
+            agreement = stats.get("agreement", {})
+
+            for key, label in MODEL_SPECS:
+                correct_count = stats["correct"][key]
+                acc = correct_count / n * 100
+                print(f"{label}: {correct_count}/{n} correct ({acc:.1f}%) [majority vote]")
+
+                # Per-rep statistics (only when records have >1 rep)
+                rep_counts = per_rep_correct.get(key, [])
+                n_reps = len(rep_counts)
+                if n_reps > 1 and n_with_reps > 0:
+                    per_rep_accs = [c / n * 100 for c in rep_counts]
+                    mean_acc = sum(per_rep_accs) / n_reps
+                    if n_reps > 1:
+                        variance = sum((a - mean_acc) ** 2 for a in per_rep_accs) / (n_reps - 1)
+                        std_acc = _math.sqrt(variance)
+                    else:
+                        std_acc = 0.0
+                    # 95% CI using t-distribution approximation (for small N use 2.0 as rough factor)
+                    if n_reps >= 30:
+                        t_val = 1.96
+                    elif n_reps >= 10:
+                        t_val = 2.228
+                    else:
+                        t_val = 2.776  # df=4 (conservative for small N)
+                    ci_half = t_val * std_acc / _math.sqrt(n_reps) if n_reps > 1 else 0.0
+                    ci_lo = mean_acc - ci_half
+                    ci_hi = mean_acc + ci_half
+                    agree_count = agreement.get(key, 0)
+                    agree_pct = agree_count / n_with_reps * 100 if n_with_reps > 0 else 0.0
+                    print(f"  Per-rep mean: {mean_acc:.1f}% +/- {std_acc:.1f}%  |  95% CI: [{ci_lo:.1f}%, {ci_hi:.1f}%]  |  Agreement: {agree_pct:.1f}%")
+
+            # Gap recovered by hybrid
+            gap = abs(thinking_acc - base_acc)
+            if gap > 0:
+                recovered = (hybrid_acc - min(base_acc, thinking_acc)) / gap
+                print(f"Gap recovered by hybrid: {max(0.0, recovered) * 100:.1f}% of |Thinking-Base|")
+            else:
+                print("Gap recovered by hybrid: n/a")
 
         # EOS endings
         eos_base = stats["eos"]["base"] / n * 100

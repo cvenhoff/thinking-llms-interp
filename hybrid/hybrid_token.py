@@ -20,6 +20,7 @@ import colorsys
 import math
 import matplotlib.pyplot as plt
 import re
+import random
 import argparse
 from typing import List, Optional, Tuple
 from collections import Counter
@@ -33,13 +34,37 @@ except Exception:
 from datasets import load_dataset
 
 CODING_DATASETS = {"mbpp", "livecodebench"}
-MCQA_DATASETS = {"medqa"}  # Multiple choice QA datasets
+MCQA_DATASETS = {"medqa", "gpqa"}  # Multiple choice QA datasets
 TEXT_CLASSIFICATION_DATASETS = {"legalbench"}  # Text classification datasets
+
+GPQA_LETTERS = ["A", "B", "C", "D"]
+
+def _format_gpqa_item(item, index: int):
+    """Shuffle GPQA answers into A/B/C/D format with a deterministic seed per question.
+
+    Returns (question_with_options, correct_letter, options_dict).
+    """
+    correct = item["Correct Answer"]
+    distractors = [
+        item["Incorrect Answer 1"],
+        item["Incorrect Answer 2"],
+        item["Incorrect Answer 3"],
+    ]
+    all_answers = [correct] + distractors
+    # Deterministic shuffle per question index so results are reproducible
+    rng = random.Random(42 + index)
+    rng.shuffle(all_answers)
+    correct_letter = GPQA_LETTERS[all_answers.index(correct)]
+    options = {letter: ans for letter, ans in zip(GPQA_LETTERS, all_answers)}
+    options_str = "\n".join([f"{k}. {v}" for k, v in options.items()])
+    question_with_options = f"{item['Question']}\n\nOptions:\n{options_str}"
+    return question_with_options, correct_letter, options
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Evaluate hybrid model on datasets (token-level steering)')
-    parser.add_argument('--dataset', type=str, choices=['gsm8k', 'math500', "aime24", "aime25", "mbpp", "livecodebench", "medqa", "legalbench"], default='aime24',
-                      help='Dataset to evaluate on (gsm8k, math500, aime24, aime25, mbpp, livecodebench, medqa, or legalbench)')
+    parser.add_argument('--dataset', type=str, choices=['gsm8k', 'math500', "aime24", "aime25", "mbpp", "livecodebench", "medqa", "gpqa", "legalbench"], default='aime24',
+                      help='Dataset to evaluate on (gsm8k, math500, aime24, aime25, mbpp, livecodebench, medqa, gpqa, or legalbench)')
     parser.add_argument('--thinking_model', type=str, default='Qwen/QwQ-32B',
                       help='Model for thinking/perplexity')
     parser.add_argument('--base_model', type=str, default='Qwen/Qwen2.5-32B',
@@ -125,10 +150,51 @@ def parse_args():
     parser.add_argument('--skip-base', action='store_true', default=False,
                       help='Skip standalone base model generation')
     parser.add_argument(
+        '--dom-vectors-dir',
+        type=str,
+        default=None,
+        help='Path to diff-of-means vector directory (e.g. ../train-vectors/results/diff_of_means). '
+             'When set, loads DOM vectors instead of optimized vectors, with per-category best layers.',
+    )
+    parser.add_argument(
+        '--dom-vectors-model-short',
+        type=str,
+        default=None,
+        help='Override model short name for DOM vector file lookup (e.g. qwen2.5-7b).',
+    )
+    parser.add_argument(
+        '--no-guardrail',
+        action='store_true',
+        default=False,
+        help='Disable perplexity guardrail (overrides --use_perplexity_guardrail).',
+    )
+    parser.add_argument(
+        '--dom-raw-norm',
+        action='store_true',
+        default=False,
+        help='Use the raw diff-of-means vector norm instead of rescaling to mean activation norm.',
+    )
+    parser.add_argument(
         '--judge-repetitions',
         type=int,
         default=1,
         help='Number of independent LLM judge calls per answer (default: 1). Final verdict is majority vote.',
+    )
+    parser.add_argument(
+        '--filter-base-wrong-thinking-right',
+        action='store_true',
+        default=False,
+        help='Only run the hybrid model on tasks where the base model is wrong '
+             'AND the thinking model is right. Thinking and base are always '
+             'generated and judged; hybrid generation is skipped when the '
+             'filter condition is not met.',
+    )
+    parser.add_argument(
+        '--skip-if-base-correct',
+        action='store_true',
+        default=False,
+        help='Generate base model FIRST; if the base model answer is correct, '
+             'skip thinking and hybrid generation entirely for that task.',
     )
     args, unknown = parser.parse_known_args()
     assert not unknown, f"Unknown arguments: {unknown}"
@@ -142,6 +208,9 @@ def parse_args():
     # Special handling: if [1] is provided, treat as "all tokens"
     if isinstance(args.token_windows, list) and len(args.token_windows) == 1 and int(args.token_windows[0]) == 1:
         args.token_windows = [0]
+    # --no-guardrail overrides --use_perplexity_guardrail
+    if getattr(args, "no_guardrail", False):
+        args.use_perplexity_guardrail = False
     return args
 
 def _result_suffix(args):
@@ -347,6 +416,7 @@ def hybrid_generate_token(
     random_vectors: bool = False,
     random_guardrail: bool = False,
     base_guardrail: bool = False,
+    steering_layer_map: Optional[dict] = None,
 ):
     """Per-token variant of hybrid generation.
 
@@ -445,11 +515,17 @@ def hybrid_generate_token(
         latent_title = latent_descriptions[latent_id]["title"]
         # Access steering vector for selected latent (random or learned, set at load time)
         steering_vector = steering_vectors.get(latent_key)
+        # Resolve effective steering layer for this latent (per-category layer if DOM vectors)
+        eff_steering_layer = (
+            steering_layer_map.get(latent_key, steering_layer)
+            if steering_layer_map is not None
+            else steering_layer
+        )
         del latent_acts
         torch.cuda.empty_cache()
 
         if verbose and (generated_tokens % 20 == 0):
-            print(f"Token {generated_tokens}: latent={latent_title} (value={activation_value:.3f})")
+            print(f"Token {generated_tokens}: latent={latent_title} (value={activation_value:.3f}) [layer={eff_steering_layer}]")
 
         # 2) BASE MODEL — build candidate tokens across (coef, window)
         candidate_tokens = []
@@ -528,7 +604,7 @@ def hybrid_generate_token(
             window_size0 = abs(int(w0)) if int(w0) != 0 else 0
             with torch.inference_mode():
                 with base_model.trace(base_output_ids) as tracer:
-                    full_out0 = base_model.model.layers[steering_layer].output.save()
+                    full_out0 = base_model.model.layers[eff_steering_layer].output.save()
                     assert full_out0.dim() == 3
                     assert full_out0.shape[0] >= 1
                     assert full_out0.shape[-1] == hidden_size_expected
@@ -543,7 +619,7 @@ def hybrid_generate_token(
                             new_full0[0, :, :] += c0 * bias_vec
                         if steer_vec is not None:
                             new_full0[0, :, :] += c0 * steer_vec
-                    base_model.model.layers[steering_layer].output = new_full0
+                    base_model.model.layers[eff_steering_layer].output = new_full0
                     _last_logits_steered0 = base_model.lm_head.output[0, -1].save()
             # Initial steered candidate
             _last_logits_steered0 = _last_logits_steered0.detach().to("cpu")
@@ -571,7 +647,7 @@ def hybrid_generate_token(
                         window_size = abs(int(win)) if int(win) != 0 else 0
                         with torch.inference_mode():
                             with base_model.trace(base_output_ids) as tracer:
-                                full_out_c = base_model.model.layers[steering_layer].output.save()
+                                full_out_c = base_model.model.layers[eff_steering_layer].output.save()
                                 assert full_out_c.dim() == 3
                                 assert full_out_c.shape[0] >= 1
                                 assert full_out_c.shape[-1] == hidden_size_expected
@@ -586,7 +662,7 @@ def hybrid_generate_token(
                                         new_full_c[0, :, :] += float(coef) * bias_vec
                                     if steer_vec is not None:
                                         new_full_c[0, :, :] += float(coef) * steer_vec
-                                base_model.model.layers[steering_layer].output = new_full_c
+                                base_model.model.layers[eff_steering_layer].output = new_full_c
                                 _last_logits_steered_c = base_model.lm_head.output[0, -1].save()
                         _last_logits_steered_c = _last_logits_steered_c.detach().to("cpu")
                         tok_c, tok_c_str = get_token_and_string(
@@ -817,6 +893,87 @@ def load_steering_vectors(model_id, thinking_model_id, sae_layer, n_clusters):
 
     return steering_vectors
 
+def load_dom_steering_vectors(dom_vectors_dir, model_short, descriptions, use_raw_norm=False):
+    """Load diff-of-means steering vectors and per-category best layers.
+
+    If ``dom_best_coeffs_{model_short}.json`` exists in *dom_vectors_dir*,
+    each vector is pre-scaled by its per-category best coefficient so that
+    the caller can apply a global coefficient of 1.0.
+
+    Parameters
+    ----------
+    use_raw_norm : bool
+        If True, keep vectors at their original diff-of-means norm.
+        If False (default), rescale each vector to the overall-mean-activation norm.
+
+    Returns
+    -------
+    steering_vectors : dict  (latent_key -> Tensor)
+        e.g. {"idx0": tensor, "idx1": tensor, ...}
+    steering_layer_map : dict  (latent_key -> int)
+        e.g. {"idx0": 16, "idx1": 20, ...}
+    """
+    vectors_path = os.path.join(dom_vectors_dir, f"dom_vectors_multilayer_{model_short}.pt")
+    metadata_path = os.path.join(dom_vectors_dir, f"dom_metadata_multilayer_{model_short}.json")
+    best_layers_path = os.path.join(dom_vectors_dir, f"dom_best_layers_{model_short}.json")
+    best_coeffs_path = os.path.join(dom_vectors_dir, f"dom_best_coeffs_{model_short}.json")
+
+    vectors_save = torch.load(vectors_path, map_location="cpu")
+    with open(metadata_path) as f:
+        metadata_save = json.load(f)
+    with open(best_layers_path) as f:
+        best_layers = json.load(f)
+
+    # Per-category best coefficients (optional; defaults to 1.0 if absent)
+    best_coeffs = {}
+    if os.path.exists(best_coeffs_path):
+        with open(best_coeffs_path) as f:
+            best_coeffs_raw = json.load(f)
+        for cat_id, info in best_coeffs_raw.items():
+            best_coeffs[cat_id] = float(info["best_coeff"])
+        print(f"  Loaded per-category best coefficients: {best_coeffs}")
+    else:
+        print(f"  No best-coefficients file found; using coeff=1.0 for all categories.")
+
+    steering_vectors = {}
+    steering_layer_map = {}
+
+    norm_mode = "raw" if use_raw_norm else "mean-act-rescaled"
+    print(f"  Vector norm mode: {norm_mode}")
+
+    for cat_id, layer_vecs in vectors_save.items():
+        meta = metadata_save[cat_id]
+        bl = best_layers[cat_id]
+        best_layer = int(bl["best_layer"])
+
+        # Raw vector at the best layer
+        raw_vec = layer_vecs[str(best_layer)]
+        raw_norm = raw_vec.norm().item()
+
+        if use_raw_norm:
+            final_vec = raw_vec
+        else:
+            overall_mean_norm = meta["overall_mean_norms"][str(best_layer)]
+            if raw_norm > 1e-12:
+                final_vec = raw_vec * (overall_mean_norm / raw_norm)
+            else:
+                final_vec = raw_vec
+
+        # Pre-scale by per-category best coefficient
+        cat_coeff = best_coeffs.get(cat_id, 1.0)
+        final_vec = final_vec * cat_coeff
+
+        latent_key = f"idx{cat_id}"
+        steering_vectors[latent_key] = final_vec.to(torch.float32)
+        steering_layer_map[latent_key] = best_layer
+
+        print(f"  DOM cat {cat_id} ({meta['title']}): key={latent_key}, "
+              f"layer={best_layer}, coeff={cat_coeff}, "
+              f"norm={final_vec.norm().item():.2f} (raw={raw_norm:.2f})")
+
+    return steering_vectors, steering_layer_map
+
+
 def generate_latent_colors(latent_descriptions):
     colors = {}
     unique_latents = set([desc["title"] for desc in latent_descriptions.values()])
@@ -903,10 +1060,27 @@ def load_models_and_sae(args):
         args.n_clusters,
         require_activation_mean=(not bool(getattr(args, "disable_sae_mean", False))),
     )
+    # Auto-disable mean centering if checkpoint lacks activation_mean
+    if not getattr(sae, "has_activation_mean", True):
+        args.disable_sae_mean = True
+        print("  [INFO] Auto-set --disable-sae-mean (checkpoint has no activation_mean)")
     sae = sae.to(thinking_model.device)
-    print(f"Loading steering vectors and layer effects...")
     descriptions = get_latent_descriptions(thinking_model_id, args.sae_layer, args.n_clusters)
-    steering_vectors = load_steering_vectors(base_model_id, thinking_model_id, args.sae_layer, args.n_clusters)
+
+    # --- Load steering vectors: DOM vectors or optimized vectors ---
+    steering_layer_map = None  # per-latent layer mapping (only for DOM vectors)
+    dom_vectors_dir = getattr(args, "dom_vectors_dir", None)
+    if dom_vectors_dir:
+        dom_model_short = getattr(args, "dom_vectors_model_short", None) or base_model_id
+        print(f"Loading diff-of-means steering vectors from {dom_vectors_dir} "
+              f"(model_short={dom_model_short})...")
+        steering_vectors, steering_layer_map = load_dom_steering_vectors(
+            dom_vectors_dir, dom_model_short, descriptions,
+            use_raw_norm=bool(getattr(args, "dom_raw_norm", False)),
+        )
+    else:
+        print(f"Loading steering vectors and layer effects...")
+        steering_vectors = load_steering_vectors(base_model_id, thinking_model_id, args.sae_layer, args.n_clusters)
     # If random-vectors ablation is active, replace latent vectors with fixed random ones per latent key
     if bool(getattr(args, "random_vectors", False)):
         print("Ablation flag active: random-vectors=True (fixed random vector per latent)")
@@ -931,13 +1105,13 @@ def load_models_and_sae(args):
     for k, v in list(steering_vectors.items()):
         if isinstance(v, torch.Tensor):
             steering_vectors[k] = v.to(device=base_device, dtype=base_dtype, non_blocking=True)
-    return thinking_model, thinking_tokenizer, base_model, base_tokenizer, sae, steering_vectors, descriptions, thinking_model_id, base_model_id
+    return thinking_model, thinking_tokenizer, base_model, base_tokenizer, sae, steering_vectors, descriptions, thinking_model_id, base_model_id, steering_layer_map
 
 CODING_TASK_PREFIX = "Task: Write a single Python function for the following problem. Do not include tests or examples in your output."
 CODING_BASE_SUFFIX = "Algorithmic steps to solve this problem, followed by the Python function:\n"
 
 def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer, 
-               sae, steering_vectors, descriptions, args, dataset):
+               sae, steering_vectors, descriptions, args, dataset, steering_layer_map=None):
     sample_idx = args.example_idx
     for i, item in enumerate(dataset):
         if i == sample_idx:
@@ -983,6 +1157,14 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
                     "answer_text": item["answer"],  # Full text for context
                     "options": options
                 }
+            elif args.dataset == "gpqa":
+                # GPQA - graduate-level science multiple choice (4 options, shuffled)
+                question_with_options, correct_letter, options = _format_gpqa_item(item, i)
+                example = {
+                    "question": question_with_options,
+                    "answer": correct_letter,
+                    "options": options
+                }
             elif args.dataset == "legalbench":
                 # LegalBench - variable format across subsets
                 # Get the text content to insert into the prompt
@@ -1018,10 +1200,10 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
         starter_hint = f"\n\nStarter code:\n```python\n{starter_code}\n```" if starter_code else ""
         thinking_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{starter_hint}{tests_section}"
         base_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{starter_hint}{tests_section}\n\n{CODING_BASE_SUFFIX}"
-    elif args.dataset == "medqa":
-        # Multiple choice medical question - ask for the answer letter
+    elif args.dataset in ("medqa", "gpqa"):
+        # Multiple choice question - ask for the answer letter
         thinking_prompt = f"{question}\n\nPlease select the correct answer (A, B, C, or D) and explain your reasoning."
-        base_prompt = f"Task: Answer the following medical question by selecting the correct option (A, B, C, or D). Explain your reasoning step by step.\n\n{question}\n\nStep by step answer:\n"
+        base_prompt = f"Task: Answer the following multiple choice question by selecting the correct option (A, B, C, or D). Explain your reasoning step by step.\n\n{question}\n\nStep by step answer:\n"
     elif args.dataset == "legalbench":
         # Legal reasoning - use task-specific prompt template from GitHub
         base_prompt_template = example.get("base_prompt_template")
@@ -1032,7 +1214,7 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
         base_prompt = full_prompt
     else:
         thinking_prompt = question
-        base_prompt = f"Task: Answer the question below. Explain your reasoning step by step.\n\n\n\nQuestion:\n{question}\n\nStep by step answer:\n"
+        base_prompt = f"Answer the question below. Explain your reasoning step by step.\n\nQuestion:\n{question}\n\nStep by step answer:\n"
 
     thinking_input_ids = thinking_tokenizer.apply_chat_template(
         [{"role": "user", "content": thinking_prompt}],
@@ -1120,6 +1302,7 @@ def run_example(thinking_model, thinking_tokenizer, base_model, base_tokenizer,
         random_vectors=bool(args.random_vectors),
         random_guardrail=bool(getattr(args, "random_guardrail", False)),
         base_guardrail=bool(getattr(args, "base_guardrail", False)),
+        steering_layer_map=steering_layer_map,
     )
     hybrid_response = f"{cold_start_text}{base_tokenizer.decode(hybrid_output_ids[0][len(base_input_with_cold_start[0]):], skip_special_tokens=True)}"
     print(hybrid_response)
@@ -1526,9 +1709,10 @@ def append_rolling_result(record: dict, args, base_model_id: str, thinking_model
 
 def _load_prev_counts(args, base_model_id: str, thinking_model_id: str):
     """Load existing rolling results across all parts and return
-    (n_completed, correct_counts, eos_true_counts, eos_known_counts).
+    (n_completed, correct_counts, eos_true_counts, eos_known_counts, n_skipped_filter).
 
     For EOS, only count entries that explicitly recorded EOS for each model into the known denominator.
+    n_skipped_filter counts records that were skipped by --filter-base-wrong-thinking-right.
     """
     prefix = _rolling_prefix(args, base_model_id, thinking_model_id)
     legacy_file, parts = _list_rolling_files(prefix)
@@ -1540,8 +1724,9 @@ def _load_prev_counts(args, base_model_id: str, thinking_model_id: str):
     
     files = ([] if legacy_file is None else [legacy_file]) + parts
     if not files:
-        return 0, {"thinking": 0, "base": 0, "hybrid": 0}, {"thinking": 0, "base": 0, "hybrid": 0}, {"thinking": 0, "base": 0, "hybrid": 0}
+        return 0, {"thinking": 0, "base": 0, "hybrid": 0}, {"thinking": 0, "base": 0, "hybrid": 0}, {"thinking": 0, "base": 0, "hybrid": 0}, 0
     n = 0
+    n_skipped_filter = 0
     counts = {"thinking": 0, "base": 0, "hybrid": 0}
     eos_counts = {"thinking": 0, "base": 0, "hybrid": 0}
     eos_known = {"thinking": 0, "base": 0, "hybrid": 0}
@@ -1556,6 +1741,9 @@ def _load_prev_counts(args, base_model_id: str, thinking_model_id: str):
                     eos = rec.get("eos", {})
                     if bool(getattr(args, "only_finished_thinking", False)) and (not bool(eos.get("thinking", False))):
                         continue
+                    # Detect skipped-filter records
+                    if rec.get("skipped"):
+                        n_skipped_filter += 1
                     judges = rec["judges"]
                     for k in ("thinking", "base", "hybrid"):
                         entry = _normalize_judge_entry(judges.get(k, {}))
@@ -1569,7 +1757,7 @@ def _load_prev_counts(args, base_model_id: str, thinking_model_id: str):
                     n += 1
         except FileNotFoundError:
             continue
-    return n, counts, eos_counts, eos_known
+    return n, counts, eos_counts, eos_known, n_skipped_filter
 
 def analyze_hybrid_stats(token_latent_info, steering_selection):
     steered_count = steering_selection.count("steered")
@@ -1642,7 +1830,8 @@ def save_detailed_results(results, args, thinking_model_id, base_model_id):
 
 def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenizer, 
                   sae, steering_vectors, descriptions, args, dataset, thinking_model_id, base_model_id,
-                  prev_completed: int = 0, prev_counts: Optional[dict] = None):
+                  prev_completed: int = 0, prev_counts: Optional[dict] = None, steering_layer_map=None,
+                  prev_skipped_filter: int = 0):
 
     def clear_gpu_memory():
         if torch.cuda.is_available():
@@ -1681,6 +1870,8 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
     
     task_counter = 0
     included_counter = 0
+    hybrid_ran_counter = 0       # tasks where hybrid actually ran (not skipped by filter)
+    skipped_filter_counter = 0   # tasks skipped by --filter-base-wrong-thinking-right
     skipped_unfinished_thinking = 0
     for i, item in enumerate(dataset):
         if i < args.eval_start_idx:
@@ -1741,6 +1932,11 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             correct_answer = item["answer_idx"]  # Letter (A/B/C/D)
             test_list = None
             starter_code = ""
+        elif args.dataset == "gpqa":
+            # GPQA - graduate-level science multiple choice (4 options, shuffled)
+            question, correct_answer, _ = _format_gpqa_item(item, i)
+            test_list = None
+            starter_code = ""
         elif args.dataset == "legalbench":
             # LegalBench - variable format across subsets
             # Get raw text content (will be inserted into prompt template)
@@ -1767,10 +1963,10 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             starter_hint = f"\n\nStarter code:\n```python\n{starter_code}\n```" if starter_code else ""
             thinking_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{starter_hint}{tests_section}"
             base_prompt = f"{CODING_TASK_PREFIX}\n\nProblem: {question}{starter_hint}{tests_section}\n\n{CODING_BASE_SUFFIX}"
-        elif args.dataset == "medqa":
-            # Multiple choice medical question - ask for the answer letter
+        elif args.dataset in ("medqa", "gpqa"):
+            # Multiple choice question - ask for the answer letter
             thinking_prompt = f"{question}\n\nPlease select the correct answer (A, B, C, or D) and explain your reasoning."
-            base_prompt = f"Task: Answer the following medical question by selecting the correct option (A, B, C, or D). Explain your reasoning step by step.\n\n{question}\n\nStep by step answer:\n"
+            base_prompt = f"Task: Answer the following multiple choice question by selecting the correct option (A, B, C, or D). Explain your reasoning step by step.\n\n{question}\n\nStep by step answer:\n"
         elif args.dataset == "legalbench":
             # Legal reasoning - use task-specific prompt template from GitHub
             task_prefix = "Task: Answer the following legal question. Explain your reasoning step by step.\n\nContext:\n"
@@ -1781,7 +1977,7 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         else:
             # Math problem prompt (original)
             thinking_prompt = question
-            base_prompt = f"Task: Answer the question below. Explain your reasoning step by step.\n\n\n\nQuestion:\n{question}\n\nStep by step answer:\n"
+            base_prompt = f"Answer the question below. Explain your reasoning step by step.\n\nQuestion:\n{question}\n\nStep by step answer:\n"
 
         thinking_input_ids = thinking_tokenizer.apply_chat_template(
             [{"role": "user", "content": thinking_prompt}],
@@ -1793,13 +1989,99 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             base_prompt,
             return_tensors="pt"
         ).to(base_model.device).to(torch.long)
-        
-        # Thinking model (skip in ablation)
+
         print("\n" + "-" * 80)
         print("PROMPT (for hybrid/base):")
         print("-" * 80)
         print(base_prompt)
         print("-" * 80)
+
+        # ---- Early exit: generate base first, skip if base is correct ----
+        if getattr(args, "skip_if_base_correct", False):
+            print("Generating with Base Model (early check)...")
+            clear_gpu_memory()
+            with base_model.generate(base_input_ids, max_new_tokens=args.max_new_tokens, temperature=args.temperature, pad_token_id=base_tokenizer.eos_token_id) as gen:
+                _early_base_outputs = base_model.generator.output.save()
+            _early_base_tokens = len(_early_base_outputs[0]) - len(base_input_ids[0])
+            try:
+                _early_base_eos = bool(int(_early_base_outputs[0, -1].item()) == int(base_tokenizer.eos_token_id))
+            except Exception:
+                _early_base_eos = False
+            _early_base_response = base_tokenizer.decode(_early_base_outputs[0][len(base_input_ids[0]):], skip_special_tokens=True)
+            del _early_base_outputs
+            clear_gpu_memory()
+
+            # Judge the base answer
+            _clean_base_early = clean_answer(_early_base_response)
+            if args.dataset in CODING_DATASETS:
+                _ds_type_early = "coding"
+            elif args.dataset in MCQA_DATASETS:
+                _ds_type_early = "mcqa"
+            elif args.dataset in TEXT_CLASSIFICATION_DATASETS:
+                _ds_type_early = "classification"
+            else:
+                _ds_type_early = "math"
+            _n_reps_early = int(getattr(args, "judge_repetitions", 1))
+            _base_early_res = evaluate_answer(_clean_base_early, correct_answer, question, "Base Model", dataset_type=_ds_type_early, test_list=test_list, n_repetitions=_n_reps_early)
+            _base_early_reps = [{"correct": c, "raw": r} for c, r in (_base_early_res if isinstance(_base_early_res, list) else [_base_early_res])]
+            _base_early_correct = _build_judge_entry(_base_early_reps)["correct"]
+
+            if _base_early_correct:
+                skipped_filter_counter += 1
+                print(f"[Skip] Base model is correct — skipping thinking & hybrid")
+                included_counter += 1
+                results["questions"].append(question)
+                results["correct_answers"].append(correct_answer)
+                results["thinking_answers"].append("")
+                results["thinking_lengths"].append(0)
+                results["thinking_eos"].append(False)
+                results["base_answers"].append(_early_base_response)
+                results["base_lengths"].append(len(_early_base_response.split()) if _early_base_response else 0)
+                results["base_eos"].append(bool(_early_base_eos))
+                results["hybrid_answers"].append("")
+                results["hybrid_lengths"].append(0)
+                results["hybrid_eos"].append(False)
+                results["no_steering_fractions"].append(1.0)
+                results["latent_usage"].append({})
+                results["steering_stats"].append({})
+                results["base_correct"] += 1
+                rolling_record = {
+                    "ts": time.time(),
+                    "dataset": args.dataset,
+                    "question": question,
+                    "gold_answer": correct_answer,
+                    "test_list": test_list,
+                    "answers": {
+                        "thinking": "",
+                        "base": _early_base_response,
+                        "hybrid": "",
+                    },
+                    "judges": {
+                        "thinking": _build_judge_entry([{"correct": False, "raw": "SKIPPED_BASE_CORRECT"}]),
+                        "base": _build_judge_entry(_base_early_reps),
+                        "hybrid": _build_judge_entry([{"correct": False, "raw": "SKIPPED_BASE_CORRECT"}]),
+                    },
+                    "eos": {
+                        "base": bool(_early_base_eos),
+                    },
+                    "skipped": {"reason": "base_correct"},
+                }
+                append_rolling_result(rolling_record, args, base_model_id, thinking_model_id)
+                del thinking_input_ids, base_input_ids
+                del _early_base_response
+                torch.cuda.empty_cache()
+                gc.collect()
+                continue
+            else:
+                # Base is wrong — store the base result and continue with thinking+hybrid
+                _base_response_from_early = _early_base_response
+                _base_eos_from_early = _early_base_eos
+                _base_already_generated = True
+                del _early_base_response
+        else:
+            _base_already_generated = False
+
+        # Thinking model (skip in ablation)
         if _is_ablation(args) or getattr(args, 'skip_thinking', False):
             if _is_ablation(args):
                 print(f"Ablation: skipping thinking model generation ({_ablation_flags_str(args)})")
@@ -1865,7 +2147,7 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         results["thinking_lengths"].append(len(thinking_response.split()) if thinking_response else 0)
         results["thinking_eos"].append(bool(thinking_eos_end))
 
-        # Base model (skip in ablation)
+        # Base model (skip in ablation, or reuse early result)
         if _is_ablation(args) or getattr(args, 'skip_base', False):
             if _is_ablation(args):
                 print(f"Ablation: skipping base model generation ({_ablation_flags_str(args)})")
@@ -1874,6 +2156,13 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             base_response = ""
             base_tokens = 0
             base_eos_end = False
+        elif _base_already_generated:
+            # Reuse result from early base-correct check (base was wrong)
+            print("Reusing Base Model result from early check (base was wrong)...")
+            base_response = _base_response_from_early
+            base_tokens = len(base_tokenizer.encode(base_response)) if base_response else 0
+            base_eos_end = _base_eos_from_early
+            del _base_response_from_early, _base_eos_from_early
         else:
             print("Generating with Base Model...")
             clear_gpu_memory()
@@ -1900,7 +2189,75 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         results["base_lengths"].append(len(base_response.split()) if base_response else 0)
         results["base_eos"].append(bool(base_eos_end))
         
+        # ---- Optional filter: only run hybrid if base wrong & thinking right ----
+        if getattr(args, "filter_base_wrong_thinking_right", False):
+            # We need thinking & base judged first.  Evaluate them now.
+            clean_thinking_answer_pre = clean_answer(thinking_response)
+            clean_base_answer_pre = clean_answer(base_response)
+            if args.dataset in CODING_DATASETS:
+                _ds_type_pre = "coding"
+            elif args.dataset in MCQA_DATASETS:
+                _ds_type_pre = "mcqa"
+            elif args.dataset in TEXT_CLASSIFICATION_DATASETS:
+                _ds_type_pre = "classification"
+            else:
+                _ds_type_pre = "math"
+            _n_reps = int(getattr(args, "judge_repetitions", 1))
+            _think_res = evaluate_answer(clean_thinking_answer_pre, correct_answer, question, "Thinking Model", dataset_type=_ds_type_pre, test_list=test_list, n_repetitions=_n_reps)
+            _base_res = evaluate_answer(clean_base_answer_pre, correct_answer, question, "Base Model", dataset_type=_ds_type_pre, test_list=test_list, n_repetitions=_n_reps)
+            _think_reps = [{"correct": c, "raw": r} for c, r in (_think_res if isinstance(_think_res, list) else [_think_res])]
+            _base_reps = [{"correct": c, "raw": r} for c, r in (_base_res if isinstance(_base_res, list) else [_base_res])]
+            _thinking_ok = _build_judge_entry(_think_reps)["correct"]
+            _base_ok = _build_judge_entry(_base_reps)["correct"]
+            if not (_thinking_ok and not _base_ok):
+                # Condition not met — skip hybrid
+                skipped_filter_counter += 1
+                reason = f"filter: thinking_correct={_thinking_ok}, base_correct={_base_ok}"
+                print(f"[Skip hybrid] {reason}")
+                rolling_record = {
+                    "ts": time.time(),
+                    "dataset": args.dataset,
+                    "question": question,
+                    "gold_answer": correct_answer,
+                    "test_list": test_list,
+                    "answers": {
+                        "thinking": thinking_response,
+                        "base": base_response,
+                        "hybrid": "",
+                    },
+                    "judges": {
+                        "thinking": _build_judge_entry(_think_reps),
+                        "base": _build_judge_entry(_base_reps),
+                        "hybrid": _build_judge_entry([{"correct": False, "raw": "SKIPPED_FILTER"}]),
+                    },
+                    "eos": {
+                        "thinking": bool(thinking_eos_end) if (not _skip_thinking(args)) else None,
+                        "base": bool(base_eos_end) if (not _skip_base(args)) else None,
+                    },
+                    "skipped": {"reason": reason},
+                }
+                # NOTE: base_answers / base_lengths / base_eos already appended
+                # above (lines before the filter check).  Only append hybrid here.
+                results["hybrid_answers"].append("")
+                results["hybrid_lengths"].append(0)
+                results["hybrid_eos"].append(False)
+                results["no_steering_fractions"].append(1.0)
+                results["latent_usage"].append({})
+                results["steering_stats"].append({})
+                if _thinking_ok:
+                    results["thinking_correct"] += 1
+                if _base_ok:
+                    results["base_correct"] += 1
+                append_rolling_result(rolling_record, args, base_model_id, thinking_model_id)
+                del thinking_input_ids, base_input_ids
+                if thinking_outputs is not None:
+                    del thinking_outputs
+                torch.cuda.empty_cache()
+                gc.collect()
+                continue
+
         # Hybrid token-level
+        hybrid_ran_counter += 1
         print("Generating with Hybrid Approach (Token-Level)...")
         clear_gpu_memory()
         base_input_with_cold_start, thinking_input_with_cold_start, cold_start_text = prepare_cold_start(
@@ -1939,6 +2296,7 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             random_vectors=bool(args.random_vectors),
             random_guardrail=bool(getattr(args, "random_guardrail", False)),
             base_guardrail=bool(getattr(args, "base_guardrail", False)),
+            steering_layer_map=steering_layer_map,
         )
         hybrid_tokens = len(hybrid_output_ids[0]) - len(base_input_with_cold_start[0])
         hybrid_response = f"{cold_start_text}{base_tokenizer.decode(hybrid_output_ids[0][len(base_input_with_cold_start[0]):], skip_special_tokens=True)}"
@@ -2080,28 +2438,43 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         cum_base = prev_counts["base"] + results["base_correct"]
         cum_hybrid = prev_counts["hybrid"] + results["hybrid_correct"]
 
-        if only_finished_thinking:
-            print(f"\nCurrent Results after {so_far_cum} finished-thinking tasks:")
+        _filter_active = getattr(args, "filter_base_wrong_thinking_right", False)
+        cum_hybrid_ran = (prev_completed - prev_skipped_filter) + hybrid_ran_counter
+        cum_skipped = prev_skipped_filter + skipped_filter_counter
+
+        if _filter_active and cum_hybrid_ran > 0:
+            # Only report over the tasks where all 3 models ran
+            # (base wrong & thinking right → base=0%, thinking=100%)
+            hybrid_acc_filtered = cum_hybrid / cum_hybrid_ran * 100
+            print(f"\nCurrent Results after {so_far_cum} tasks ({cum_hybrid_ran} hybrid-ran, {cum_skipped} skipped):")
+            print(f"  [Filtered: base wrong & thinking right only]")
+            print(f"  Thinking Model: {cum_hybrid_ran}/{cum_hybrid_ran} correct (100.0%) — by filter definition")
+            print(f"  Base Model: 0/{cum_hybrid_ran} correct (0.0%) — by filter definition")
+            print(f"  Hybrid Model: {cum_hybrid}/{cum_hybrid_ran} correct ({hybrid_acc_filtered:.1f}%)")
+            print(f"  Gap recovered by hybrid: {hybrid_acc_filtered:.1f}% of |Thinking-Base|")
         else:
-            print(f"\nCurrent Results after {so_far_cum} tasks:")
-        if not _skip_thinking(args):
-            print(f"Thinking Model: {cum_thinking}/{so_far_cum} correct ({(cum_thinking/so_far_cum)*100:.1f}%)")
-        if not _skip_base(args):
-            print(f"Base Model: {cum_base}/{so_far_cum} correct ({(cum_base/so_far_cum)*100:.1f}%)")
-        print(f"Hybrid Model: {cum_hybrid}/{so_far_cum} correct ({(cum_hybrid/so_far_cum)*100:.1f}%)")
-        # Concise gap recovery and EOS summary so far
-        so_far = so_far_cum
-        base_acc_now = (cum_base / so_far * 100) if not _skip_base(args) else 0.0
-        thinking_acc_now = (cum_thinking / so_far * 100) if not _skip_thinking(args) else 0.0
-        hybrid_acc_now = (cum_hybrid / so_far * 100)
-        gap_now = abs(thinking_acc_now - base_acc_now) if (not _skip_thinking(args) and not _skip_base(args)) else 0.0
-        if gap_now > 0:
-            recovered_now = (hybrid_acc_now - min(base_acc_now, thinking_acc_now)) / gap_now
-            print(f"Gap recovered by hybrid: {max(0.0, recovered_now)*100:.1f}% of |Thinking-Base|")
-        elif _skip_thinking(args) or _skip_base(args):
-            pass  # Don't print gap when either is skipped
-        else:
-            print("Gap recovered by hybrid: n/a")
+            if only_finished_thinking:
+                print(f"\nCurrent Results after {so_far_cum} finished-thinking tasks:")
+            else:
+                print(f"\nCurrent Results after {so_far_cum} tasks:")
+            if not _skip_thinking(args):
+                print(f"Thinking Model: {cum_thinking}/{so_far_cum} correct ({(cum_thinking/so_far_cum)*100:.1f}%)")
+            if not _skip_base(args):
+                print(f"Base Model: {cum_base}/{so_far_cum} correct ({(cum_base/so_far_cum)*100:.1f}%)")
+            print(f"Hybrid Model: {cum_hybrid}/{so_far_cum} correct ({(cum_hybrid/so_far_cum)*100:.1f}%)")
+            # Concise gap recovery and EOS summary so far
+            so_far = so_far_cum
+            base_acc_now = (cum_base / so_far * 100) if not _skip_base(args) else 0.0
+            thinking_acc_now = (cum_thinking / so_far * 100) if not _skip_thinking(args) else 0.0
+            hybrid_acc_now = (cum_hybrid / so_far * 100)
+            gap_now = abs(thinking_acc_now - base_acc_now) if (not _skip_thinking(args) and not _skip_base(args)) else 0.0
+            if gap_now > 0:
+                recovered_now = (hybrid_acc_now - min(base_acc_now, thinking_acc_now)) / gap_now
+                print(f"Gap recovered by hybrid: {max(0.0, recovered_now)*100:.1f}% of |Thinking-Base|")
+            elif _skip_thinking(args) or _skip_base(args):
+                pass  # Don't print gap when either is skipped
+            else:
+                print("Gap recovered by hybrid: n/a")
         # EOS percentages: report combined across previous + current only
         if _skip_thinking(args) and _skip_base(args):
             cum_den = prev_eos_known.get('hybrid', 0) + included_counter
@@ -2141,24 +2514,51 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
         gc.collect()
 
     assert included_counter > 0, "No tasks included in stats; possibly the thinking model never ended with EOS under --only-finished-thinking."
-    thinking_accuracy = results["thinking_correct"] / included_counter * 100
-    base_accuracy = results["base_correct"] / included_counter * 100
-    hybrid_accuracy = results["hybrid_correct"] / included_counter * 100
+
+    _filter_active_final = getattr(args, "filter_base_wrong_thinking_right", False)
+    total_hybrid_ran = (prev_completed - prev_skipped_filter) + hybrid_ran_counter
+    total_skipped = prev_skipped_filter + skipped_filter_counter
+    total_cum = prev_completed + included_counter
+
+    # Cumulative correct counts (prev + this run)
+    cum_thinking_final = (prev_counts["thinking"] if prev_counts else 0) + results["thinking_correct"]
+    cum_base_final = (prev_counts["base"] if prev_counts else 0) + results["base_correct"]
+    cum_hybrid_final = (prev_counts["hybrid"] if prev_counts else 0) + results["hybrid_correct"]
 
     print("\n===== Final Results =====")
     if only_finished_thinking and skipped_unfinished_thinking > 0:
         print(f"Excluded {skipped_unfinished_thinking} inputs where the thinking model did not end with EOS (this run).")
-    if not _is_ablation(args):
-        print(f"Thinking Model: {results['thinking_correct']}/{included_counter} correct ({thinking_accuracy:.1f}%)")
-        print(f"Base Model: {results['base_correct']}/{included_counter} correct ({base_accuracy:.1f}%)")
-    print(f"Hybrid Model: {results['hybrid_correct']}/{included_counter} correct ({hybrid_accuracy:.1f}%)")
-    # Concise end-of-run gap and EOS summary
-    gap_final = abs(thinking_accuracy - base_accuracy) if not _is_ablation(args) else 0.0
-    if gap_final > 0:
-        recovered_final = (hybrid_accuracy - min(base_accuracy, thinking_accuracy)) / gap_final
-        print(f"Gap recovered by hybrid: {max(0.0, recovered_final)*100:.1f}% of |Thinking-Base|")
+
+    if _filter_active_final and total_hybrid_ran > 0:
+        hybrid_accuracy = cum_hybrid_final / total_hybrid_ran * 100
+        print(f"Filter active: --filter-base-wrong-thinking-right")
+        print(f"Total tasks processed: {total_cum} ({total_hybrid_ran} hybrid-ran, {total_skipped} skipped)")
+        print(f"  [Reporting over {total_hybrid_ran} tasks where base was wrong & thinking was right]")
+        print(f"  Thinking Model: {total_hybrid_ran}/{total_hybrid_ran} correct (100.0%) — by filter definition")
+        print(f"  Base Model: 0/{total_hybrid_ran} correct (0.0%) — by filter definition")
+        print(f"  Hybrid Model: {cum_hybrid_final}/{total_hybrid_ran} correct ({hybrid_accuracy:.1f}%)")
+        print(f"  Gap recovered by hybrid: {hybrid_accuracy:.1f}% of |Thinking-Base|")
+        # Also show overall accuracy for reference
+        thinking_accuracy_all = cum_thinking_final / total_cum * 100
+        base_accuracy_all = cum_base_final / total_cum * 100
+        print(f"\n  [Reference — all {total_cum} tasks]")
+        print(f"  Thinking Model: {cum_thinking_final}/{total_cum} correct ({thinking_accuracy_all:.1f}%)")
+        print(f"  Base Model: {cum_base_final}/{total_cum} correct ({base_accuracy_all:.1f}%)")
     else:
-        print("Gap recovered by hybrid: n/a")
+        thinking_accuracy = results["thinking_correct"] / included_counter * 100
+        base_accuracy = results["base_correct"] / included_counter * 100
+        hybrid_accuracy = results["hybrid_correct"] / included_counter * 100
+        if not _is_ablation(args):
+            print(f"Thinking Model: {results['thinking_correct']}/{included_counter} correct ({thinking_accuracy:.1f}%)")
+            print(f"Base Model: {results['base_correct']}/{included_counter} correct ({base_accuracy:.1f}%)")
+        print(f"Hybrid Model: {results['hybrid_correct']}/{included_counter} correct ({hybrid_accuracy:.1f}%)")
+        # Concise end-of-run gap and EOS summary
+        gap_final = abs(thinking_accuracy - base_accuracy) if not _is_ablation(args) else 0.0
+        if gap_final > 0:
+            recovered_final = (hybrid_accuracy - min(base_accuracy, thinking_accuracy)) / gap_final
+            print(f"Gap recovered by hybrid: {max(0.0, recovered_final)*100:.1f}% of |Thinking-Base|")
+        else:
+            print("Gap recovered by hybrid: n/a")
     # EOS endings combined across previous + this run
     if _is_ablation(args):
         cum_den_hybrid = prev_eos_known.get('hybrid', 0) + included_counter
@@ -2179,14 +2579,22 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
 
     plt.figure(figsize=(10, 6))
     model_names = ["Base", "Thinking", "Hybrid"]
-    if _is_ablation(args):
+    if _filter_active_final and total_hybrid_ran > 0:
+        # For the plot, show accuracy over hybrid-ran tasks only
+        accuracies = [0.0, 100.0, hybrid_accuracy]
+        colors = ["#3498db", "#e74c3c", "#2ecc71"]
+        plt.bar(model_names, accuracies, color=colors)
+        plt.title(f"Model Accuracy on {total_hybrid_ran} filtered {args.dataset} Tasks\n(base wrong & thinking right)")
+    elif _is_ablation(args):
         accuracies = [0.0, 0.0, hybrid_accuracy]
         colors = ["#bdc3c7", "#bdc3c7", "#2ecc71"]
+        plt.bar(model_names, accuracies, color=colors)
+        plt.title(f"Model Accuracy on {included_counter} {args.dataset} Tasks")
     else:
         accuracies = [base_accuracy, thinking_accuracy, hybrid_accuracy]
         colors = ["#3498db", "#e74c3c", "#2ecc71"]
-    plt.bar(model_names, accuracies, color=colors)
-    plt.title(f"Model Accuracy on {included_counter} {args.dataset} Tasks")
+        plt.bar(model_names, accuracies, color=colors)
+        plt.title(f"Model Accuracy on {included_counter} {args.dataset} Tasks")
     plt.ylabel("Accuracy (%)")
     plt.ylim(0, 100)
     for i, accuracy in enumerate(accuracies):
@@ -2197,17 +2605,29 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
     plt.savefig(f"{args.results_dir}/accuracy_{base_id_for_files}_{args.dataset}{suffix}.png")
     plt.show()
 
+    # Use the right denominator for benchmark data
+    if _filter_active_final and total_hybrid_ran > 0:
+        _bm_thinking_acc = 100.0
+        _bm_base_acc = 0.0
+        _bm_hybrid_acc = hybrid_accuracy
+        _bm_n_tasks = total_hybrid_ran
+    else:
+        _bm_thinking_acc = thinking_accuracy if not _is_ablation(args) else 0.0
+        _bm_base_acc = base_accuracy if not _is_ablation(args) else 0.0
+        _bm_hybrid_acc = hybrid_accuracy
+        _bm_n_tasks = included_counter
+
     benchmark_data = {
         "metadata": {
             "base_model": args.base_model,
             "thinking_model": args.thinking_model,
-            "n_tasks": included_counter,
+            "n_tasks": _bm_n_tasks,
         },
         "results": {
             "accuracy": {
-                "base_model": base_accuracy,
-                "thinking_model": thinking_accuracy,
-                "hybrid_model": hybrid_accuracy
+                "base_model": _bm_base_acc,
+                "thinking_model": _bm_thinking_acc,
+                "hybrid_model": _bm_hybrid_acc
             },
             "correct_count": {
                 "base_model": results["base_correct"],
@@ -2273,6 +2693,11 @@ elif args.dataset == "livecodebench":
 elif args.dataset == "medqa":
     # MedQA USMLE 4-option multiple choice - medical licensing exam questions (first 500)
     dataset = load_dataset("GBaker/MedQA-USMLE-4-options")["test"].select(range(500))  # type: ignore
+elif args.dataset == "gpqa":
+    # GPQA - Graduate-level science QA (biology, physics, chemistry), 448 questions (gpqa_main)
+    # Gated dataset: requires `huggingface-cli login` or HF_TOKEN env var
+    dataset = load_dataset("Idavidrein/gpqa", "gpqa_main", split="train")  # type: ignore
+    print(f"Loaded GPQA (gpqa_main): {len(dataset)} questions")
 elif args.dataset == "legalbench":
     # LegalBench - legal reasoning benchmark with 162 subsets
     # Load first 5 short examples from each subset (loading script deprecated, fetch TSV directly)
@@ -2352,7 +2777,7 @@ elif args.dataset == "legalbench":
     dataset = all_examples  # type: ignore
 
 # %% Load models and SAE
-thinking_model, thinking_tokenizer, base_model, base_tokenizer, sae, steering_vectors, descriptions, thinking_model_id, base_model_id = load_models_and_sae(args)
+thinking_model, thinking_tokenizer, base_model, base_tokenizer, sae, steering_vectors, descriptions, thinking_model_id, base_model_id, steering_layer_map = load_models_and_sae(args)
 
 # %% Auto-resume from rolling results if present
 completed = _count_completed_tasks(args, base_model_id, thinking_model_id)
@@ -2371,7 +2796,8 @@ if args.run_example:
     print("\n===== Running Example =====")
     thinking_response, base_response, hybrid_response, token_latent_info, steering_selection = run_example(
         thinking_model, thinking_tokenizer, base_model, base_tokenizer, 
-        sae, steering_vectors, descriptions, args, dataset
+        sae, steering_vectors, descriptions, args, dataset,
+        steering_layer_map=steering_layer_map,
     )
 
     # Analyze example stats
@@ -2386,11 +2812,13 @@ if args.run_example:
 # %% Run evaluation
 print("\n===== Running Evaluation =====")
 # Load previous cumulative counts for printing
-prev_completed_count, prev_correct_counts, prev_eos_counts, prev_eos_known = _load_prev_counts(args, base_model_id, thinking_model_id)
+prev_completed_count, prev_correct_counts, prev_eos_counts, prev_eos_known, prev_skipped_filter = _load_prev_counts(args, base_model_id, thinking_model_id)
 results = run_evaluation(
     thinking_model, thinking_tokenizer, base_model, base_tokenizer,
     sae, steering_vectors, descriptions, args, dataset, thinking_model_id, base_model_id,
     prev_completed=prev_completed_count, prev_counts=prev_correct_counts,
+    steering_layer_map=steering_layer_map,
+    prev_skipped_filter=prev_skipped_filter,
 )
 
 # Save detailed results
