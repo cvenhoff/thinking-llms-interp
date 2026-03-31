@@ -62,22 +62,10 @@ def get_rating_input():
         ch = get_keypress()
         if ch.lower() == "q":
             return None
-        if ch in "023456789":
+        if ch.lower() == "t":
+            return 10
+        if ch in "0123456789":
             return int(ch)
-        if ch == "1":
-            # Could be 1 or start of 10
-            sys.stdout.write("1")
-            sys.stdout.flush()
-            ch2 = get_keypress()
-            if ch2 == "0":
-                return 10
-            else:
-                # Register 1, discard ch2 (unless it's q)
-                if ch2.lower() == "q":
-                    # Show that we got 1 but user wants to quit
-                    # Prioritize quit since the rating wasn't confirmed
-                    return None
-                return 1
 
 
 def load_data(judge):
@@ -148,7 +136,7 @@ def display_judge_b(row, idx, total):
     print(wrap_text(f'"{row["sentence"]}"'))
     print()
     print("How well does this sentence fit this category? (0-10)")
-    print("  [0-9] Rate  [10] Type 10  [q] Quit")
+    print("  [0-9] Rate  [t] 10  [q] Quit")
     sys.stdout.write("> ")
     sys.stdout.flush()
 
@@ -165,7 +153,7 @@ def display_judge_c(row, idx, total):
     print("How similar are these two categories? (0-10)")
     print("  0 = completely different functions")
     print("  10 = essentially the same function")
-    print("  [0-9] Rate  [10] Type 10  [q] Quit")
+    print("  [0-9] Rate  [t] 10  [q] Quit")
     sys.stdout.write("> ")
     sys.stdout.flush()
 
