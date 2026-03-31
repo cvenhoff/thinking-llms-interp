@@ -405,7 +405,7 @@ def sample_judge_b(n, seed, existing):
     for entry, question_id, sent_idx_in_trace in sampled:
         rows.append({
             "row_id": -1,
-            "sentence": sentence,
+            "sentence": entry["sentence"],
             "category_title": entry["title"],
             "category_description": entry["description"],
             "provenance": {

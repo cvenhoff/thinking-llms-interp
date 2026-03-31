@@ -1,7 +1,7 @@
 [
   {
     "row_id": 0,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Wait, under US tax rules, R&D costs are generally expensed, but maybe in some cases they can be amortized if they result in a patent or something.",
     "category_title": "Adjusting problem framing",
     "category_description": "These sentences revisit and reshape the understanding of the question itself, proposing different ways the problem might be posed or what information might be assumed or missing. They typically begin with “Wait,” “Alternatively,” “But maybe,” or similar pivots, and they explore ambiguities in wording (e.g. “which of the following” without options) or possible contexts and answer conventions. Included are attempts to reinterpret the question’s scope or required answer format before proceeding to calculation or analysis. Not included are pure expressions of uncertainty (e.g. “I’m not sure”) or statements of next solution steps, assumptions, or recalled definitions.",
     "provenance": {
@@ -18,13 +18,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly reconsiders the framing of the tax treatment of R&D costs by introducing a possible alternative scenario (amortization if resulting in a patent), using pivot words like 'Wait' and 'but maybe,' which aligns well with adjusting problem framing as it reshapes the understanding of the question's scope.",
-      "timestamp": "2026-03-30T21:54:59.718052+00:00"
+      "timestamp": "2026-03-31T05:53:32.235393+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 1,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Or perhaps the loss of a pet?",
     "category_title": "Adjusting problem framing",
     "category_description": "These sentences revisit and reshape the understanding of the question itself, proposing different ways the problem might be posed or what information might be assumed or missing. They typically begin with “Wait,” “Alternatively,” “But maybe,” or similar pivots, and they explore ambiguities in wording (e.g. “which of the following” without options) or possible contexts and answer conventions. Included are attempts to reinterpret the question’s scope or required answer format before proceeding to calculation or analysis. Not included are pure expressions of uncertainty (e.g. “I’m not sure”) or statements of next solution steps, assumptions, or recalled definitions.",
     "provenance": {
@@ -41,13 +41,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence proposes an alternative framing of the problem by suggesting a different context (loss of a pet), which aligns well with the category of adjusting problem framing through reinterpreting the question's scope.",
-      "timestamp": "2026-03-30T21:54:59.718077+00:00"
+      "timestamp": "2026-03-31T05:53:32.235414+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 2,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "So which of these contributes the most?",
     "category_title": "Adjusting problem framing",
     "category_description": "These sentences revisit and reshape the understanding of the question itself, proposing different ways the problem might be posed or what information might be assumed or missing. They typically begin with “Wait,” “Alternatively,” “But maybe,” or similar pivots, and they explore ambiguities in wording (e.g. “which of the following” without options) or possible contexts and answer conventions. Included are attempts to reinterpret the question’s scope or required answer format before proceeding to calculation or analysis. Not included are pure expressions of uncertainty (e.g. “I’m not sure”) or statements of next solution steps, assumptions, or recalled definitions.",
     "provenance": {
@@ -64,13 +64,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence 'So which of these contributes the most?' reframes the problem by questioning which element has the greatest impact, thus adjusting the problem's focus and inviting reconsideration of the question's scope, fitting well with the category description.",
-      "timestamp": "2026-03-30T21:54:59.718084+00:00"
+      "timestamp": "2026-03-31T05:53:32.235418+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 3,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "But do I need this for the problem?",
     "category_title": "Adjusting problem framing",
     "category_description": "These sentences revisit and reshape the understanding of the question itself, proposing different ways the problem might be posed or what information might be assumed or missing. They typically begin with “Wait,” “Alternatively,” “But maybe,” or similar pivots, and they explore ambiguities in wording (e.g. “which of the following” without options) or possible contexts and answer conventions. Included are attempts to reinterpret the question’s scope or required answer format before proceeding to calculation or analysis. Not included are pure expressions of uncertainty (e.g. “I’m not sure”) or statements of next solution steps, assumptions, or recalled definitions.",
     "provenance": {
@@ -87,13 +87,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence questions the necessity of certain information for solving the problem, effectively revisiting and potentially reshaping the problem framing by challenging what is required, which aligns well with the category description.",
-      "timestamp": "2026-03-30T21:54:59.718092+00:00"
+      "timestamp": "2026-03-31T05:53:32.235422+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 4,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "So maybe the main effect is the exchange rate and the trade balance?",
     "category_title": "Adjusting problem framing",
     "category_description": "These sentences revisit and reshape the understanding of the question itself, proposing different ways the problem might be posed or what information might be assumed or missing. They typically begin with “Wait,” “Alternatively,” “But maybe,” or similar pivots, and they explore ambiguities in wording (e.g. “which of the following” without options) or possible contexts and answer conventions. Included are attempts to reinterpret the question’s scope or required answer format before proceeding to calculation or analysis. Not included are pure expressions of uncertainty (e.g. “I’m not sure”) or statements of next solution steps, assumptions, or recalled definitions.",
     "provenance": {
@@ -110,13 +110,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence proposes a reframing of the problem by suggesting that the main effect might be the exchange rate and trade balance, which aligns well with the category's focus on revisiting and reshaping the problem framing using a pivot phrase like 'So maybe'.",
-      "timestamp": "2026-03-30T21:54:59.718096+00:00"
+      "timestamp": "2026-03-31T05:53:32.235424+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 5,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Wait, actually, for property tables, sometimes they use Fahrenheit.",
     "category_title": "Adjusting problem framing",
     "category_description": "These sentences revisit and reshape the understanding of the question itself, proposing different ways the problem might be posed or what information might be assumed or missing. They typically begin with “Wait,” “Alternatively,” “But maybe,” or similar pivots, and they explore ambiguities in wording (e.g. “which of the following” without options) or possible contexts and answer conventions. Included are attempts to reinterpret the question’s scope or required answer format before proceeding to calculation or analysis. Not included are pure expressions of uncertainty (e.g. “I’m not sure”) or statements of next solution steps, assumptions, or recalled definitions.",
     "provenance": {
@@ -133,13 +133,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly reconsiders the framing of the problem by introducing an alternative context (using Fahrenheit in property tables), starting with 'Wait,' which aligns well with the category's focus on reshaping understanding or assumptions before proceeding.",
-      "timestamp": "2026-03-30T21:54:59.718100+00:00"
+      "timestamp": "2026-03-31T05:53:32.235427+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 6,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Alternatively, maybe the option is \"African resistance movements\" which would have opposed European penetration, so that would be a factor that hindered Europe's ability, thus contributing the least (or even negatively).",
     "category_title": "Adjusting problem framing",
     "category_description": "These sentences revisit and reshape the understanding of the question itself, proposing different ways the problem might be posed or what information might be assumed or missing. They typically begin with “Wait,” “Alternatively,” “But maybe,” or similar pivots, and they explore ambiguities in wording (e.g. “which of the following” without options) or possible contexts and answer conventions. Included are attempts to reinterpret the question’s scope or required answer format before proceeding to calculation or analysis. Not included are pure expressions of uncertainty (e.g. “I’m not sure”) or statements of next solution steps, assumptions, or recalled definitions.",
     "provenance": {
@@ -156,13 +156,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly introduces an alternative framing of the problem by suggesting a different interpretation of the option and its implications, fitting well with the category of adjusting problem framing.",
-      "timestamp": "2026-03-30T21:54:59.718102+00:00"
+      "timestamp": "2026-03-31T05:53:32.235429+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 7,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Wait, but without knowing the velocity at one point, I can't directly compute the other.",
     "category_title": "Adjusting problem framing",
     "category_description": "These sentences revisit and reshape the understanding of the question itself, proposing different ways the problem might be posed or what information might be assumed or missing. They typically begin with “Wait,” “Alternatively,” “But maybe,” or similar pivots, and they explore ambiguities in wording (e.g. “which of the following” without options) or possible contexts and answer conventions. Included are attempts to reinterpret the question’s scope or required answer format before proceeding to calculation or analysis. Not included are pure expressions of uncertainty (e.g. “I’m not sure”) or statements of next solution steps, assumptions, or recalled definitions.",
     "provenance": {
@@ -179,13 +179,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly reconsiders the problem framing by highlighting missing information needed to proceed, starting with 'Wait,' which aligns well with the category's focus on reshaping understanding and identifying missing assumptions rather than moving forward with calculations.",
-      "timestamp": "2026-03-30T21:54:59.718107+00:00"
+      "timestamp": "2026-03-31T05:53:32.235432+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 8,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Alternatively, maybe the question is about whether all elements are automorphisms or something else?",
     "category_title": "Adjusting problem framing",
     "category_description": "These sentences revisit and reshape the understanding of the question itself, proposing different ways the problem might be posed or what information might be assumed or missing. They typically begin with “Wait,” “Alternatively,” “But maybe,” or similar pivots, and they explore ambiguities in wording (e.g. “which of the following” without options) or possible contexts and answer conventions. Included are attempts to reinterpret the question’s scope or required answer format before proceeding to calculation or analysis. Not included are pure expressions of uncertainty (e.g. “I’m not sure”) or statements of next solution steps, assumptions, or recalled definitions.",
     "provenance": {
@@ -202,13 +202,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly uses 'Alternatively' to propose a different framing of the question, questioning whether the problem is about all elements being automorphisms or something else, which aligns well with the category's focus on reshaping problem understanding and exploring ambiguities.",
-      "timestamp": "2026-03-30T21:54:59.718112+00:00"
+      "timestamp": "2026-03-31T05:53:32.235434+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 9,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "But in the problem, the half-life is halved.",
     "category_title": "Adjusting problem framing",
     "category_description": "These sentences revisit and reshape the understanding of the question itself, proposing different ways the problem might be posed or what information might be assumed or missing. They typically begin with “Wait,” “Alternatively,” “But maybe,” or similar pivots, and they explore ambiguities in wording (e.g. “which of the following” without options) or possible contexts and answer conventions. Included are attempts to reinterpret the question’s scope or required answer format before proceeding to calculation or analysis. Not included are pure expressions of uncertainty (e.g. “I’m not sure”) or statements of next solution steps, assumptions, or recalled definitions.",
     "provenance": {
@@ -225,13 +225,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence introduces a reinterpretation of the problem by highlighting a change in the half-life parameter, which aligns with adjusting the problem framing as it reshapes understanding of the question's conditions.",
-      "timestamp": "2026-03-30T21:54:59.718116+00:00"
+      "timestamp": "2026-03-31T05:53:32.235437+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 10,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "The key is balancing gas exchange needs with water conservation, optimized based on the plant's activities and environmental conditions.",
     "category_title": "Brainstorming Additional Aspects",
     "category_description": "These sentences serve to expand the scope of the analysis by enumerating extra factors, theories, examples, or perspectives that might be relevant. They are often introduced with signals such as “another angle,” “also,” “for example,” or “another point,” and they list potential considerations without yet evaluating or integrating them. This function differs from expressing uncertainty, stating formal assumptions, planning concrete next steps, or recalling definitions; instead, it performs divergent idea generation to ensure all relevant content is surfaced.",
     "provenance": {
@@ -248,13 +248,13 @@
       "rating": 6,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence introduces an additional factor to consider (balancing gas exchange and water conservation) but does so as a key point rather than explicitly brainstorming or listing multiple new aspects, so it partially fits the category but lacks the divergent, enumerative quality typical of brainstorming.",
-      "timestamp": "2026-03-30T21:54:59.718119+00:00"
+      "timestamp": "2026-03-31T05:53:32.235439+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 11,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Maybe mention that this influenced child care practices, emphasizing the need for nurturing environments.",
     "category_title": "Brainstorming Additional Aspects",
     "category_description": "These sentences serve to expand the scope of the analysis by enumerating extra factors, theories, examples, or perspectives that might be relevant. They are often introduced with signals such as “another angle,” “also,” “for example,” or “another point,” and they list potential considerations without yet evaluating or integrating them. This function differs from expressing uncertainty, stating formal assumptions, planning concrete next steps, or recalling definitions; instead, it performs divergent idea generation to ensure all relevant content is surfaced.",
     "provenance": {
@@ -271,13 +271,13 @@
       "rating": 8,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence suggests adding another relevant aspect (influence on child care practices) to the analysis, which aligns well with brainstorming additional points without evaluating or integrating them, though it is phrased as a suggestion rather than a direct enumeration.",
-      "timestamp": "2026-03-30T21:54:59.718122+00:00"
+      "timestamp": "2026-03-31T05:53:32.235442+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 12,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "I think there are different types of triads, maybe?",
     "category_title": "Brainstorming Additional Aspects",
     "category_description": "These sentences serve to expand the scope of the analysis by enumerating extra factors, theories, examples, or perspectives that might be relevant. They are often introduced with signals such as “another angle,” “also,” “for example,” or “another point,” and they list potential considerations without yet evaluating or integrating them. This function differs from expressing uncertainty, stating formal assumptions, planning concrete next steps, or recalling definitions; instead, it performs divergent idea generation to ensure all relevant content is surfaced.",
     "provenance": {
@@ -294,13 +294,13 @@
       "rating": 6,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence tentatively introduces the idea of different types of triads, which aligns with generating additional perspectives, but its uncertainty and lack of explicit enumeration or clear expansion make it a partial rather than strong example of brainstorming additional aspects.",
-      "timestamp": "2026-03-30T21:54:59.718126+00:00"
+      "timestamp": "2026-03-31T05:53:32.235444+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 13,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "That might be an example of coercive diplomacy with military threats.",
     "category_title": "Brainstorming Additional Aspects",
     "category_description": "These sentences serve to expand the scope of the analysis by enumerating extra factors, theories, examples, or perspectives that might be relevant. They are often introduced with signals such as “another angle,” “also,” “for example,” or “another point,” and they list potential considerations without yet evaluating or integrating them. This function differs from expressing uncertainty, stating formal assumptions, planning concrete next steps, or recalling definitions; instead, it performs divergent idea generation to ensure all relevant content is surfaced.",
     "provenance": {
@@ -317,13 +317,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence introduces a possible example relevant to the discussion, expanding the scope by suggesting an additional perspective without evaluating it, which aligns well with brainstorming additional aspects.",
-      "timestamp": "2026-03-30T21:54:59.718129+00:00"
+      "timestamp": "2026-03-31T05:53:32.235447+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 14,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "For Statement 1: BLEU uses modified precision, and ROUGE uses recall.",
     "category_title": "Brainstorming Additional Aspects",
     "category_description": "These sentences serve to expand the scope of the analysis by enumerating extra factors, theories, examples, or perspectives that might be relevant. They are often introduced with signals such as “another angle,” “also,” “for example,” or “another point,” and they list potential considerations without yet evaluating or integrating them. This function differs from expressing uncertainty, stating formal assumptions, planning concrete next steps, or recalling definitions; instead, it performs divergent idea generation to ensure all relevant content is surfaced.",
     "provenance": {
@@ -340,13 +340,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence lists two evaluation metrics and their characteristics, which aligns with enumerating additional relevant aspects without evaluation or integration, fitting well with brainstorming additional aspects.",
-      "timestamp": "2026-03-30T21:54:59.718132+00:00"
+      "timestamp": "2026-03-31T05:53:32.235450+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 15,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Another angle: surveillance systems are typically **descriptive studies** because they describe the distribution and trends of health events.",
     "category_title": "Brainstorming Additional Aspects",
     "category_description": "These sentences serve to expand the scope of the analysis by enumerating extra factors, theories, examples, or perspectives that might be relevant. They are often introduced with signals such as “another angle,” “also,” “for example,” or “another point,” and they list potential considerations without yet evaluating or integrating them. This function differs from expressing uncertainty, stating formal assumptions, planning concrete next steps, or recalling definitions; instead, it performs divergent idea generation to ensure all relevant content is surfaced.",
     "provenance": {
@@ -363,13 +363,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence introduces an additional perspective by labeling surveillance systems as descriptive studies and explaining why, fitting well with the brainstorming function of adding relevant ideas without evaluation or integration.",
-      "timestamp": "2026-03-30T21:54:59.718134+00:00"
+      "timestamp": "2026-03-31T05:53:32.235452+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 16,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Genetic continuity in some populations but admixture in others.",
     "category_title": "Brainstorming Additional Aspects",
     "category_description": "These sentences serve to expand the scope of the analysis by enumerating extra factors, theories, examples, or perspectives that might be relevant. They are often introduced with signals such as “another angle,” “also,” “for example,” or “another point,” and they list potential considerations without yet evaluating or integrating them. This function differs from expressing uncertainty, stating formal assumptions, planning concrete next steps, or recalling definitions; instead, it performs divergent idea generation to ensure all relevant content is surfaced.",
     "provenance": {
@@ -386,13 +386,13 @@
       "rating": 8,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence lists two contrasting genetic patterns as additional factors to consider, fitting the brainstorming function by expanding the scope without evaluation or integration, though it lacks explicit signaling words.",
-      "timestamp": "2026-03-30T21:54:59.718137+00:00"
+      "timestamp": "2026-03-31T05:53:32.235455+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 17,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "So it's complementary to other techniques like NMR or mass spectrometry.",
     "category_title": "Brainstorming Additional Aspects",
     "category_description": "These sentences serve to expand the scope of the analysis by enumerating extra factors, theories, examples, or perspectives that might be relevant. They are often introduced with signals such as “another angle,” “also,” “for example,” or “another point,” and they list potential considerations without yet evaluating or integrating them. This function differs from expressing uncertainty, stating formal assumptions, planning concrete next steps, or recalling definitions; instead, it performs divergent idea generation to ensure all relevant content is surfaced.",
     "provenance": {
@@ -409,13 +409,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence introduces an additional perspective by noting that the technique complements others like NMR or mass spectrometry, which aligns well with brainstorming additional aspects by expanding the scope without evaluation or integration.",
-      "timestamp": "2026-03-30T21:54:59.718139+00:00"
+      "timestamp": "2026-03-31T05:53:32.235457+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 18,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Vehicles definitely fit.",
     "category_title": "Brainstorming Additional Aspects",
     "category_description": "These sentences serve to expand the scope of the analysis by enumerating extra factors, theories, examples, or perspectives that might be relevant. They are often introduced with signals such as “another angle,” “also,” “for example,” or “another point,” and they list potential considerations without yet evaluating or integrating them. This function differs from expressing uncertainty, stating formal assumptions, planning concrete next steps, or recalling definitions; instead, it performs divergent idea generation to ensure all relevant content is surfaced.",
     "provenance": {
@@ -432,13 +432,13 @@
       "rating": 2,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence 'Vehicles definitely fit.' asserts a conclusion rather than brainstorming or listing additional aspects, lacking the exploratory or enumerative quality required for the category.",
-      "timestamp": "2026-03-30T21:54:59.718143+00:00"
+      "timestamp": "2026-03-31T05:53:32.235459+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 19,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "I should also consider the actual events of 9/11.",
     "category_title": "Brainstorming Additional Aspects",
     "category_description": "These sentences serve to expand the scope of the analysis by enumerating extra factors, theories, examples, or perspectives that might be relevant. They are often introduced with signals such as “another angle,” “also,” “for example,” or “another point,” and they list potential considerations without yet evaluating or integrating them. This function differs from expressing uncertainty, stating formal assumptions, planning concrete next steps, or recalling definitions; instead, it performs divergent idea generation to ensure all relevant content is surfaced.",
     "provenance": {
@@ -455,13 +455,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly introduces an additional aspect to consider, using 'also' to signal expansion of the analysis without evaluating or integrating it, perfectly matching the brainstorming additional aspects category.",
-      "timestamp": "2026-03-30T21:54:59.718146+00:00"
+      "timestamp": "2026-03-31T05:53:32.235462+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 20,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "The second equation says that f⁻¹(2) = 4.",
     "category_title": "Numeric computations",
     "category_description": "These sentences perform step-by-step arithmetic or unit-conversion calculations to produce intermediate numerical results. They show explicit operations—multiplication, division, addition, subtraction, exponent handling, or approximations—often marked by “=” or “≈.” This category does not include conceptual reasoning steps (e.g., recalling formulas, stating assumptions, planning next steps) or speculative statements; it is solely the local evaluation of numeric expressions.",
     "provenance": {
@@ -478,13 +478,13 @@
       "rating": 2,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence states a specific functional value but does not show any arithmetic or unit-conversion steps or explicit numeric operations, so it does not exemplify numeric computations as defined.",
-      "timestamp": "2026-03-30T21:54:59.718150+00:00"
+      "timestamp": "2026-03-31T05:53:32.235464+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 21,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Expected Return = (0.5 * Return of A) + (0.5 * Return of C)",
     "category_title": "Numeric computations",
     "category_description": "These sentences perform step-by-step arithmetic or unit-conversion calculations to produce intermediate numerical results. They show explicit operations—multiplication, division, addition, subtraction, exponent handling, or approximations—often marked by “=” or “≈.” This category does not include conceptual reasoning steps (e.g., recalling formulas, stating assumptions, planning next steps) or speculative statements; it is solely the local evaluation of numeric expressions.",
     "provenance": {
@@ -501,13 +501,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly performs a numeric computation by combining weighted returns using multiplication and addition with an equals sign, perfectly exemplifying step-by-step arithmetic operations as described in the category.",
-      "timestamp": "2026-03-30T21:54:59.718152+00:00"
+      "timestamp": "2026-03-31T05:53:32.235466+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 22,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "- B from father and b from mother: Bb",
     "category_title": "Numeric computations",
     "category_description": "These sentences perform step-by-step arithmetic or unit-conversion calculations to produce intermediate numerical results. They show explicit operations—multiplication, division, addition, subtraction, exponent handling, or approximations—often marked by “=” or “≈.” This category does not include conceptual reasoning steps (e.g., recalling formulas, stating assumptions, planning next steps) or speculative statements; it is solely the local evaluation of numeric expressions.",
     "provenance": {
@@ -524,13 +524,13 @@
       "rating": 0,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence represents a genetic notation showing allele inheritance (Bb) rather than performing any numeric computation or arithmetic operation, so it does not fit the numeric computations category.",
-      "timestamp": "2026-03-30T21:54:59.718156+00:00"
+      "timestamp": "2026-03-31T05:53:32.235474+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 23,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Subtract 161 from 170, get 9.",
     "category_title": "Numeric computations",
     "category_description": "These sentences perform step-by-step arithmetic or unit-conversion calculations to produce intermediate numerical results. They show explicit operations—multiplication, division, addition, subtraction, exponent handling, or approximations—often marked by “=” or “≈.” This category does not include conceptual reasoning steps (e.g., recalling formulas, stating assumptions, planning next steps) or speculative statements; it is solely the local evaluation of numeric expressions.",
     "provenance": {
@@ -547,13 +547,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly performs a subtraction operation and provides the numerical result, directly exemplifying a step-by-step numeric computation as described in the category.",
-      "timestamp": "2026-03-30T21:54:59.718159+00:00"
+      "timestamp": "2026-03-31T05:53:32.235476+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 24,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "First, initial condition at x=1: y(1) = e^1 (1 -1)/1 = 0, which matches.",
     "category_title": "Numeric computations",
     "category_description": "These sentences perform step-by-step arithmetic or unit-conversion calculations to produce intermediate numerical results. They show explicit operations—multiplication, division, addition, subtraction, exponent handling, or approximations—often marked by “=” or “≈.” This category does not include conceptual reasoning steps (e.g., recalling formulas, stating assumptions, planning next steps) or speculative statements; it is solely the local evaluation of numeric expressions.",
     "provenance": {
@@ -570,13 +570,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly performs a numeric evaluation of y(1) by substituting values and calculating the expression step-by-step, including exponentiation and arithmetic operations, which aligns well with the numeric computations category.",
-      "timestamp": "2026-03-30T21:54:59.718165+00:00"
+      "timestamp": "2026-03-31T05:53:32.235479+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 25,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "0.03075 * 39 = 1.19925, which is just a bit less than 1.2.",
     "category_title": "Numeric computations",
     "category_description": "These sentences perform step-by-step arithmetic or unit-conversion calculations to produce intermediate numerical results. They show explicit operations—multiplication, division, addition, subtraction, exponent handling, or approximations—often marked by “=” or “≈.” This category does not include conceptual reasoning steps (e.g., recalling formulas, stating assumptions, planning next steps) or speculative statements; it is solely the local evaluation of numeric expressions.",
     "provenance": {
@@ -593,13 +593,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly performs a multiplication and provides the exact numeric result followed by a close approximation, fitting perfectly the description of numeric computations involving step-by-step arithmetic and approximations.",
-      "timestamp": "2026-03-30T21:54:59.718169+00:00"
+      "timestamp": "2026-03-31T05:53:32.235481+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 26,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "(4π²r²)/(G*M*r) = T²/d²",
     "category_title": "Numeric computations",
     "category_description": "These sentences perform step-by-step arithmetic or unit-conversion calculations to produce intermediate numerical results. They show explicit operations—multiplication, division, addition, subtraction, exponent handling, or approximations—often marked by “=” or “≈.” This category does not include conceptual reasoning steps (e.g., recalling formulas, stating assumptions, planning next steps) or speculative statements; it is solely the local evaluation of numeric expressions.",
     "provenance": {
@@ -616,13 +616,13 @@
       "rating": 3,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence shows an algebraic expression with variables and an equality sign but does not perform explicit numeric calculations or unit conversions to produce intermediate numerical results, so it does not fully match the numeric computations category.",
-      "timestamp": "2026-03-30T21:54:59.718172+00:00"
+      "timestamp": "2026-03-31T05:53:32.235484+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 27,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Wait, but 90 days total.",
     "category_title": "Numeric computations",
     "category_description": "These sentences perform step-by-step arithmetic or unit-conversion calculations to produce intermediate numerical results. They show explicit operations—multiplication, division, addition, subtraction, exponent handling, or approximations—often marked by “=” or “≈.” This category does not include conceptual reasoning steps (e.g., recalling formulas, stating assumptions, planning next steps) or speculative statements; it is solely the local evaluation of numeric expressions.",
     "provenance": {
@@ -639,13 +639,13 @@
       "rating": 2,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence is a brief statement referencing a total number but does not perform any explicit arithmetic operations or show step-by-step numeric computations as required by the category.",
-      "timestamp": "2026-03-30T21:54:59.718174+00:00"
+      "timestamp": "2026-03-31T05:53:32.235486+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 28,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Now the denominator is (0.03 m)^2.",
     "category_title": "Numeric computations",
     "category_description": "These sentences perform step-by-step arithmetic or unit-conversion calculations to produce intermediate numerical results. They show explicit operations—multiplication, division, addition, subtraction, exponent handling, or approximations—often marked by “=” or “≈.” This category does not include conceptual reasoning steps (e.g., recalling formulas, stating assumptions, planning next steps) or speculative statements; it is solely the local evaluation of numeric expressions.",
     "provenance": {
@@ -662,13 +662,13 @@
       "rating": 5,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence identifies the denominator as (0.03 m)^2 but does not perform an explicit arithmetic operation or numeric evaluation; it states a quantity rather than computing or simplifying it, so it only partially fits the numeric computations category.",
-      "timestamp": "2026-03-30T21:54:59.718178+00:00"
+      "timestamp": "2026-03-31T05:53:32.235495+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 29,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "14(n-1) = 72",
     "category_title": "Numeric computations",
     "category_description": "These sentences perform step-by-step arithmetic or unit-conversion calculations to produce intermediate numerical results. They show explicit operations—multiplication, division, addition, subtraction, exponent handling, or approximations—often marked by “=” or “≈.” This category does not include conceptual reasoning steps (e.g., recalling formulas, stating assumptions, planning next steps) or speculative statements; it is solely the local evaluation of numeric expressions.",
     "provenance": {
@@ -685,13 +685,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence shows an explicit numeric equation with an equality sign, representing a step in numeric computation, fitting well the category's focus on arithmetic operations producing intermediate results.",
-      "timestamp": "2026-03-30T21:54:59.718182+00:00"
+      "timestamp": "2026-03-31T05:53:32.235498+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 30,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "The further away a place is, the less likely people are to travel there for the same product available closer.",
     "category_title": "Proposing Causal Hypotheses",
     "category_description": "These sentences introduce tentative, conditional explanations or predictions by linking potential causes to possible effects. They frequently use markers such as “if,” “might,” “could,” “maybe,” or “perhaps” to frame speculative scenarios (for example, “If demand starts to fall, firms might not cut investment right away…”). This category includes any formulation of a hypothesis about why something could happen or what the consequences of a given premise might be. It does not include statements that merely express doubt without offering a causal link, steps in a reasoning plan, formal assumptions, or recalls of definitions.",
     "provenance": {
@@ -708,13 +708,13 @@
       "rating": 6,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence proposes a causal relationship between distance and travel likelihood for a product, but it states this as a general fact rather than a tentative or conditional hypothesis with speculative markers, so it only partially fits the category.",
-      "timestamp": "2026-03-30T21:54:59.718185+00:00"
+      "timestamp": "2026-03-31T05:53:32.235500+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 31,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Maybe it was near a river or had some geological features that were useful.",
     "category_title": "Proposing Causal Hypotheses",
     "category_description": "These sentences introduce tentative, conditional explanations or predictions by linking potential causes to possible effects. They frequently use markers such as “if,” “might,” “could,” “maybe,” or “perhaps” to frame speculative scenarios (for example, “If demand starts to fall, firms might not cut investment right away…”). This category includes any formulation of a hypothesis about why something could happen or what the consequences of a given premise might be. It does not include statements that merely express doubt without offering a causal link, steps in a reasoning plan, formal assumptions, or recalls of definitions.",
     "provenance": {
@@ -731,13 +731,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence introduces a tentative causal hypothesis by suggesting possible reasons (proximity to a river or geological features) that could explain a situation, using 'maybe' to frame the speculation, which aligns well with the category description.",
-      "timestamp": "2026-03-30T21:54:59.718189+00:00"
+      "timestamp": "2026-03-31T05:53:32.235503+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 32,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "CO2 is good at trapping certain infrared wavelengths, but maybe in Mars's case, the atmosphere isn't thick enough to create a significant blanket effect.",
     "category_title": "Proposing Causal Hypotheses",
     "category_description": "These sentences introduce tentative, conditional explanations or predictions by linking potential causes to possible effects. They frequently use markers such as “if,” “might,” “could,” “maybe,” or “perhaps” to frame speculative scenarios (for example, “If demand starts to fall, firms might not cut investment right away…”). This category includes any formulation of a hypothesis about why something could happen or what the consequences of a given premise might be. It does not include statements that merely express doubt without offering a causal link, steps in a reasoning plan, formal assumptions, or recalls of definitions.",
     "provenance": {
@@ -754,13 +754,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence proposes a tentative causal hypothesis linking CO2's infrared trapping ability and Mars's atmospheric thickness to the effectiveness of the greenhouse effect, using 'maybe' to frame the speculation, which aligns well with the category description.",
-      "timestamp": "2026-03-30T21:54:59.718191+00:00"
+      "timestamp": "2026-03-31T05:53:32.235505+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 33,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Hmm, maybe the height decreases because the energy gets spread out over a longer wavelength.",
     "category_title": "Proposing Causal Hypotheses",
     "category_description": "These sentences introduce tentative, conditional explanations or predictions by linking potential causes to possible effects. They frequently use markers such as “if,” “might,” “could,” “maybe,” or “perhaps” to frame speculative scenarios (for example, “If demand starts to fall, firms might not cut investment right away…”). This category includes any formulation of a hypothesis about why something could happen or what the consequences of a given premise might be. It does not include statements that merely express doubt without offering a causal link, steps in a reasoning plan, formal assumptions, or recalls of definitions.",
     "provenance": {
@@ -777,13 +777,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence tentatively proposes a causal hypothesis linking the decrease in height to energy spreading over a longer wavelength, using 'maybe' to indicate speculation, which aligns well with the category description.",
-      "timestamp": "2026-03-30T21:54:59.718195+00:00"
+      "timestamp": "2026-03-31T05:53:32.235508+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 34,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "When a person has a tumor in the colon, especially in the sigmoid colon, which is a common site, and if it's obstructing, then a stoma might be needed.",
     "category_title": "Proposing Causal Hypotheses",
     "category_description": "These sentences introduce tentative, conditional explanations or predictions by linking potential causes to possible effects. They frequently use markers such as “if,” “might,” “could,” “maybe,” or “perhaps” to frame speculative scenarios (for example, “If demand starts to fall, firms might not cut investment right away…”). This category includes any formulation of a hypothesis about why something could happen or what the consequences of a given premise might be. It does not include statements that merely express doubt without offering a causal link, steps in a reasoning plan, formal assumptions, or recalls of definitions.",
     "provenance": {
@@ -800,13 +800,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence introduces a conditional causal hypothesis linking the presence and location of a tumor to the possible need for a stoma, using 'if' and 'might' to frame a tentative explanation, fitting well with the category description.",
-      "timestamp": "2026-03-30T21:54:59.718198+00:00"
+      "timestamp": "2026-03-31T05:53:32.235510+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 35,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "So the setup might be: when the dog hears a tone, they perform an action (like going to a specific spot), and if they do it correctly, they get a treat.",
     "category_title": "Proposing Causal Hypotheses",
     "category_description": "These sentences introduce tentative, conditional explanations or predictions by linking potential causes to possible effects. They frequently use markers such as “if,” “might,” “could,” “maybe,” or “perhaps” to frame speculative scenarios (for example, “If demand starts to fall, firms might not cut investment right away…”). This category includes any formulation of a hypothesis about why something could happen or what the consequences of a given premise might be. It does not include statements that merely express doubt without offering a causal link, steps in a reasoning plan, formal assumptions, or recalls of definitions.",
     "provenance": {
@@ -823,13 +823,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence introduces a tentative causal scenario linking the dog's hearing a tone (cause) to performing an action and receiving a treat (effect), using 'might' and 'if' to frame a hypothetical setup, fitting well with proposing causal hypotheses.",
-      "timestamp": "2026-03-30T21:54:59.718201+00:00"
+      "timestamp": "2026-03-31T05:53:32.235513+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 36,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "That's probably very precise but not practical for everyday use.",
     "category_title": "Proposing Causal Hypotheses",
     "category_description": "These sentences introduce tentative, conditional explanations or predictions by linking potential causes to possible effects. They frequently use markers such as “if,” “might,” “could,” “maybe,” or “perhaps” to frame speculative scenarios (for example, “If demand starts to fall, firms might not cut investment right away…”). This category includes any formulation of a hypothesis about why something could happen or what the consequences of a given premise might be. It does not include statements that merely express doubt without offering a causal link, steps in a reasoning plan, formal assumptions, or recalls of definitions.",
     "provenance": {
@@ -846,13 +846,13 @@
       "rating": 2,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence expresses a judgment about precision versus practicality but does not propose a causal hypothesis or link potential causes to effects, nor does it use tentative language to frame a speculative scenario, so it poorly fits the category.",
-      "timestamp": "2026-03-30T21:54:59.718203+00:00"
+      "timestamp": "2026-03-31T05:53:32.235515+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 37,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "But since it's a price taker, in the long run, in perfect competition, firms should only make normal profit.",
     "category_title": "Proposing Causal Hypotheses",
     "category_description": "These sentences introduce tentative, conditional explanations or predictions by linking potential causes to possible effects. They frequently use markers such as “if,” “might,” “could,” “maybe,” or “perhaps” to frame speculative scenarios (for example, “If demand starts to fall, firms might not cut investment right away…”). This category includes any formulation of a hypothesis about why something could happen or what the consequences of a given premise might be. It does not include statements that merely express doubt without offering a causal link, steps in a reasoning plan, formal assumptions, or recalls of definitions.",
     "provenance": {
@@ -869,13 +869,13 @@
       "rating": 5,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence states a conclusion based on a premise (price taker in perfect competition) but does not explicitly frame it as a tentative or conditional hypothesis using markers like 'if' or 'might'; it asserts a causal relationship without speculation, so it only partially fits the category.",
-      "timestamp": "2026-03-30T21:54:59.718205+00:00"
+      "timestamp": "2026-03-31T05:53:32.235517+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 38,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "In the secure attachment, the baby might get upset when the mother leaves but is easily comforted upon her return.",
     "category_title": "Proposing Causal Hypotheses",
     "category_description": "These sentences introduce tentative, conditional explanations or predictions by linking potential causes to possible effects. They frequently use markers such as “if,” “might,” “could,” “maybe,” or “perhaps” to frame speculative scenarios (for example, “If demand starts to fall, firms might not cut investment right away…”). This category includes any formulation of a hypothesis about why something could happen or what the consequences of a given premise might be. It does not include statements that merely express doubt without offering a causal link, steps in a reasoning plan, formal assumptions, or recalls of definitions.",
     "provenance": {
@@ -892,13 +892,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence uses 'might' to suggest a possible effect (baby getting upset) linked to a cause (mother leaving), thus proposing a tentative causal hypothesis consistent with the category description.",
-      "timestamp": "2026-03-30T21:54:59.718208+00:00"
+      "timestamp": "2026-03-31T05:53:32.235520+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 39,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "But since there are more students than computers, some computers will have to have two students.",
     "category_title": "Proposing Causal Hypotheses",
     "category_description": "These sentences introduce tentative, conditional explanations or predictions by linking potential causes to possible effects. They frequently use markers such as “if,” “might,” “could,” “maybe,” or “perhaps” to frame speculative scenarios (for example, “If demand starts to fall, firms might not cut investment right away…”). This category includes any formulation of a hypothesis about why something could happen or what the consequences of a given premise might be. It does not include statements that merely express doubt without offering a causal link, steps in a reasoning plan, formal assumptions, or recalls of definitions.",
     "provenance": {
@@ -915,13 +915,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence proposes a causal relationship by linking the cause (more students than computers) to the effect (some computers having to be shared), fitting the category's requirement for tentative causal hypotheses despite lacking explicit speculative markers.",
-      "timestamp": "2026-03-30T21:54:59.718210+00:00"
+      "timestamp": "2026-03-31T05:53:32.235522+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 40,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "~E · ~F",
     "category_title": "Recalling Domain Knowledge",
     "category_description": "These sentences serve to retrieve and state established facts, formulas, definitions, or domain-specific principles from memory as the foundation for subsequent reasoning.  They include canonical mathematical expressions (e.g. the quadratic formula, combination formula), laws or constants (e.g. Coulomb’s law, elementary charge), formal definitions (e.g. joint tenancy, distributive property), and other settled domain rules.  This category excludes speculative guesses or hypotheses, admissions of uncertainty, forward planning of steps, or the execution of actual calculations—its function is purely to supply known information.",
     "provenance": {
@@ -938,13 +938,13 @@
       "rating": 3,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence '~E · ~F' is a symbolic expression but lacks context or indication that it is a known formula, law, or definition being recalled; it appears more like a logical expression or part of a calculation rather than a stated domain fact, so it only partially fits the category.",
-      "timestamp": "2026-03-30T21:54:59.718213+00:00"
+      "timestamp": "2026-03-31T05:53:32.235524+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 41,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "So that gives me:",
     "category_title": "Recalling Domain Knowledge",
     "category_description": "These sentences serve to retrieve and state established facts, formulas, definitions, or domain-specific principles from memory as the foundation for subsequent reasoning.  They include canonical mathematical expressions (e.g. the quadratic formula, combination formula), laws or constants (e.g. Coulomb’s law, elementary charge), formal definitions (e.g. joint tenancy, distributive property), and other settled domain rules.  This category excludes speculative guesses or hypotheses, admissions of uncertainty, forward planning of steps, or the execution of actual calculations—its function is purely to supply known information.",
     "provenance": {
@@ -961,13 +961,13 @@
       "rating": 1,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence 'So that gives me:' is a transitional phrase indicating a forthcoming result or conclusion rather than recalling or stating established domain knowledge, so it does not fulfill the role of retrieving known facts or formulas.",
-      "timestamp": "2026-03-30T21:54:59.718217+00:00"
+      "timestamp": "2026-03-31T05:53:32.235527+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 42,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Since it's a converging lens, when the object is beyond 2f, the image is between f and 2f.",
     "category_title": "Recalling Domain Knowledge",
     "category_description": "These sentences serve to retrieve and state established facts, formulas, definitions, or domain-specific principles from memory as the foundation for subsequent reasoning.  They include canonical mathematical expressions (e.g. the quadratic formula, combination formula), laws or constants (e.g. Coulomb’s law, elementary charge), formal definitions (e.g. joint tenancy, distributive property), and other settled domain rules.  This category excludes speculative guesses or hypotheses, admissions of uncertainty, forward planning of steps, or the execution of actual calculations—its function is purely to supply known information.",
     "provenance": {
@@ -984,13 +984,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence states a well-known principle about image location for a converging lens when the object is beyond 2f, clearly recalling established domain knowledge without speculation or calculation, fitting the category well.",
-      "timestamp": "2026-03-30T21:54:59.718221+00:00"
+      "timestamp": "2026-03-31T05:53:32.235529+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 43,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Similarly, professionals are held to the standard of a reasonable professional in that field.",
     "category_title": "Recalling Domain Knowledge",
     "category_description": "These sentences serve to retrieve and state established facts, formulas, definitions, or domain-specific principles from memory as the foundation for subsequent reasoning.  They include canonical mathematical expressions (e.g. the quadratic formula, combination formula), laws or constants (e.g. Coulomb’s law, elementary charge), formal definitions (e.g. joint tenancy, distributive property), and other settled domain rules.  This category excludes speculative guesses or hypotheses, admissions of uncertainty, forward planning of steps, or the execution of actual calculations—its function is purely to supply known information.",
     "provenance": {
@@ -1007,13 +1007,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence states a well-established legal principle about professional standards, effectively recalling domain-specific knowledge without speculation or calculation, thus fitting the category well.",
-      "timestamp": "2026-03-30T21:54:59.718224+00:00"
+      "timestamp": "2026-03-31T05:53:32.235532+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 44,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "A, T, C, G in DNA), the number of possible codons is calculated by 4^3, which is 64.",
     "category_title": "Recalling Domain Knowledge",
     "category_description": "These sentences serve to retrieve and state established facts, formulas, definitions, or domain-specific principles from memory as the foundation for subsequent reasoning.  They include canonical mathematical expressions (e.g. the quadratic formula, combination formula), laws or constants (e.g. Coulomb’s law, elementary charge), formal definitions (e.g. joint tenancy, distributive property), and other settled domain rules.  This category excludes speculative guesses or hypotheses, admissions of uncertainty, forward planning of steps, or the execution of actual calculations—its function is purely to supply known information.",
     "provenance": {
@@ -1030,13 +1030,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence states a well-known fact and formula about the number of possible codons in DNA, clearly recalling established domain knowledge without performing calculations or speculating, thus fitting the category very well.",
-      "timestamp": "2026-03-30T21:54:59.718226+00:00"
+      "timestamp": "2026-03-31T05:53:32.235534+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 45,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Wait, a turn is a loop, so a coil with three turns would have three loops?",
     "category_title": "Recalling Domain Knowledge",
     "category_description": "These sentences serve to retrieve and state established facts, formulas, definitions, or domain-specific principles from memory as the foundation for subsequent reasoning.  They include canonical mathematical expressions (e.g. the quadratic formula, combination formula), laws or constants (e.g. Coulomb’s law, elementary charge), formal definitions (e.g. joint tenancy, distributive property), and other settled domain rules.  This category excludes speculative guesses or hypotheses, admissions of uncertainty, forward planning of steps, or the execution of actual calculations—its function is purely to supply known information.",
     "provenance": {
@@ -1053,13 +1053,13 @@
       "rating": 2,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence is a question that attempts to connect concepts but does not state an established fact or definition; it is speculative rather than recalling domain knowledge, so it poorly fits the category.",
-      "timestamp": "2026-03-30T21:54:59.718229+00:00"
+      "timestamp": "2026-03-31T05:53:32.235537+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 46,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "The key elements are intent, contact, and lack of consent.",
     "category_title": "Recalling Domain Knowledge",
     "category_description": "These sentences serve to retrieve and state established facts, formulas, definitions, or domain-specific principles from memory as the foundation for subsequent reasoning.  They include canonical mathematical expressions (e.g. the quadratic formula, combination formula), laws or constants (e.g. Coulomb’s law, elementary charge), formal definitions (e.g. joint tenancy, distributive property), and other settled domain rules.  This category excludes speculative guesses or hypotheses, admissions of uncertainty, forward planning of steps, or the execution of actual calculations—its function is purely to supply known information.",
     "provenance": {
@@ -1076,13 +1076,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence lists established key elements relevant to a domain (likely legal or ethical), effectively recalling domain knowledge without speculation or calculation, thus fitting well within the category description.",
-      "timestamp": "2026-03-30T21:54:59.718231+00:00"
+      "timestamp": "2026-03-31T05:53:32.235540+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 47,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "So that would be the electrons in the n=1 orbital.",
     "category_title": "Recalling Domain Knowledge",
     "category_description": "These sentences serve to retrieve and state established facts, formulas, definitions, or domain-specific principles from memory as the foundation for subsequent reasoning.  They include canonical mathematical expressions (e.g. the quadratic formula, combination formula), laws or constants (e.g. Coulomb’s law, elementary charge), formal definitions (e.g. joint tenancy, distributive property), and other settled domain rules.  This category excludes speculative guesses or hypotheses, admissions of uncertainty, forward planning of steps, or the execution of actual calculations—its function is purely to supply known information.",
     "provenance": {
@@ -1099,13 +1099,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence identifies electrons in a specific orbital, which is a factual statement recalling domain knowledge about atomic structure, fitting well with the category's requirement to state established facts without speculation or calculation.",
-      "timestamp": "2026-03-30T21:54:59.718233+00:00"
+      "timestamp": "2026-03-31T05:53:32.235543+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 48,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "From what I remember, angle modulation includes both phase modulation (PM) and frequency modulation (FM).",
     "category_title": "Recalling Domain Knowledge",
     "category_description": "These sentences serve to retrieve and state established facts, formulas, definitions, or domain-specific principles from memory as the foundation for subsequent reasoning.  They include canonical mathematical expressions (e.g. the quadratic formula, combination formula), laws or constants (e.g. Coulomb’s law, elementary charge), formal definitions (e.g. joint tenancy, distributive property), and other settled domain rules.  This category excludes speculative guesses or hypotheses, admissions of uncertainty, forward planning of steps, or the execution of actual calculations—its function is purely to supply known information.",
     "provenance": {
@@ -1122,13 +1122,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence clearly states a known fact about angle modulation by recalling that it includes both phase modulation and frequency modulation, which aligns well with the category's focus on retrieving established domain knowledge; the phrase 'From what I remember' slightly weakens the certainty but does not detract significantly from its role as recalling information.",
-      "timestamp": "2026-03-30T21:54:59.718236+00:00"
+      "timestamp": "2026-03-31T05:53:32.235545+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 49,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "That's things like exports and imports of goods, services like tourism or banking, income from investments abroad, and things like foreign aid or remittances.",
     "category_title": "Recalling Domain Knowledge",
     "category_description": "These sentences serve to retrieve and state established facts, formulas, definitions, or domain-specific principles from memory as the foundation for subsequent reasoning.  They include canonical mathematical expressions (e.g. the quadratic formula, combination formula), laws or constants (e.g. Coulomb’s law, elementary charge), formal definitions (e.g. joint tenancy, distributive property), and other settled domain rules.  This category excludes speculative guesses or hypotheses, admissions of uncertainty, forward planning of steps, or the execution of actual calculations—its function is purely to supply known information.",
     "provenance": {
@@ -1145,13 +1145,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence lists specific examples of economic transactions and flows, effectively recalling established domain knowledge about components of a country's external economic activities, fitting well with the category's requirement to state known facts without speculation or calculation.",
-      "timestamp": "2026-03-30T21:54:59.718238+00:00"
+      "timestamp": "2026-03-31T05:53:32.235548+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 50,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "But the impairment has to be reasonable and not excessive.",
     "category_title": "Drawing Deductive Inferences",
     "category_description": "These sentences apply a specific legal rule or principle to the facts at hand and draw a logical conclusion, often signaled by connectors such as “so,” “therefore,” or “because.” They include asserting liability, admissibility, or rights by matching statutory or common-law conditions to the scenario. This category does not include mere expressions of uncertainty or speculation, high-level planning of next steps, simple recall of definitions without applying them, or standalone statements of assumption.",
     "provenance": {
@@ -1168,13 +1168,13 @@
       "rating": 3,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence states a condition about impairment needing to be reasonable and not excessive but does not apply a legal rule to specific facts or draw a logical conclusion, so it does not exemplify drawing deductive inferences as defined.",
-      "timestamp": "2026-03-30T21:54:59.718240+00:00"
+      "timestamp": "2026-03-31T05:53:32.235550+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 51,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "If the defendant just wanted to trip her to get the book, maybe he didn't intend to kill or cause serious harm.",
     "category_title": "Drawing Deductive Inferences",
     "category_description": "These sentences apply a specific legal rule or principle to the facts at hand and draw a logical conclusion, often signaled by connectors such as “so,” “therefore,” or “because.” They include asserting liability, admissibility, or rights by matching statutory or common-law conditions to the scenario. This category does not include mere expressions of uncertainty or speculation, high-level planning of next steps, simple recall of definitions without applying them, or standalone statements of assumption.",
     "provenance": {
@@ -1191,13 +1191,13 @@
       "rating": 2,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence speculates about the defendant's intent without explicitly applying a legal rule or principle to the facts to draw a logical conclusion, lacking connectors like 'therefore' or 'because' and not asserting liability or rights, so it does not fit the deductive inference category well.",
-      "timestamp": "2026-03-30T21:54:59.718242+00:00"
+      "timestamp": "2026-03-31T05:53:32.235552+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 52,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Even a social invitation could be problematic because of the potential for exploitation or bias.",
     "category_title": "Drawing Deductive Inferences",
     "category_description": "These sentences apply a specific legal rule or principle to the facts at hand and draw a logical conclusion, often signaled by connectors such as “so,” “therefore,” or “because.” They include asserting liability, admissibility, or rights by matching statutory or common-law conditions to the scenario. This category does not include mere expressions of uncertainty or speculation, high-level planning of next steps, simple recall of definitions without applying them, or standalone statements of assumption.",
     "provenance": {
@@ -1214,13 +1214,13 @@
       "rating": 5,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence uses 'because' to link a potential problem to a reason, indicating a logical connection, but it does not explicitly apply a specific legal rule or principle to facts to draw a formal legal conclusion as required by the category.",
-      "timestamp": "2026-03-30T21:54:59.718245+00:00"
+      "timestamp": "2026-03-31T05:53:32.235555+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 53,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Since running for office is a political right, maybe that's a fundamental right?",
     "category_title": "Drawing Deductive Inferences",
     "category_description": "These sentences apply a specific legal rule or principle to the facts at hand and draw a logical conclusion, often signaled by connectors such as “so,” “therefore,” or “because.” They include asserting liability, admissibility, or rights by matching statutory or common-law conditions to the scenario. This category does not include mere expressions of uncertainty or speculation, high-level planning of next steps, simple recall of definitions without applying them, or standalone statements of assumption.",
     "provenance": {
@@ -1237,13 +1237,13 @@
       "rating": 3,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence speculates about a legal status without firmly applying a rule to facts or drawing a definitive logical conclusion, thus it lacks the clear deductive inference required by the category.",
-      "timestamp": "2026-03-30T21:54:59.718247+00:00"
+      "timestamp": "2026-03-31T05:53:32.235557+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 54,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "The development company subdivided two parcels into 3,4,5-acre lots, which comply with the two-acre minimum.",
     "category_title": "Drawing Deductive Inferences",
     "category_description": "These sentences apply a specific legal rule or principle to the facts at hand and draw a logical conclusion, often signaled by connectors such as “so,” “therefore,” or “because.” They include asserting liability, admissibility, or rights by matching statutory or common-law conditions to the scenario. This category does not include mere expressions of uncertainty or speculation, high-level planning of next steps, simple recall of definitions without applying them, or standalone statements of assumption.",
     "provenance": {
@@ -1260,13 +1260,13 @@
       "rating": 6,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence applies a legal rule (two-acre minimum lot size) to specific facts (subdividing parcels into 3,4,5-acre lots) and concludes compliance, but it lacks explicit logical connectors like 'therefore' or 'so' and does not clearly state a drawn conclusion, making it a partial but not full example of drawing deductive inferences.",
-      "timestamp": "2026-03-30T21:54:59.718250+00:00"
+      "timestamp": "2026-03-31T05:53:32.235560+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 55,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Wait, so the survivor benefit is calculated based on the deceased's PIA.",
     "category_title": "Drawing Deductive Inferences",
     "category_description": "These sentences apply a specific legal rule or principle to the facts at hand and draw a logical conclusion, often signaled by connectors such as “so,” “therefore,” or “because.” They include asserting liability, admissibility, or rights by matching statutory or common-law conditions to the scenario. This category does not include mere expressions of uncertainty or speculation, high-level planning of next steps, simple recall of definitions without applying them, or standalone statements of assumption.",
     "provenance": {
@@ -1283,13 +1283,13 @@
       "rating": 8,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence uses 'so' to indicate a conclusion drawn from applying a rule about survivor benefits being based on the deceased's PIA, fitting the deductive inference role well despite the informal 'Wait' at the start.",
-      "timestamp": "2026-03-30T21:54:59.718253+00:00"
+      "timestamp": "2026-03-31T05:53:32.235562+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 56,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Therefore, the necessary finding would be that the jury must find beyond a reasonable doubt that the defendant possessed a deadly weapon.",
     "category_title": "Drawing Deductive Inferences",
     "category_description": "These sentences apply a specific legal rule or principle to the facts at hand and draw a logical conclusion, often signaled by connectors such as “so,” “therefore,” or “because.” They include asserting liability, admissibility, or rights by matching statutory or common-law conditions to the scenario. This category does not include mere expressions of uncertainty or speculation, high-level planning of next steps, simple recall of definitions without applying them, or standalone statements of assumption.",
     "provenance": {
@@ -1306,13 +1306,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence clearly applies a legal standard ('beyond a reasonable doubt') to a specific fact ('defendant possessed a deadly weapon') and draws a logical conclusion indicated by 'therefore,' perfectly exemplifying drawing deductive inferences as defined.",
-      "timestamp": "2026-03-30T21:54:59.718255+00:00"
+      "timestamp": "2026-03-31T05:53:32.235564+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 57,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Possible defenses could be mistake of fact (he thought it was legal), but that's unlikely here.",
     "category_title": "Drawing Deductive Inferences",
     "category_description": "These sentences apply a specific legal rule or principle to the facts at hand and draw a logical conclusion, often signaled by connectors such as “so,” “therefore,” or “because.” They include asserting liability, admissibility, or rights by matching statutory or common-law conditions to the scenario. This category does not include mere expressions of uncertainty or speculation, high-level planning of next steps, simple recall of definitions without applying them, or standalone statements of assumption.",
     "provenance": {
@@ -1329,13 +1329,13 @@
       "rating": 5,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence suggests a possible defense by applying the concept of mistake of fact to the scenario but hedges its likelihood, lacking a clear logical conclusion or explicit application of a legal rule to establish liability or rights, so it only partially fits the category.",
-      "timestamp": "2026-03-30T21:54:59.718258+00:00"
+      "timestamp": "2026-03-31T05:53:32.235567+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 58,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "So maybe the woman isn't liable for the damage because she didn't cause it intentionally or negligently.",
     "category_title": "Drawing Deductive Inferences",
     "category_description": "These sentences apply a specific legal rule or principle to the facts at hand and draw a logical conclusion, often signaled by connectors such as “so,” “therefore,” or “because.” They include asserting liability, admissibility, or rights by matching statutory or common-law conditions to the scenario. This category does not include mere expressions of uncertainty or speculation, high-level planning of next steps, simple recall of definitions without applying them, or standalone statements of assumption.",
     "provenance": {
@@ -1352,13 +1352,13 @@
       "rating": 8,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence uses 'so' and 'because' to apply a legal principle about liability based on intent or negligence to the facts, drawing a logical conclusion about the woman's liability, though the use of 'maybe' introduces some uncertainty.",
-      "timestamp": "2026-03-30T21:54:59.718260+00:00"
+      "timestamp": "2026-03-31T05:53:32.235569+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 59,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "So, if the harassment by the university staff was severe and pervasive, then the university could be liable.",
     "category_title": "Drawing Deductive Inferences",
     "category_description": "These sentences apply a specific legal rule or principle to the facts at hand and draw a logical conclusion, often signaled by connectors such as “so,” “therefore,” or “because.” They include asserting liability, admissibility, or rights by matching statutory or common-law conditions to the scenario. This category does not include mere expressions of uncertainty or speculation, high-level planning of next steps, simple recall of definitions without applying them, or standalone statements of assumption.",
     "provenance": {
@@ -1375,13 +1375,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence applies a legal condition (severe and pervasive harassment) to a fact pattern and draws a logical conclusion about liability, using 'so' to signal deduction, fitting well with the category's definition of drawing deductive inferences.",
-      "timestamp": "2026-03-30T21:54:59.718263+00:00"
+      "timestamp": "2026-03-31T05:53:32.235571+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 60,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Since the second ball is initially at rest, its initial momentum is zero.",
     "category_title": "Stating Known Equations",
     "category_description": "These sentences retrieve and state a standard mathematical or physical relationship from memory, usually introduced by phrases like “The formula is…,” “Recall that…,” or explicit equation names (e.g., Coulomb’s Law, Clausius–Clapeyron). They serve to supply a ready-made expression as a premise for subsequent calculation. This category includes verbatim presentation of canonical formulas with variable definitions. It does not include derivations of those formulas, numerical substitutions, planning or next-step statements, uncertainty hedges, or speculative hypotheses.",
     "provenance": {
@@ -1398,13 +1398,13 @@
       "rating": 4,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence states a fact about the initial momentum being zero due to the ball being at rest, but it does not explicitly present or recall a known equation or formula, so it only partially fits the category.",
-      "timestamp": "2026-03-30T21:54:59.718289+00:00"
+      "timestamp": "2026-03-31T05:53:32.235598+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 61,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "The spring constant k for a helical spring is given by:",
     "category_title": "Stating Known Equations",
     "category_description": "These sentences retrieve and state a standard mathematical or physical relationship from memory, usually introduced by phrases like “The formula is…,” “Recall that…,” or explicit equation names (e.g., Coulomb’s Law, Clausius–Clapeyron). They serve to supply a ready-made expression as a premise for subsequent calculation. This category includes verbatim presentation of canonical formulas with variable definitions. It does not include derivations of those formulas, numerical substitutions, planning or next-step statements, uncertainty hedges, or speculative hypotheses.",
     "provenance": {
@@ -1421,13 +1421,13 @@
       "rating": 8,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence introduces a known equation by stating the spring constant k is given by, which aligns well with the category of stating known equations, though it does not present the actual formula here.",
-      "timestamp": "2026-03-30T21:54:59.718291+00:00"
+      "timestamp": "2026-03-31T05:53:32.235601+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 62,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "First, I remember that there are tables or equations that relate temperature to saturation pressure.",
     "category_title": "Stating Known Equations",
     "category_description": "These sentences retrieve and state a standard mathematical or physical relationship from memory, usually introduced by phrases like “The formula is…,” “Recall that…,” or explicit equation names (e.g., Coulomb’s Law, Clausius–Clapeyron). They serve to supply a ready-made expression as a premise for subsequent calculation. This category includes verbatim presentation of canonical formulas with variable definitions. It does not include derivations of those formulas, numerical substitutions, planning or next-step statements, uncertainty hedges, or speculative hypotheses.",
     "provenance": {
@@ -1444,13 +1444,13 @@
       "rating": 5,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence indicates recalling the existence of tables or equations relating temperature to saturation pressure but does not explicitly state or present any specific equation or formula, so it only partially fits the category.",
-      "timestamp": "2026-03-30T21:54:59.718294+00:00"
+      "timestamp": "2026-03-31T05:53:32.235603+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 63,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Let me confirm: weight (W) = mass (m) * gravity (g).",
     "category_title": "Stating Known Equations",
     "category_description": "These sentences retrieve and state a standard mathematical or physical relationship from memory, usually introduced by phrases like “The formula is…,” “Recall that…,” or explicit equation names (e.g., Coulomb’s Law, Clausius–Clapeyron). They serve to supply a ready-made expression as a premise for subsequent calculation. This category includes verbatim presentation of canonical formulas with variable definitions. It does not include derivations of those formulas, numerical substitutions, planning or next-step statements, uncertainty hedges, or speculative hypotheses.",
     "provenance": {
@@ -1467,13 +1467,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly states a well-known physical equation with variable definitions, fitting the category of stating known equations perfectly despite the informal 'Let me confirm' preface.",
-      "timestamp": "2026-03-30T21:54:59.718296+00:00"
+      "timestamp": "2026-03-31T05:53:32.235606+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 64,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "The key point is that in a neutralization reaction, the equivalents of acid equal the equivalents of base.",
     "category_title": "Stating Known Equations",
     "category_description": "These sentences retrieve and state a standard mathematical or physical relationship from memory, usually introduced by phrases like “The formula is…,” “Recall that…,” or explicit equation names (e.g., Coulomb’s Law, Clausius–Clapeyron). They serve to supply a ready-made expression as a premise for subsequent calculation. This category includes verbatim presentation of canonical formulas with variable definitions. It does not include derivations of those formulas, numerical substitutions, planning or next-step statements, uncertainty hedges, or speculative hypotheses.",
     "provenance": {
@@ -1490,13 +1490,13 @@
       "rating": 8,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence states a standard chemical relationship in neutralization reactions, effectively presenting a known equation-like principle, though it is phrased conceptually rather than as a formal equation with variables; it aligns well with the category but lacks explicit formula notation.",
-      "timestamp": "2026-03-30T21:54:59.718298+00:00"
+      "timestamp": "2026-03-31T05:53:32.235608+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 65,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Kp = (P_NO₂ * P_NO) / P_N₂O₃",
     "category_title": "Stating Known Equations",
     "category_description": "These sentences retrieve and state a standard mathematical or physical relationship from memory, usually introduced by phrases like “The formula is…,” “Recall that…,” or explicit equation names (e.g., Coulomb’s Law, Clausius–Clapeyron). They serve to supply a ready-made expression as a premise for subsequent calculation. This category includes verbatim presentation of canonical formulas with variable definitions. It does not include derivations of those formulas, numerical substitutions, planning or next-step statements, uncertainty hedges, or speculative hypotheses.",
     "provenance": {
@@ -1513,13 +1513,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence presents a standard equilibrium constant expression as a known equation without derivation or additional commentary, perfectly matching the category of stating known equations.",
-      "timestamp": "2026-03-30T21:54:59.718301+00:00"
+      "timestamp": "2026-03-31T05:53:32.235611+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 66,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "The angular frequency ω is sqrt(k/m) for the original system.",
     "category_title": "Stating Known Equations",
     "category_description": "These sentences retrieve and state a standard mathematical or physical relationship from memory, usually introduced by phrases like “The formula is…,” “Recall that…,” or explicit equation names (e.g., Coulomb’s Law, Clausius–Clapeyron). They serve to supply a ready-made expression as a premise for subsequent calculation. This category includes verbatim presentation of canonical formulas with variable definitions. It does not include derivations of those formulas, numerical substitutions, planning or next-step statements, uncertainty hedges, or speculative hypotheses.",
     "provenance": {
@@ -1536,13 +1536,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence clearly states a known standard equation for angular frequency without derivation or speculation, perfectly matching the category of stating known equations.",
-      "timestamp": "2026-03-30T21:54:59.718303+00:00"
+      "timestamp": "2026-03-31T05:53:32.235613+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 67,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Multiply that number by the charge per atom (either positive or negative) to get the total charge.",
     "category_title": "Stating Known Equations",
     "category_description": "These sentences retrieve and state a standard mathematical or physical relationship from memory, usually introduced by phrases like “The formula is…,” “Recall that…,” or explicit equation names (e.g., Coulomb’s Law, Clausius–Clapeyron). They serve to supply a ready-made expression as a premise for subsequent calculation. This category includes verbatim presentation of canonical formulas with variable definitions. It does not include derivations of those formulas, numerical substitutions, planning or next-step statements, uncertainty hedges, or speculative hypotheses.",
     "provenance": {
@@ -1559,13 +1559,13 @@
       "rating": 3,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence instructs a procedural step to calculate total charge rather than stating a known equation or formula explicitly, so it does not fully match the category of stating known equations.",
-      "timestamp": "2026-03-30T21:54:59.718305+00:00"
+      "timestamp": "2026-03-31T05:53:32.235617+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 68,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "G_trans = RT ln(q_trans) - (3/2)RT ln(T) + (3/2)RT ln(R) - (3/2)RT ln(N_A) ?",
     "category_title": "Stating Known Equations",
     "category_description": "These sentences retrieve and state a standard mathematical or physical relationship from memory, usually introduced by phrases like “The formula is…,” “Recall that…,” or explicit equation names (e.g., Coulomb’s Law, Clausius–Clapeyron). They serve to supply a ready-made expression as a premise for subsequent calculation. This category includes verbatim presentation of canonical formulas with variable definitions. It does not include derivations of those formulas, numerical substitutions, planning or next-step statements, uncertainty hedges, or speculative hypotheses.",
     "provenance": {
@@ -1582,13 +1582,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence presents a specific equation in a clear, formulaic manner without derivation or speculation, fitting well the role of stating a known equation, though it lacks introductory phrasing like 'The formula is' but still serves the purpose effectively.",
-      "timestamp": "2026-03-30T21:54:59.718310+00:00"
+      "timestamp": "2026-03-31T05:53:32.235620+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 69,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "The formula for a vertical cylinder might involve the diameter D and the length L. Let me see.",
     "category_title": "Stating Known Equations",
     "category_description": "These sentences retrieve and state a standard mathematical or physical relationship from memory, usually introduced by phrases like “The formula is…,” “Recall that…,” or explicit equation names (e.g., Coulomb’s Law, Clausius–Clapeyron). They serve to supply a ready-made expression as a premise for subsequent calculation. This category includes verbatim presentation of canonical formulas with variable definitions. It does not include derivations of those formulas, numerical substitutions, planning or next-step statements, uncertainty hedges, or speculative hypotheses.",
     "provenance": {
@@ -1605,13 +1605,13 @@
       "rating": 2,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence hints at a formula involving diameter and length but does not explicitly state or retrieve a known equation; it is more speculative and preparatory than declarative, so it poorly fits the category of stating known equations.",
-      "timestamp": "2026-03-30T21:54:59.718314+00:00"
+      "timestamp": "2026-03-31T05:53:32.235622+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 70,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Sir Lancelot is climbing a ladder that's leaning against a castle wall.",
     "category_title": "Articulating the Next Subgoal",
     "category_description": "These sentences explicitly state the immediate task or question the reasoner will address next, effectively decomposing the overall problem into focused subgoals. They typically begin with phrases like “Okay, so I need to figure out which…,” “First, I need to recall…,” or “Now, I have to find…,” thereby framing the next reasoning step. This category does not include the actual execution of calculations or deductions, expressions of uncertainty without a clear subtask, or the recall of definitions without linking to a specific objective.",
     "provenance": {
@@ -1628,13 +1628,13 @@
       "rating": 1,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence describes an action being performed rather than explicitly stating the next subgoal or task to be addressed, so it does not fit the category of articulating the next subgoal.",
-      "timestamp": "2026-03-30T21:54:59.718317+00:00"
+      "timestamp": "2026-03-31T05:53:32.235625+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 71,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Okay, so I need to figure out the best course of action here.",
     "category_title": "Articulating the Next Subgoal",
     "category_description": "These sentences explicitly state the immediate task or question the reasoner will address next, effectively decomposing the overall problem into focused subgoals. They typically begin with phrases like “Okay, so I need to figure out which…,” “First, I need to recall…,” or “Now, I have to find…,” thereby framing the next reasoning step. This category does not include the actual execution of calculations or deductions, expressions of uncertainty without a clear subtask, or the recall of definitions without linking to a specific objective.",
     "provenance": {
@@ -1651,13 +1651,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly states the immediate task to determine the best course of action, clearly framing the next reasoning step and fitting well with the category's focus on articulating the next subgoal.",
-      "timestamp": "2026-03-30T21:54:59.718319+00:00"
+      "timestamp": "2026-03-31T05:53:32.235627+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 72,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "The phrase is \"3 fewer than a number, p.\"",
     "category_title": "Articulating the Next Subgoal",
     "category_description": "These sentences explicitly state the immediate task or question the reasoner will address next, effectively decomposing the overall problem into focused subgoals. They typically begin with phrases like “Okay, so I need to figure out which…,” “First, I need to recall…,” or “Now, I have to find…,” thereby framing the next reasoning step. This category does not include the actual execution of calculations or deductions, expressions of uncertainty without a clear subtask, or the recall of definitions without linking to a specific objective.",
     "provenance": {
@@ -1674,13 +1674,13 @@
       "rating": 1,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence simply states a phrase without indicating any next task or subgoal to be addressed, so it does not exemplify articulating the next subgoal as described.",
-      "timestamp": "2026-03-30T21:54:59.718322+00:00"
+      "timestamp": "2026-03-31T05:53:32.235629+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 73,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Now part (b) is asking for the cost of overhead for the housewares department, which has a labor cost of $5,340.",
     "category_title": "Articulating the Next Subgoal",
     "category_description": "These sentences explicitly state the immediate task or question the reasoner will address next, effectively decomposing the overall problem into focused subgoals. They typically begin with phrases like “Okay, so I need to figure out which…,” “First, I need to recall…,” or “Now, I have to find…,” thereby framing the next reasoning step. This category does not include the actual execution of calculations or deductions, expressions of uncertainty without a clear subtask, or the recall of definitions without linking to a specific objective.",
     "provenance": {
@@ -1697,13 +1697,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence clearly states the immediate subgoal by identifying the next specific task to find the overhead cost for the housewares department, fitting well with the category's requirement to articulate the next reasoning step without performing calculations.",
-      "timestamp": "2026-03-30T21:54:59.718324+00:00"
+      "timestamp": "2026-03-31T05:53:32.235631+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 74,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Let me start by recalling what I know about Barr bodies.",
     "category_title": "Articulating the Next Subgoal",
     "category_description": "These sentences explicitly state the immediate task or question the reasoner will address next, effectively decomposing the overall problem into focused subgoals. They typically begin with phrases like “Okay, so I need to figure out which…,” “First, I need to recall…,” or “Now, I have to find…,” thereby framing the next reasoning step. This category does not include the actual execution of calculations or deductions, expressions of uncertainty without a clear subtask, or the recall of definitions without linking to a specific objective.",
     "provenance": {
@@ -1720,13 +1720,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence clearly states the immediate task of recalling knowledge about Barr bodies as the next step in reasoning, explicitly framing the next subgoal, which aligns well with the category description.",
-      "timestamp": "2026-03-30T21:54:59.718326+00:00"
+      "timestamp": "2026-03-31T05:53:32.235634+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 75,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Okay, the user wants a skeletal format for C programs.",
     "category_title": "Articulating the Next Subgoal",
     "category_description": "These sentences explicitly state the immediate task or question the reasoner will address next, effectively decomposing the overall problem into focused subgoals. They typically begin with phrases like “Okay, so I need to figure out which…,” “First, I need to recall…,” or “Now, I have to find…,” thereby framing the next reasoning step. This category does not include the actual execution of calculations or deductions, expressions of uncertainty without a clear subtask, or the recall of definitions without linking to a specific objective.",
     "provenance": {
@@ -1743,13 +1743,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence clearly states the immediate task to be addressed next, explicitly framing the next subgoal as providing a skeletal format for C programs, which aligns well with the category description.",
-      "timestamp": "2026-03-30T21:54:59.718329+00:00"
+      "timestamp": "2026-03-31T05:53:32.235636+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 76,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Okay, so I need to find the voltage across a linear time-varying inductor where the inductance is given by L(t) = L₀(t + tanh t) and the current through it is i(t) = cos(ωt).",
     "category_title": "Articulating the Next Subgoal",
     "category_description": "These sentences explicitly state the immediate task or question the reasoner will address next, effectively decomposing the overall problem into focused subgoals. They typically begin with phrases like “Okay, so I need to figure out which…,” “First, I need to recall…,” or “Now, I have to find…,” thereby framing the next reasoning step. This category does not include the actual execution of calculations or deductions, expressions of uncertainty without a clear subtask, or the recall of definitions without linking to a specific objective.",
     "provenance": {
@@ -1766,13 +1766,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence clearly states the immediate task to find the voltage across a specific inductor given its time-varying inductance and current, explicitly framing the next subgoal without performing any calculations, perfectly matching the category description.",
-      "timestamp": "2026-03-30T21:54:59.718331+00:00"
+      "timestamp": "2026-03-31T05:53:32.235638+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 77,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "The question is about management.",
     "category_title": "Articulating the Next Subgoal",
     "category_description": "These sentences explicitly state the immediate task or question the reasoner will address next, effectively decomposing the overall problem into focused subgoals. They typically begin with phrases like “Okay, so I need to figure out which…,” “First, I need to recall…,” or “Now, I have to find…,” thereby framing the next reasoning step. This category does not include the actual execution of calculations or deductions, expressions of uncertainty without a clear subtask, or the recall of definitions without linking to a specific objective.",
     "provenance": {
@@ -1789,13 +1789,13 @@
       "rating": 3,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence identifies the topic but does not explicitly state the immediate task or subgoal to be addressed next, lacking the framing language typical of articulating a next subgoal.",
-      "timestamp": "2026-03-30T21:54:59.718334+00:00"
+      "timestamp": "2026-03-31T05:53:32.235643+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 78,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "So, r is 1.",
     "category_title": "Articulating the Next Subgoal",
     "category_description": "These sentences explicitly state the immediate task or question the reasoner will address next, effectively decomposing the overall problem into focused subgoals. They typically begin with phrases like “Okay, so I need to figure out which…,” “First, I need to recall…,” or “Now, I have to find…,” thereby framing the next reasoning step. This category does not include the actual execution of calculations or deductions, expressions of uncertainty without a clear subtask, or the recall of definitions without linking to a specific objective.",
     "provenance": {
@@ -1812,13 +1812,13 @@
       "rating": 2,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence states a conclusion or result rather than explicitly articulating the next subgoal or task to be addressed, so it does not fit the category of framing the next reasoning step.",
-      "timestamp": "2026-03-30T21:54:59.718336+00:00"
+      "timestamp": "2026-03-31T05:53:32.235646+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 79,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "First, the argument has two premises and a conclusion.",
     "category_title": "Articulating the Next Subgoal",
     "category_description": "These sentences explicitly state the immediate task or question the reasoner will address next, effectively decomposing the overall problem into focused subgoals. They typically begin with phrases like “Okay, so I need to figure out which…,” “First, I need to recall…,” or “Now, I have to find…,” thereby framing the next reasoning step. This category does not include the actual execution of calculations or deductions, expressions of uncertainty without a clear subtask, or the recall of definitions without linking to a specific objective.",
     "provenance": {
@@ -1835,13 +1835,13 @@
       "rating": 3,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence identifies components of the argument but does not explicitly state the next task or subgoal to be addressed, lacking the framing language typical of articulating the next subgoal.",
-      "timestamp": "2026-03-30T21:54:59.718338+00:00"
+      "timestamp": "2026-03-31T05:53:32.235648+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 80,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Let me add those up:",
     "category_title": "Planning Next Steps",
     "category_description": "These sentences explicitly lay out the reasoner’s immediate upcoming action or subtask in the solution process—whether a calculation, verification, structural organization, or information retrieval. They commonly begin with phrases like “Let me…,” “Wait,” “First…,” “Next…,” “Then…,” or “Suppose…,” signaling the next procedural move. Included are calls to compute values, check calculations, confirm formulas, draw diagrams, or outline solution structure. Not included are substantive domain content (e.g., actual formulas, definitions, hypotheses, or stated assumptions) or mere expressions of uncertainty without proposing a concrete next action.",
     "provenance": {
@@ -1858,13 +1858,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly signals the reasoner's immediate next action of performing a calculation, matching the category's description of planning the next procedural step.",
-      "timestamp": "2026-03-30T21:54:59.718341+00:00"
+      "timestamp": "2026-03-31T05:53:32.235650+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 81,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Let me check my notes.",
     "category_title": "Planning Next Steps",
     "category_description": "These sentences explicitly lay out the reasoner’s immediate upcoming action or subtask in the solution process—whether a calculation, verification, structural organization, or information retrieval. They commonly begin with phrases like “Let me…,” “Wait,” “First…,” “Next…,” “Then…,” or “Suppose…,” signaling the next procedural move. Included are calls to compute values, check calculations, confirm formulas, draw diagrams, or outline solution structure. Not included are substantive domain content (e.g., actual formulas, definitions, hypotheses, or stated assumptions) or mere expressions of uncertainty without proposing a concrete next action.",
     "provenance": {
@@ -1881,13 +1881,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly states the reasoner's immediate next action of checking notes, matching the category's requirement of signaling a concrete upcoming procedural step with a phrase like 'Let me...'.",
-      "timestamp": "2026-03-30T21:54:59.718343+00:00"
+      "timestamp": "2026-03-31T05:53:32.235653+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 82,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Let me write that down step by step.",
     "category_title": "Planning Next Steps",
     "category_description": "These sentences explicitly lay out the reasoner’s immediate upcoming action or subtask in the solution process—whether a calculation, verification, structural organization, or information retrieval. They commonly begin with phrases like “Let me…,” “Wait,” “First…,” “Next…,” “Then…,” or “Suppose…,” signaling the next procedural move. Included are calls to compute values, check calculations, confirm formulas, draw diagrams, or outline solution structure. Not included are substantive domain content (e.g., actual formulas, definitions, hypotheses, or stated assumptions) or mere expressions of uncertainty without proposing a concrete next action.",
     "provenance": {
@@ -1904,13 +1904,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly states the reasoner's immediate next action using the phrase 'Let me,' indicating a procedural step to write something down, perfectly matching the category's focus on planning next steps without including substantive content.",
-      "timestamp": "2026-03-30T21:54:59.718347+00:00"
+      "timestamp": "2026-03-31T05:53:32.235655+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 83,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Let me recall when their last survey was.",
     "category_title": "Planning Next Steps",
     "category_description": "These sentences explicitly lay out the reasoner’s immediate upcoming action or subtask in the solution process—whether a calculation, verification, structural organization, or information retrieval. They commonly begin with phrases like “Let me…,” “Wait,” “First…,” “Next…,” “Then…,” or “Suppose…,” signaling the next procedural move. Included are calls to compute values, check calculations, confirm formulas, draw diagrams, or outline solution structure. Not included are substantive domain content (e.g., actual formulas, definitions, hypotheses, or stated assumptions) or mere expressions of uncertainty without proposing a concrete next action.",
     "provenance": {
@@ -1927,13 +1927,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly states the reasoner's immediate next action to retrieve information, starting with 'Let me,' which perfectly aligns with the category's focus on planning the next procedural step without including substantive domain content.",
-      "timestamp": "2026-03-30T21:54:59.718349+00:00"
+      "timestamp": "2026-03-31T05:53:32.235657+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 84,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Let me think.",
     "category_title": "Planning Next Steps",
     "category_description": "These sentences explicitly lay out the reasoner’s immediate upcoming action or subtask in the solution process—whether a calculation, verification, structural organization, or information retrieval. They commonly begin with phrases like “Let me…,” “Wait,” “First…,” “Next…,” “Then…,” or “Suppose…,” signaling the next procedural move. Included are calls to compute values, check calculations, confirm formulas, draw diagrams, or outline solution structure. Not included are substantive domain content (e.g., actual formulas, definitions, hypotheses, or stated assumptions) or mere expressions of uncertainty without proposing a concrete next action.",
     "provenance": {
@@ -1950,13 +1950,13 @@
       "rating": 8,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence 'Let me think.' signals an immediate upcoming cognitive action, aligning well with the category's emphasis on phrases like 'Let me...' that indicate the next procedural move, though it is somewhat vague about the specific next step.",
-      "timestamp": "2026-03-30T21:54:59.718351+00:00"
+      "timestamp": "2026-03-31T05:53:32.235660+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 85,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "So plugging in the known values:",
     "category_title": "Planning Next Steps",
     "category_description": "These sentences explicitly lay out the reasoner’s immediate upcoming action or subtask in the solution process—whether a calculation, verification, structural organization, or information retrieval. They commonly begin with phrases like “Let me…,” “Wait,” “First…,” “Next…,” “Then…,” or “Suppose…,” signaling the next procedural move. Included are calls to compute values, check calculations, confirm formulas, draw diagrams, or outline solution structure. Not included are substantive domain content (e.g., actual formulas, definitions, hypotheses, or stated assumptions) or mere expressions of uncertainty without proposing a concrete next action.",
     "provenance": {
@@ -1973,13 +1973,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence clearly signals the reasoner's immediate next action of substituting known values into an expression, fitting well with the category of planning next steps as it outlines a concrete procedural move without including substantive domain content.",
-      "timestamp": "2026-03-30T21:54:59.718353+00:00"
+      "timestamp": "2026-03-31T05:53:32.235662+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 86,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Let me start by breaking down the scenario.",
     "category_title": "Planning Next Steps",
     "category_description": "These sentences explicitly lay out the reasoner’s immediate upcoming action or subtask in the solution process—whether a calculation, verification, structural organization, or information retrieval. They commonly begin with phrases like “Let me…,” “Wait,” “First…,” “Next…,” “Then…,” or “Suppose…,” signaling the next procedural move. Included are calls to compute values, check calculations, confirm formulas, draw diagrams, or outline solution structure. Not included are substantive domain content (e.g., actual formulas, definitions, hypotheses, or stated assumptions) or mere expressions of uncertainty without proposing a concrete next action.",
     "provenance": {
@@ -1996,13 +1996,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly signals the reasoner's immediate next action by indicating the start of breaking down the scenario, matching the category's requirement for stating the upcoming procedural step with a phrase like 'Let me...'.",
-      "timestamp": "2026-03-30T21:54:59.718356+00:00"
+      "timestamp": "2026-03-31T05:53:32.235665+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 87,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Let me write that again:",
     "category_title": "Planning Next Steps",
     "category_description": "These sentences explicitly lay out the reasoner’s immediate upcoming action or subtask in the solution process—whether a calculation, verification, structural organization, or information retrieval. They commonly begin with phrases like “Let me…,” “Wait,” “First…,” “Next…,” “Then…,” or “Suppose…,” signaling the next procedural move. Included are calls to compute values, check calculations, confirm formulas, draw diagrams, or outline solution structure. Not included are substantive domain content (e.g., actual formulas, definitions, hypotheses, or stated assumptions) or mere expressions of uncertainty without proposing a concrete next action.",
     "provenance": {
@@ -2019,13 +2019,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly signals the reasoner's immediate next action by indicating a repetition of a previous step, fitting well with the category's focus on planning the next procedural move.",
-      "timestamp": "2026-03-30T21:54:59.718359+00:00"
+      "timestamp": "2026-03-31T05:53:32.235667+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 88,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Hmm, I need to get this right.",
     "category_title": "Planning Next Steps",
     "category_description": "These sentences explicitly lay out the reasoner’s immediate upcoming action or subtask in the solution process—whether a calculation, verification, structural organization, or information retrieval. They commonly begin with phrases like “Let me…,” “Wait,” “First…,” “Next…,” “Then…,” or “Suppose…,” signaling the next procedural move. Included are calls to compute values, check calculations, confirm formulas, draw diagrams, or outline solution structure. Not included are substantive domain content (e.g., actual formulas, definitions, hypotheses, or stated assumptions) or mere expressions of uncertainty without proposing a concrete next action.",
     "provenance": {
@@ -2042,13 +2042,13 @@
       "rating": 2,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence expresses a desire to perform well but does not specify any concrete next action or subtask, so it does not meet the category's requirement of explicitly stating the immediate upcoming step.",
-      "timestamp": "2026-03-30T21:54:59.718362+00:00"
+      "timestamp": "2026-03-31T05:53:32.235671+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 89,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Let me check the history.",
     "category_title": "Planning Next Steps",
     "category_description": "These sentences explicitly lay out the reasoner’s immediate upcoming action or subtask in the solution process—whether a calculation, verification, structural organization, or information retrieval. They commonly begin with phrases like “Let me…,” “Wait,” “First…,” “Next…,” “Then…,” or “Suppose…,” signaling the next procedural move. Included are calls to compute values, check calculations, confirm formulas, draw diagrams, or outline solution structure. Not included are substantive domain content (e.g., actual formulas, definitions, hypotheses, or stated assumptions) or mere expressions of uncertainty without proposing a concrete next action.",
     "provenance": {
@@ -2065,13 +2065,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence explicitly states the reasoner's immediate next action, using the phrase 'Let me,' which aligns perfectly with the category's description of planning the next step in the reasoning process.",
-      "timestamp": "2026-03-30T21:54:59.718366+00:00"
+      "timestamp": "2026-03-31T05:53:32.235673+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 90,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "So yes, the War of 1812's financial crisis caused the formation of the Second Bank.",
     "category_title": "Presenting Conclusions",
     "category_description": "These sentences announce the resolved outcome of a reasoning step by succinctly stating the final answer or judgment, typically following calculations or logical deductions. They characteristically begin with discourse markers such as “Therefore,” “So,” or “I think,” and immediately specify a value, choice, or confirmation (e.g., “Therefore, the answer is urea,” “So the answer should be 25%,” “I feel confident that the answer is 24 bits”). This category includes explicit declarations of results and confidence in those results. It excludes expressions of uncertainty, planning or future steps, hypothesis generation, assumption stating, or recalls of definitions.",
     "provenance": {
@@ -2088,13 +2088,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence clearly presents a conclusion by using 'So' to introduce a resolved outcome linking the War of 1812's financial crisis to the formation of the Second Bank, matching the category's requirement for a succinct final judgment.",
-      "timestamp": "2026-03-30T21:54:59.718368+00:00"
+      "timestamp": "2026-03-31T05:53:32.235675+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 91,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "So yeah, the outer core is the source.",
     "category_title": "Presenting Conclusions",
     "category_description": "These sentences announce the resolved outcome of a reasoning step by succinctly stating the final answer or judgment, typically following calculations or logical deductions. They characteristically begin with discourse markers such as “Therefore,” “So,” or “I think,” and immediately specify a value, choice, or confirmation (e.g., “Therefore, the answer is urea,” “So the answer should be 25%,” “I feel confident that the answer is 24 bits”). This category includes explicit declarations of results and confidence in those results. It excludes expressions of uncertainty, planning or future steps, hypothesis generation, assumption stating, or recalls of definitions.",
     "provenance": {
@@ -2111,13 +2111,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence uses the discourse marker 'So' and succinctly states a final conclusion about the source of the outer core, fitting well with the category of presenting conclusions.",
-      "timestamp": "2026-03-30T21:54:59.718370+00:00"
+      "timestamp": "2026-03-31T05:53:32.235678+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 92,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Therefore, the answer is S(10,4).",
     "category_title": "Presenting Conclusions",
     "category_description": "These sentences announce the resolved outcome of a reasoning step by succinctly stating the final answer or judgment, typically following calculations or logical deductions. They characteristically begin with discourse markers such as “Therefore,” “So,” or “I think,” and immediately specify a value, choice, or confirmation (e.g., “Therefore, the answer is urea,” “So the answer should be 25%,” “I feel confident that the answer is 24 bits”). This category includes explicit declarations of results and confidence in those results. It excludes expressions of uncertainty, planning or future steps, hypothesis generation, assumption stating, or recalls of definitions.",
     "provenance": {
@@ -2134,13 +2134,13 @@
       "rating": 10,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence clearly presents a final conclusion using the discourse marker 'Therefore' followed by a specific answer, perfectly matching the category's requirement for succinctly stating the resolved outcome after reasoning.",
-      "timestamp": "2026-03-30T21:54:59.718373+00:00"
+      "timestamp": "2026-03-31T05:53:32.235680+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 93,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "So these two can't be used for gluconeogenesis because their carbon skeletons become acetyl-CoA, which can't be converted back into glucose.",
     "category_title": "Presenting Conclusions",
     "category_description": "These sentences announce the resolved outcome of a reasoning step by succinctly stating the final answer or judgment, typically following calculations or logical deductions. They characteristically begin with discourse markers such as “Therefore,” “So,” or “I think,” and immediately specify a value, choice, or confirmation (e.g., “Therefore, the answer is urea,” “So the answer should be 25%,” “I feel confident that the answer is 24 bits”). This category includes explicit declarations of results and confidence in those results. It excludes expressions of uncertainty, planning or future steps, hypothesis generation, assumption stating, or recalls of definitions.",
     "provenance": {
@@ -2157,13 +2157,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence clearly presents a conclusion by stating why two compounds cannot be used for gluconeogenesis, starting with 'So' and providing a definitive reason, which aligns well with the category description of presenting resolved outcomes.",
-      "timestamp": "2026-03-30T21:54:59.718375+00:00"
+      "timestamp": "2026-03-31T05:53:32.235683+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 94,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "The commonly used approximation is 300,000 km/s or 3 x 10^8 m/s. \n\nLet me see if there's another way to express it.",
     "category_title": "Presenting Conclusions",
     "category_description": "These sentences announce the resolved outcome of a reasoning step by succinctly stating the final answer or judgment, typically following calculations or logical deductions. They characteristically begin with discourse markers such as “Therefore,” “So,” or “I think,” and immediately specify a value, choice, or confirmation (e.g., “Therefore, the answer is urea,” “So the answer should be 25%,” “I feel confident that the answer is 24 bits”). This category includes explicit declarations of results and confidence in those results. It excludes expressions of uncertainty, planning or future steps, hypothesis generation, assumption stating, or recalls of definitions.",
     "provenance": {
@@ -2180,13 +2180,13 @@
       "rating": 8,
       "model": "gpt-4.1-mini",
       "explanation": "The first sentence clearly presents a conclusion by stating the commonly accepted approximate value of the speed of light, fitting the category well; however, the second sentence expresses uncertainty and intent to explore alternatives, which does not match the category, so overall the fit is strong but not perfect.",
-      "timestamp": "2026-03-30T21:54:59.718378+00:00"
+      "timestamp": "2026-03-31T05:53:32.235685+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 95,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "So I think volatility clustering (iii) is definitely something GARCH(1,1) can capture.",
     "category_title": "Presenting Conclusions",
     "category_description": "These sentences announce the resolved outcome of a reasoning step by succinctly stating the final answer or judgment, typically following calculations or logical deductions. They characteristically begin with discourse markers such as “Therefore,” “So,” or “I think,” and immediately specify a value, choice, or confirmation (e.g., “Therefore, the answer is urea,” “So the answer should be 25%,” “I feel confident that the answer is 24 bits”). This category includes explicit declarations of results and confidence in those results. It excludes expressions of uncertainty, planning or future steps, hypothesis generation, assumption stating, or recalls of definitions.",
     "provenance": {
@@ -2203,13 +2203,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence clearly presents a conclusion by stating a confident judgment about GARCH(1,1)'s ability to capture volatility clustering, beginning with 'So I think' and providing a definitive answer, matching the category well.",
-      "timestamp": "2026-03-30T21:54:59.718380+00:00"
+      "timestamp": "2026-03-31T05:53:32.235687+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 96,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "So if I can find kl, then I can square it to get A. That's a key insight.",
     "category_title": "Presenting Conclusions",
     "category_description": "These sentences announce the resolved outcome of a reasoning step by succinctly stating the final answer or judgment, typically following calculations or logical deductions. They characteristically begin with discourse markers such as “Therefore,” “So,” or “I think,” and immediately specify a value, choice, or confirmation (e.g., “Therefore, the answer is urea,” “So the answer should be 25%,” “I feel confident that the answer is 24 bits”). This category includes explicit declarations of results and confidence in those results. It excludes expressions of uncertainty, planning or future steps, hypothesis generation, assumption stating, or recalls of definitions.",
     "provenance": {
@@ -2226,13 +2226,13 @@
       "rating": 8,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence uses 'So' to introduce a conclusion about squaring kl to get A and calls it a key insight, which aligns well with presenting a resolved outcome, though it is slightly less direct in stating a final answer and includes a minor element of explanation.",
-      "timestamp": "2026-03-30T21:54:59.718382+00:00"
+      "timestamp": "2026-03-31T05:53:32.235690+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 97,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "So that's the breakdown slip.",
     "category_title": "Presenting Conclusions",
     "category_description": "These sentences announce the resolved outcome of a reasoning step by succinctly stating the final answer or judgment, typically following calculations or logical deductions. They characteristically begin with discourse markers such as “Therefore,” “So,” or “I think,” and immediately specify a value, choice, or confirmation (e.g., “Therefore, the answer is urea,” “So the answer should be 25%,” “I feel confident that the answer is 24 bits”). This category includes explicit declarations of results and confidence in those results. It excludes expressions of uncertainty, planning or future steps, hypothesis generation, assumption stating, or recalls of definitions.",
     "provenance": {
@@ -2249,13 +2249,13 @@
       "rating": 4,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence uses 'So' as a discourse marker and appears to present a conclusion by identifying 'the breakdown slip,' but it lacks an explicit final answer, value, or judgment derived from reasoning, making it a weak example of presenting conclusions.",
-      "timestamp": "2026-03-30T21:54:59.718385+00:00"
+      "timestamp": "2026-03-31T05:53:32.235692+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 98,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "Yep, so the formula is correct.",
     "category_title": "Presenting Conclusions",
     "category_description": "These sentences announce the resolved outcome of a reasoning step by succinctly stating the final answer or judgment, typically following calculations or logical deductions. They characteristically begin with discourse markers such as “Therefore,” “So,” or “I think,” and immediately specify a value, choice, or confirmation (e.g., “Therefore, the answer is urea,” “So the answer should be 25%,” “I feel confident that the answer is 24 bits”). This category includes explicit declarations of results and confidence in those results. It excludes expressions of uncertainty, planning or future steps, hypothesis generation, assumption stating, or recalls of definitions.",
     "provenance": {
@@ -2272,13 +2272,13 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence clearly announces a resolved outcome by confirming the correctness of the formula, starting with the discourse marker 'so,' which aligns well with presenting a conclusion as defined in the category.",
-      "timestamp": "2026-03-30T21:54:59.718387+00:00"
+      "timestamp": "2026-03-31T05:53:32.235695+00:00"
     },
     "human_labels": {}
   },
   {
     "row_id": 99,
-    "sentence": "I should probably ask to see a copy of the release form to confirm that it's valid.",
+    "sentence": "So the number of entries (rows) is purely based on the number of inputs.",
     "category_title": "Presenting Conclusions",
     "category_description": "These sentences announce the resolved outcome of a reasoning step by succinctly stating the final answer or judgment, typically following calculations or logical deductions. They characteristically begin with discourse markers such as “Therefore,” “So,” or “I think,” and immediately specify a value, choice, or confirmation (e.g., “Therefore, the answer is urea,” “So the answer should be 25%,” “I feel confident that the answer is 24 bits”). This category includes explicit declarations of results and confidence in those results. It excludes expressions of uncertainty, planning or future steps, hypothesis generation, assumption stating, or recalls of definitions.",
     "provenance": {
@@ -2295,7 +2295,7 @@
       "rating": 9,
       "model": "gpt-4.1-mini",
       "explanation": "The sentence uses 'So' to introduce a conclusion and clearly states a resolved outcome about the number of entries being based on inputs, fitting well with the category of presenting conclusions.",
-      "timestamp": "2026-03-30T21:54:59.718389+00:00"
+      "timestamp": "2026-03-31T05:53:32.235698+00:00"
     },
     "human_labels": {}
   }
