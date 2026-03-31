@@ -25,7 +25,12 @@
       "timestamp": "2026-03-30T21:55:00.065979+00:00"
     },
     "row_id": 0,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:12:17.716757+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -53,7 +58,12 @@
       "timestamp": "2026-03-30T21:54:59.906970+00:00"
     },
     "row_id": 1,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:12:32.030726+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -81,7 +91,12 @@
       "timestamp": "2026-03-30T21:54:59.906900+00:00"
     },
     "row_id": 2,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:15:08.909155+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -109,7 +124,12 @@
       "timestamp": "2026-03-30T21:54:59.906927+00:00"
     },
     "row_id": 3,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:15:11.495512+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -137,7 +157,12 @@
       "timestamp": "2026-03-30T21:55:00.066323+00:00"
     },
     "row_id": 4,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:15:24.955691+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -165,7 +190,12 @@
       "timestamp": "2026-03-30T21:54:59.906963+00:00"
     },
     "row_id": 5,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:15:45.888628+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -193,7 +223,12 @@
       "timestamp": "2026-03-30T21:54:59.906957+00:00"
     },
     "row_id": 6,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:15:49.091601+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -221,7 +256,12 @@
       "timestamp": "2026-03-30T21:54:59.907008+00:00"
     },
     "row_id": 7,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 4,
+        "timestamp": "2026-03-31T06:16:42.258197+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -249,7 +289,12 @@
       "timestamp": "2026-03-30T21:54:59.906967+00:00"
     },
     "row_id": 8,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 3,
+        "timestamp": "2026-03-31T06:17:05.878288+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -277,7 +322,12 @@
       "timestamp": "2026-03-30T21:55:00.066443+00:00"
     },
     "row_id": 9,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:17:12.414344+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -305,7 +355,12 @@
       "timestamp": "2026-03-30T21:55:00.066351+00:00"
     },
     "row_id": 10,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 6,
+        "timestamp": "2026-03-31T06:17:40.412213+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -333,7 +388,12 @@
       "timestamp": "2026-03-30T21:55:00.066439+00:00"
     },
     "row_id": 11,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:17:57.206790+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -361,7 +421,12 @@
       "timestamp": "2026-03-30T21:55:00.066314+00:00"
     },
     "row_id": 12,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:18:04.579256+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -389,7 +454,12 @@
       "timestamp": "2026-03-30T21:54:59.907028+00:00"
     },
     "row_id": 13,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:18:16.990439+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -417,7 +487,12 @@
       "timestamp": "2026-03-30T21:54:59.907021+00:00"
     },
     "row_id": 14,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:18:48.999470+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -445,7 +520,12 @@
       "timestamp": "2026-03-30T21:54:59.906896+00:00"
     },
     "row_id": 15,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:19:07.595336+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -473,7 +553,12 @@
       "timestamp": "2026-03-30T21:55:00.066368+00:00"
     },
     "row_id": 16,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 2,
+        "timestamp": "2026-03-31T06:19:07.906240+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -501,7 +586,12 @@
       "timestamp": "2026-03-30T21:55:00.066468+00:00"
     },
     "row_id": 17,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:19:24.936659+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -529,7 +619,12 @@
       "timestamp": "2026-03-30T21:54:59.906983+00:00"
     },
     "row_id": 18,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 2,
+        "timestamp": "2026-03-31T06:19:25.248627+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -557,7 +652,12 @@
       "timestamp": "2026-03-30T21:54:59.906888+00:00"
     },
     "row_id": 19,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 2,
+        "timestamp": "2026-03-31T06:22:54.009165+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -585,7 +685,12 @@
       "timestamp": "2026-03-30T21:55:00.065997+00:00"
     },
     "row_id": 20,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:23:14.446262+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -613,7 +718,12 @@
       "timestamp": "2026-03-30T21:55:00.065958+00:00"
     },
     "row_id": 21,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:24:08.589821+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -641,7 +751,12 @@
       "timestamp": "2026-03-30T21:54:59.906882+00:00"
     },
     "row_id": 22,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:24:10.775834+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -669,7 +784,12 @@
       "timestamp": "2026-03-30T21:55:00.066456+00:00"
     },
     "row_id": 23,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:24:12.892202+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -697,7 +817,12 @@
       "timestamp": "2026-03-30T21:55:00.066658+00:00"
     },
     "row_id": 24,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:24:14.845426+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -725,7 +850,12 @@
       "timestamp": "2026-03-30T21:55:00.065965+00:00"
     },
     "row_id": 25,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:24:20.699833+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -753,7 +883,12 @@
       "timestamp": "2026-03-30T21:54:59.906892+00:00"
     },
     "row_id": 26,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:24:23.275391+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -781,7 +916,12 @@
       "timestamp": "2026-03-30T21:55:00.066572+00:00"
     },
     "row_id": 27,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:24:27.235792+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -809,7 +949,12 @@
       "timestamp": "2026-03-30T21:54:59.906934+00:00"
     },
     "row_id": 28,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 4,
+        "timestamp": "2026-03-31T06:24:35.695240+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -837,7 +982,12 @@
       "timestamp": "2026-03-30T21:54:59.907002+00:00"
     },
     "row_id": 29,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:24:42.857214+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -865,7 +1015,12 @@
       "timestamp": "2026-03-30T21:54:59.907005+00:00"
     },
     "row_id": 30,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:24:46.602847+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -893,7 +1048,12 @@
       "timestamp": "2026-03-30T21:55:00.066413+00:00"
     },
     "row_id": 31,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 9,
+        "timestamp": "2026-03-31T06:25:06.979817+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -921,7 +1081,12 @@
       "timestamp": "2026-03-30T21:55:00.066409+00:00"
     },
     "row_id": 32,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 9,
+        "timestamp": "2026-03-31T06:25:17.131354+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -949,7 +1114,12 @@
       "timestamp": "2026-03-30T21:54:59.906960+00:00"
     },
     "row_id": 33,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:25:34.382117+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -977,7 +1147,12 @@
       "timestamp": "2026-03-30T21:54:59.906914+00:00"
     },
     "row_id": 34,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:25:36.176542+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1005,7 +1180,12 @@
       "timestamp": "2026-03-30T21:54:59.906924+00:00"
     },
     "row_id": 35,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:26:42.878321+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1033,7 +1213,12 @@
       "timestamp": "2026-03-30T21:54:59.907012+00:00"
     },
     "row_id": 36,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:26:47.110420+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1061,7 +1246,12 @@
       "timestamp": "2026-03-30T21:55:00.065969+00:00"
     },
     "row_id": 37,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:26:50.351621+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1089,7 +1279,12 @@
       "timestamp": "2026-03-30T21:55:00.066529+00:00"
     },
     "row_id": 38,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:26:53.122078+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1117,7 +1312,12 @@
       "timestamp": "2026-03-30T21:55:00.066008+00:00"
     },
     "row_id": 39,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:27:05.973829+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1145,7 +1345,12 @@
       "timestamp": "2026-03-30T21:55:00.066131+00:00"
     },
     "row_id": 40,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T06:27:21.784687+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1173,7 +1378,12 @@
       "timestamp": "2026-03-30T21:55:00.066381+00:00"
     },
     "row_id": 41,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 3,
+        "timestamp": "2026-03-31T06:27:33.032302+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1201,7 +1411,12 @@
       "timestamp": "2026-03-30T21:54:59.906937+00:00"
     },
     "row_id": 42,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:27:39.429771+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1229,7 +1444,12 @@
       "timestamp": "2026-03-30T21:55:00.066123+00:00"
     },
     "row_id": 43,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:27:42.577059+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1257,7 +1477,12 @@
       "timestamp": "2026-03-30T21:54:59.906980+00:00"
     },
     "row_id": 44,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:27:49.713179+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1285,7 +1510,12 @@
       "timestamp": "2026-03-30T21:54:59.906917+00:00"
     },
     "row_id": 45,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:27:56.956289+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1313,7 +1543,12 @@
       "timestamp": "2026-03-30T21:55:00.066028+00:00"
     },
     "row_id": 46,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:29:38.712378+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1341,7 +1576,12 @@
       "timestamp": "2026-03-30T21:55:00.066024+00:00"
     },
     "row_id": 47,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:29:41.416794+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1369,7 +1609,12 @@
       "timestamp": "2026-03-30T21:55:00.066513+00:00"
     },
     "row_id": 48,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:29:43.769492+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1397,7 +1642,12 @@
       "timestamp": "2026-03-30T21:54:59.906953+00:00"
     },
     "row_id": 49,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:29:46.286895+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1425,7 +1675,12 @@
       "timestamp": "2026-03-30T21:54:59.907018+00:00"
     },
     "row_id": 50,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:29:48.167836+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1453,7 +1708,12 @@
       "timestamp": "2026-03-30T21:55:00.066372+00:00"
     },
     "row_id": 51,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:29:51.032699+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1481,7 +1741,12 @@
       "timestamp": "2026-03-30T21:55:00.066271+00:00"
     },
     "row_id": 52,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:30:02.119242+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1509,7 +1774,12 @@
       "timestamp": "2026-03-30T21:55:00.066149+00:00"
     },
     "row_id": 53,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 4,
+        "timestamp": "2026-03-31T06:30:15.330408+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1537,7 +1807,12 @@
       "timestamp": "2026-03-30T21:54:59.906996+00:00"
     },
     "row_id": 54,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:30:19.439839+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1565,7 +1840,12 @@
       "timestamp": "2026-03-30T21:55:00.066180+00:00"
     },
     "row_id": 55,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:30:39.881222+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1593,7 +1873,12 @@
       "timestamp": "2026-03-30T21:54:59.906907+00:00"
     },
     "row_id": 56,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T06:30:58.069364+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1621,7 +1906,12 @@
       "timestamp": "2026-03-30T21:55:00.066631+00:00"
     },
     "row_id": 57,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:31:03.941418+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1649,7 +1939,12 @@
       "timestamp": "2026-03-30T21:54:59.907024+00:00"
     },
     "row_id": 58,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 3,
+        "timestamp": "2026-03-31T06:31:17.532466+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1677,7 +1972,12 @@
       "timestamp": "2026-03-30T21:54:59.906861+00:00"
     },
     "row_id": 59,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 5,
+        "timestamp": "2026-03-31T06:31:25.976589+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1705,7 +2005,12 @@
       "timestamp": "2026-03-30T21:55:00.066479+00:00"
     },
     "row_id": 60,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:31:28.877275+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1733,7 +2038,12 @@
       "timestamp": "2026-03-30T21:54:59.906999+00:00"
     },
     "row_id": 61,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:31:33.386554+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1761,7 +2071,12 @@
       "timestamp": "2026-03-30T21:55:00.066355+00:00"
     },
     "row_id": 62,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 3,
+        "timestamp": "2026-03-31T06:31:42.724730+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1789,7 +2104,12 @@
       "timestamp": "2026-03-30T21:54:59.906989+00:00"
     },
     "row_id": 63,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:32:05.937744+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1817,7 +2137,12 @@
       "timestamp": "2026-03-30T21:55:00.066418+00:00"
     },
     "row_id": 64,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:32:08.899514+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1845,7 +2170,12 @@
       "timestamp": "2026-03-30T21:55:00.065976+00:00"
     },
     "row_id": 65,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:32:12.948206+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1873,7 +2203,12 @@
       "timestamp": "2026-03-30T21:55:00.066640+00:00"
     },
     "row_id": 66,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:32:17.280941+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1901,7 +2236,12 @@
       "timestamp": "2026-03-30T21:54:59.906911+00:00"
     },
     "row_id": 67,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:32:45.621339+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1929,7 +2269,12 @@
       "timestamp": "2026-03-30T21:55:00.066276+00:00"
     },
     "row_id": 68,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:32:54.356497+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1957,7 +2302,12 @@
       "timestamp": "2026-03-30T21:54:59.906950+00:00"
     },
     "row_id": 69,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:32:57.295191+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -1985,7 +2335,12 @@
       "timestamp": "2026-03-30T21:54:59.906947+00:00"
     },
     "row_id": 70,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:33:17.712342+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2013,7 +2368,12 @@
       "timestamp": "2026-03-30T21:54:59.906931+00:00"
     },
     "row_id": 71,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 4,
+        "timestamp": "2026-03-31T06:33:22.178594+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2041,7 +2401,12 @@
       "timestamp": "2026-03-30T21:54:59.906903+00:00"
     },
     "row_id": 72,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 7,
+        "timestamp": "2026-03-31T06:33:27.352432+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2069,7 +2434,12 @@
       "timestamp": "2026-03-30T21:54:59.906921+00:00"
     },
     "row_id": 73,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 3,
+        "timestamp": "2026-03-31T06:33:33.911384+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2097,7 +2467,12 @@
       "timestamp": "2026-03-30T21:55:00.066474+00:00"
     },
     "row_id": 74,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:33:42.598117+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2125,7 +2500,12 @@
       "timestamp": "2026-03-30T21:55:00.066422+00:00"
     },
     "row_id": 75,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 7,
+        "timestamp": "2026-03-31T06:33:48.093252+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2153,7 +2533,12 @@
       "timestamp": "2026-03-30T21:55:00.065987+00:00"
     },
     "row_id": 76,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 4,
+        "timestamp": "2026-03-31T06:33:59.861215+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2181,7 +2566,12 @@
       "timestamp": "2026-03-30T21:54:59.906976+00:00"
     },
     "row_id": 77,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 2,
+        "timestamp": "2026-03-31T06:34:13.522970+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2209,7 +2599,12 @@
       "timestamp": "2026-03-30T21:55:00.066262+00:00"
     },
     "row_id": 78,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 2,
+        "timestamp": "2026-03-31T06:34:20.468435+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2237,7 +2632,12 @@
       "timestamp": "2026-03-30T21:55:00.065940+00:00"
     },
     "row_id": 79,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:34:25.341617+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2265,7 +2665,12 @@
       "timestamp": "2026-03-30T21:55:00.066138+00:00"
     },
     "row_id": 80,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:34:27.734141+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2293,7 +2698,12 @@
       "timestamp": "2026-03-30T21:55:00.066494+00:00"
     },
     "row_id": 81,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:34:32.403383+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2321,7 +2731,12 @@
       "timestamp": "2026-03-30T21:55:00.066524+00:00"
     },
     "row_id": 82,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:34:35.982505+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2349,7 +2764,12 @@
       "timestamp": "2026-03-30T21:55:00.066145+00:00"
     },
     "row_id": 83,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:34:39.759255+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2377,7 +2797,12 @@
       "timestamp": "2026-03-30T21:55:00.066103+00:00"
     },
     "row_id": 84,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 7,
+        "timestamp": "2026-03-31T06:34:52.332395+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2405,7 +2830,12 @@
       "timestamp": "2026-03-30T21:55:00.066018+00:00"
     },
     "row_id": 85,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:34:55.628877+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2433,7 +2863,12 @@
       "timestamp": "2026-03-30T21:54:59.906986+00:00"
     },
     "row_id": 86,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 9,
+        "timestamp": "2026-03-31T06:35:03.835021+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2461,7 +2896,12 @@
       "timestamp": "2026-03-30T21:54:59.906940+00:00"
     },
     "row_id": 87,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:35:08.558415+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2489,7 +2929,12 @@
       "timestamp": "2026-03-30T21:54:59.906993+00:00"
     },
     "row_id": 88,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:35:12.381993+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2517,7 +2962,12 @@
       "timestamp": "2026-03-30T21:54:59.906943+00:00"
     },
     "row_id": 89,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:35:15.022746+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2545,7 +2995,12 @@
       "timestamp": "2026-03-30T21:55:00.066255+00:00"
     },
     "row_id": 90,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 3,
+        "timestamp": "2026-03-31T06:35:31.854069+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2573,7 +3028,12 @@
       "timestamp": "2026-03-30T21:55:00.066309+00:00"
     },
     "row_id": 91,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:35:36.426742+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2601,7 +3061,12 @@
       "timestamp": "2026-03-30T21:55:00.066363+00:00"
     },
     "row_id": 92,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:35:42.215382+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2629,7 +3094,12 @@
       "timestamp": "2026-03-30T21:55:00.066134+00:00"
     },
     "row_id": 93,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:35:45.512753+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2657,7 +3127,12 @@
       "timestamp": "2026-03-30T21:55:00.066287+00:00"
     },
     "row_id": 94,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:35:53.942954+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2685,7 +3160,12 @@
       "timestamp": "2026-03-30T21:55:00.066281+00:00"
     },
     "row_id": 95,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:35:56.210654+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2713,7 +3193,12 @@
       "timestamp": "2026-03-30T21:54:59.907015+00:00"
     },
     "row_id": 96,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:36:00.367662+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2741,7 +3226,12 @@
       "timestamp": "2026-03-30T21:55:00.066224+00:00"
     },
     "row_id": 97,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 2,
+        "timestamp": "2026-03-31T06:36:06.368020+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2769,7 +3259,12 @@
       "timestamp": "2026-03-30T21:55:00.066387+00:00"
     },
     "row_id": 98,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:36:09.327897+00:00"
+      }
+    }
   },
   {
     "category_1": {
@@ -2797,6 +3292,11 @@
       "timestamp": "2026-03-30T21:54:59.906973+00:00"
     },
     "row_id": 99,
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 3,
+        "timestamp": "2026-03-31T06:36:14.002916+00:00"
+      }
+    }
   }
 ]

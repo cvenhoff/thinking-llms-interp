@@ -30,12 +30,22 @@ def now_iso():
 
 
 def get_keypress():
-    """Read a single keypress without requiring Enter."""
+    """Read a single keypress without requiring Enter. Consumes escape sequences fully."""
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
     try:
         tty.setraw(fd)
         ch = sys.stdin.read(1)
+        # If escape byte, consume the rest of the escape sequence so its
+        # trailing characters (which may include digits) aren't mistaken
+        # for user input.
+        if ch == "\x1b":
+            import select
+            # Read all bytes that follow within 50ms (the escape sequence)
+            while select.select([fd], [], [], 0.05)[0]:
+                sys.stdin.read(1)
+            # Return a sentinel that no input handler will match
+            return "\x1b"
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
     # Handle Ctrl+C
