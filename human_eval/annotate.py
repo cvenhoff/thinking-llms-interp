@@ -98,8 +98,17 @@ def clear_screen():
     sys.stdout.flush()
 
 
-def wrap_text(text, width=70, indent=2):
-    """Simple word-wrap with indent."""
+def get_terminal_width():
+    try:
+        return os.get_terminal_size().columns
+    except OSError:
+        return 120
+
+
+def wrap_text(text, width=None, indent=2):
+    """Simple word-wrap with indent. Uses terminal width by default."""
+    if width is None:
+        width = get_terminal_width() - 2
     indent_str = " " * indent
     words = text.split()
     lines = []
@@ -177,8 +186,9 @@ def display_judge_d(row, idx, total):
     print(f'Correct answer: {row["correct_answer"]}')
     print()
     response = row["model_response"]
-    if len(response) > 2000:
-        response = response[:2000] + "\n  [...truncated...]"
+    answer = row["correct_answer"].strip()
+    if answer and answer in response:
+        response = response.replace(answer, f"\033[1;32m{answer}\033[0m")
     print(f'Model response ({row["provenance"]["model_type"]}):')
     print(wrap_text(response))
     print()
