@@ -20,7 +20,12 @@
       "explanation": "The sentence explicitly reconsiders the framing of the tax treatment of R&D costs by introducing a possible alternative scenario (amortization if resulting in a patent), using pivot words like 'Wait' and 'but maybe,' which aligns well with adjusting problem framing as it reshapes the understanding of the question's scope.",
       "timestamp": "2026-03-31T05:53:32.235393+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T05:54:20.109108+00:00"
+      }
+    }
   },
   {
     "row_id": 1,
@@ -43,7 +48,12 @@
       "explanation": "The sentence proposes an alternative framing of the problem by suggesting a different context (loss of a pet), which aligns well with the category of adjusting problem framing through reinterpreting the question's scope.",
       "timestamp": "2026-03-31T05:53:32.235414+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T05:54:28.121906+00:00"
+      }
+    }
   },
   {
     "row_id": 2,
@@ -66,7 +76,12 @@
       "explanation": "The sentence 'So which of these contributes the most?' reframes the problem by questioning which element has the greatest impact, thus adjusting the problem's focus and inviting reconsideration of the question's scope, fitting well with the category description.",
       "timestamp": "2026-03-31T05:53:32.235418+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 6,
+        "timestamp": "2026-03-31T05:54:39.497521+00:00"
+      }
+    }
   },
   {
     "row_id": 3,
@@ -89,7 +104,12 @@
       "explanation": "The sentence questions the necessity of certain information for solving the problem, effectively revisiting and potentially reshaping the problem framing by challenging what is required, which aligns well with the category description.",
       "timestamp": "2026-03-31T05:53:32.235422+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T05:54:43.940139+00:00"
+      }
+    }
   },
   {
     "row_id": 4,
@@ -112,7 +132,12 @@
       "explanation": "The sentence proposes a reframing of the problem by suggesting that the main effect might be the exchange rate and trade balance, which aligns well with the category's focus on revisiting and reshaping the problem framing using a pivot phrase like 'So maybe'.",
       "timestamp": "2026-03-31T05:53:32.235424+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T05:54:55.451701+00:00"
+      }
+    }
   },
   {
     "row_id": 5,
@@ -135,7 +160,12 @@
       "explanation": "The sentence explicitly reconsiders the framing of the problem by introducing an alternative context (using Fahrenheit in property tables), starting with 'Wait,' which aligns well with the category's focus on reshaping understanding or assumptions before proceeding.",
       "timestamp": "2026-03-31T05:53:32.235427+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 7,
+        "timestamp": "2026-03-31T05:55:00.912790+00:00"
+      }
+    }
   },
   {
     "row_id": 6,
@@ -158,7 +188,12 @@
       "explanation": "The sentence explicitly introduces an alternative framing of the problem by suggesting a different interpretation of the option and its implications, fitting well with the category of adjusting problem framing.",
       "timestamp": "2026-03-31T05:53:32.235429+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 6,
+        "timestamp": "2026-03-31T05:58:24.400538+00:00"
+      }
+    }
   },
   {
     "row_id": 7,
@@ -181,7 +216,12 @@
       "explanation": "The sentence explicitly reconsiders the problem framing by highlighting missing information needed to proceed, starting with 'Wait,' which aligns well with the category's focus on reshaping understanding and identifying missing assumptions rather than moving forward with calculations.",
       "timestamp": "2026-03-31T05:53:32.235432+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 7,
+        "timestamp": "2026-03-31T05:58:37.774419+00:00"
+      }
+    }
   },
   {
     "row_id": 8,
@@ -204,7 +244,12 @@
       "explanation": "The sentence explicitly uses 'Alternatively' to propose a different framing of the question, questioning whether the problem is about all elements being automorphisms or something else, which aligns well with the category's focus on reshaping problem understanding and exploring ambiguities.",
       "timestamp": "2026-03-31T05:53:32.235434+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T05:58:51.794174+00:00"
+      }
+    }
   },
   {
     "row_id": 9,
@@ -227,7 +272,12 @@
       "explanation": "The sentence introduces a reinterpretation of the problem by highlighting a change in the half-life parameter, which aligns with adjusting the problem framing as it reshapes understanding of the question's conditions.",
       "timestamp": "2026-03-31T05:53:32.235437+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 4,
+        "timestamp": "2026-03-31T05:59:09.537129+00:00"
+      }
+    }
   },
   {
     "row_id": 10,
@@ -250,7 +300,12 @@
       "explanation": "The sentence introduces an additional factor to consider (balancing gas exchange and water conservation) but does so as a key point rather than explicitly brainstorming or listing multiple new aspects, so it partially fits the category but lacks the divergent, enumerative quality typical of brainstorming.",
       "timestamp": "2026-03-31T05:53:32.235439+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 5,
+        "timestamp": "2026-03-31T05:59:25.869175+00:00"
+      }
+    }
   },
   {
     "row_id": 11,
@@ -273,7 +328,12 @@
       "explanation": "The sentence suggests adding another relevant aspect (influence on child care practices) to the analysis, which aligns well with brainstorming additional points without evaluating or integrating them, though it is phrased as a suggestion rather than a direct enumeration.",
       "timestamp": "2026-03-31T05:53:32.235442+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 7,
+        "timestamp": "2026-03-31T05:59:46.724789+00:00"
+      }
+    }
   },
   {
     "row_id": 12,
@@ -296,7 +356,12 @@
       "explanation": "The sentence tentatively introduces the idea of different types of triads, which aligns with generating additional perspectives, but its uncertainty and lack of explicit enumeration or clear expansion make it a partial rather than strong example of brainstorming additional aspects.",
       "timestamp": "2026-03-31T05:53:32.235444+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T05:59:58.716205+00:00"
+      }
+    }
   },
   {
     "row_id": 13,
@@ -319,7 +384,12 @@
       "explanation": "The sentence introduces a possible example relevant to the discussion, expanding the scope by suggesting an additional perspective without evaluating it, which aligns well with brainstorming additional aspects.",
       "timestamp": "2026-03-31T05:53:32.235447+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 4,
+        "timestamp": "2026-03-31T06:00:06.540287+00:00"
+      }
+    }
   },
   {
     "row_id": 14,
@@ -342,7 +412,12 @@
       "explanation": "The sentence lists two evaluation metrics and their characteristics, which aligns with enumerating additional relevant aspects without evaluation or integration, fitting well with brainstorming additional aspects.",
       "timestamp": "2026-03-31T05:53:32.235450+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:00:14.607063+00:00"
+      }
+    }
   },
   {
     "row_id": 15,
@@ -365,7 +440,12 @@
       "explanation": "The sentence introduces an additional perspective by labeling surveillance systems as descriptive studies and explaining why, fitting well with the brainstorming function of adding relevant ideas without evaluation or integration.",
       "timestamp": "2026-03-31T05:53:32.235452+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:00:18.331669+00:00"
+      }
+    }
   },
   {
     "row_id": 16,
@@ -388,7 +468,12 @@
       "explanation": "The sentence lists two contrasting genetic patterns as additional factors to consider, fitting the brainstorming function by expanding the scope without evaluation or integration, though it lacks explicit signaling words.",
       "timestamp": "2026-03-31T05:53:32.235455+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 6,
+        "timestamp": "2026-03-31T06:00:30.293591+00:00"
+      }
+    }
   },
   {
     "row_id": 17,
@@ -411,7 +496,12 @@
       "explanation": "The sentence introduces an additional perspective by noting that the technique complements others like NMR or mass spectrometry, which aligns well with brainstorming additional aspects by expanding the scope without evaluation or integration.",
       "timestamp": "2026-03-31T05:53:32.235457+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 4,
+        "timestamp": "2026-03-31T06:00:36.384970+00:00"
+      }
+    }
   },
   {
     "row_id": 18,
@@ -434,7 +524,12 @@
       "explanation": "The sentence 'Vehicles definitely fit.' asserts a conclusion rather than brainstorming or listing additional aspects, lacking the exploratory or enumerative quality required for the category.",
       "timestamp": "2026-03-31T05:53:32.235459+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:00:40.273484+00:00"
+      }
+    }
   },
   {
     "row_id": 19,
@@ -457,7 +552,12 @@
       "explanation": "The sentence explicitly introduces an additional aspect to consider, using 'also' to signal expansion of the analysis without evaluating or integrating it, perfectly matching the brainstorming additional aspects category.",
       "timestamp": "2026-03-31T05:53:32.235462+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:00:45.057450+00:00"
+      }
+    }
   },
   {
     "row_id": 20,
@@ -480,7 +580,12 @@
       "explanation": "The sentence states a specific functional value but does not show any arithmetic or unit-conversion steps or explicit numeric operations, so it does not exemplify numeric computations as defined.",
       "timestamp": "2026-03-31T05:53:32.235464+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:01:08.498678+00:00"
+      }
+    }
   },
   {
     "row_id": 21,
@@ -503,7 +608,12 @@
       "explanation": "The sentence explicitly performs a numeric computation by combining weighted returns using multiplication and addition with an equals sign, perfectly exemplifying step-by-step arithmetic operations as described in the category.",
       "timestamp": "2026-03-31T05:53:32.235466+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T06:01:17.456312+00:00"
+      }
+    }
   },
   {
     "row_id": 22,
@@ -526,7 +636,12 @@
       "explanation": "The sentence represents a genetic notation showing allele inheritance (Bb) rather than performing any numeric computation or arithmetic operation, so it does not fit the numeric computations category.",
       "timestamp": "2026-03-31T05:53:32.235474+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:01:21.138980+00:00"
+      }
+    }
   },
   {
     "row_id": 23,
@@ -549,7 +664,12 @@
       "explanation": "The sentence explicitly performs a subtraction operation and provides the numerical result, directly exemplifying a step-by-step numeric computation as described in the category.",
       "timestamp": "2026-03-31T05:53:32.235476+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:01:26.672027+00:00"
+      }
+    }
   },
   {
     "row_id": 24,
@@ -572,7 +692,12 @@
       "explanation": "The sentence explicitly performs a numeric evaluation of y(1) by substituting values and calculating the expression step-by-step, including exponentiation and arithmetic operations, which aligns well with the numeric computations category.",
       "timestamp": "2026-03-31T05:53:32.235479+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:01:30.739245+00:00"
+      }
+    }
   },
   {
     "row_id": 25,
@@ -595,7 +720,12 @@
       "explanation": "The sentence explicitly performs a multiplication and provides the exact numeric result followed by a close approximation, fitting perfectly the description of numeric computations involving step-by-step arithmetic and approximations.",
       "timestamp": "2026-03-31T05:53:32.235481+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:01:32.755504+00:00"
+      }
+    }
   },
   {
     "row_id": 26,
@@ -618,7 +748,12 @@
       "explanation": "The sentence shows an algebraic expression with variables and an equality sign but does not perform explicit numeric calculations or unit conversions to produce intermediate numerical results, so it does not fully match the numeric computations category.",
       "timestamp": "2026-03-31T05:53:32.235484+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:01:51.023775+00:00"
+      }
+    }
   },
   {
     "row_id": 27,
@@ -641,7 +776,12 @@
       "explanation": "The sentence is a brief statement referencing a total number but does not perform any explicit arithmetic operations or show step-by-step numeric computations as required by the category.",
       "timestamp": "2026-03-31T05:53:32.235486+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 2,
+        "timestamp": "2026-03-31T06:02:01.077462+00:00"
+      }
+    }
   },
   {
     "row_id": 28,
@@ -664,7 +804,12 @@
       "explanation": "The sentence identifies the denominator as (0.03 m)^2 but does not perform an explicit arithmetic operation or numeric evaluation; it states a quantity rather than computing or simplifying it, so it only partially fits the numeric computations category.",
       "timestamp": "2026-03-31T05:53:32.235495+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 3,
+        "timestamp": "2026-03-31T06:02:08.040662+00:00"
+      }
+    }
   },
   {
     "row_id": 29,
@@ -687,7 +832,12 @@
       "explanation": "The sentence shows an explicit numeric equation with an equality sign, representing a step in numeric computation, fitting well the category's focus on arithmetic operations producing intermediate results.",
       "timestamp": "2026-03-31T05:53:32.235498+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:02:10.077663+00:00"
+      }
+    }
   },
   {
     "row_id": 30,
@@ -710,7 +860,12 @@
       "explanation": "The sentence proposes a causal relationship between distance and travel likelihood for a product, but it states this as a general fact rather than a tentative or conditional hypothesis with speculative markers, so it only partially fits the category.",
       "timestamp": "2026-03-31T05:53:32.235500+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 7,
+        "timestamp": "2026-03-31T06:02:31.025873+00:00"
+      }
+    }
   },
   {
     "row_id": 31,
@@ -733,7 +888,12 @@
       "explanation": "The sentence introduces a tentative causal hypothesis by suggesting possible reasons (proximity to a river or geological features) that could explain a situation, using 'maybe' to frame the speculation, which aligns well with the category description.",
       "timestamp": "2026-03-31T05:53:32.235503+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T06:02:39.124869+00:00"
+      }
+    }
   },
   {
     "row_id": 32,
@@ -756,7 +916,12 @@
       "explanation": "The sentence proposes a tentative causal hypothesis linking CO2's infrared trapping ability and Mars's atmospheric thickness to the effectiveness of the greenhouse effect, using 'maybe' to frame the speculation, which aligns well with the category description.",
       "timestamp": "2026-03-31T05:53:32.235505+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 9,
+        "timestamp": "2026-03-31T06:02:47.402126+00:00"
+      }
+    }
   },
   {
     "row_id": 33,
@@ -779,7 +944,12 @@
       "explanation": "The sentence tentatively proposes a causal hypothesis linking the decrease in height to energy spreading over a longer wavelength, using 'maybe' to indicate speculation, which aligns well with the category description.",
       "timestamp": "2026-03-31T05:53:32.235508+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:02:52.838839+00:00"
+      }
+    }
   },
   {
     "row_id": 34,
@@ -802,7 +972,12 @@
       "explanation": "The sentence introduces a conditional causal hypothesis linking the presence and location of a tumor to the possible need for a stoma, using 'if' and 'might' to frame a tentative explanation, fitting well with the category description.",
       "timestamp": "2026-03-31T05:53:32.235510+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:03:05.438187+00:00"
+      }
+    }
   },
   {
     "row_id": 35,
@@ -825,7 +1000,12 @@
       "explanation": "The sentence introduces a tentative causal scenario linking the dog's hearing a tone (cause) to performing an action and receiving a treat (effect), using 'might' and 'if' to frame a hypothetical setup, fitting well with proposing causal hypotheses.",
       "timestamp": "2026-03-31T05:53:32.235513+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:03:11.689503+00:00"
+      }
+    }
   },
   {
     "row_id": 36,
@@ -848,7 +1028,12 @@
       "explanation": "The sentence expresses a judgment about precision versus practicality but does not propose a causal hypothesis or link potential causes to effects, nor does it use tentative language to frame a speculative scenario, so it poorly fits the category.",
       "timestamp": "2026-03-31T05:53:32.235515+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:03:25.341466+00:00"
+      }
+    }
   },
   {
     "row_id": 37,
@@ -871,7 +1056,12 @@
       "explanation": "The sentence states a conclusion based on a premise (price taker in perfect competition) but does not explicitly frame it as a tentative or conditional hypothesis using markers like 'if' or 'might'; it asserts a causal relationship without speculation, so it only partially fits the category.",
       "timestamp": "2026-03-31T05:53:32.235517+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 7,
+        "timestamp": "2026-03-31T06:03:36.425277+00:00"
+      }
+    }
   },
   {
     "row_id": 38,
@@ -894,7 +1084,12 @@
       "explanation": "The sentence uses 'might' to suggest a possible effect (baby getting upset) linked to a cause (mother leaving), thus proposing a tentative causal hypothesis consistent with the category description.",
       "timestamp": "2026-03-31T05:53:32.235520+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 6,
+        "timestamp": "2026-03-31T06:03:41.024928+00:00"
+      }
+    }
   },
   {
     "row_id": 39,
@@ -917,7 +1112,12 @@
       "explanation": "The sentence proposes a causal relationship by linking the cause (more students than computers) to the effect (some computers having to be shared), fitting the category's requirement for tentative causal hypotheses despite lacking explicit speculative markers.",
       "timestamp": "2026-03-31T05:53:32.235522+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 2,
+        "timestamp": "2026-03-31T06:03:51.759128+00:00"
+      }
+    }
   },
   {
     "row_id": 40,
@@ -940,7 +1140,12 @@
       "explanation": "The sentence '~E · ~F' is a symbolic expression but lacks context or indication that it is a known formula, law, or definition being recalled; it appears more like a logical expression or part of a calculation rather than a stated domain fact, so it only partially fits the category.",
       "timestamp": "2026-03-31T05:53:32.235524+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 5,
+        "timestamp": "2026-03-31T06:03:57.116503+00:00"
+      }
+    }
   },
   {
     "row_id": 41,
@@ -963,7 +1168,12 @@
       "explanation": "The sentence 'So that gives me:' is a transitional phrase indicating a forthcoming result or conclusion rather than recalling or stating established domain knowledge, so it does not fulfill the role of retrieving known facts or formulas.",
       "timestamp": "2026-03-31T05:53:32.235527+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:04:02.886334+00:00"
+      }
+    }
   },
   {
     "row_id": 42,
@@ -986,7 +1196,12 @@
       "explanation": "The sentence states a well-known principle about image location for a converging lens when the object is beyond 2f, clearly recalling established domain knowledge without speculation or calculation, fitting the category well.",
       "timestamp": "2026-03-31T05:53:32.235529+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:04:07.559568+00:00"
+      }
+    }
   },
   {
     "row_id": 43,
@@ -1009,7 +1224,12 @@
       "explanation": "The sentence states a well-established legal principle about professional standards, effectively recalling domain-specific knowledge without speculation or calculation, thus fitting the category well.",
       "timestamp": "2026-03-31T05:53:32.235532+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 7,
+        "timestamp": "2026-03-31T06:04:14.201096+00:00"
+      }
+    }
   },
   {
     "row_id": 44,
@@ -1032,7 +1252,12 @@
       "explanation": "The sentence states a well-known fact and formula about the number of possible codons in DNA, clearly recalling established domain knowledge without performing calculations or speculating, thus fitting the category very well.",
       "timestamp": "2026-03-31T05:53:32.235534+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:04:17.015382+00:00"
+      }
+    }
   },
   {
     "row_id": 45,
@@ -1055,7 +1280,12 @@
       "explanation": "The sentence is a question that attempts to connect concepts but does not state an established fact or definition; it is speculative rather than recalling domain knowledge, so it poorly fits the category.",
       "timestamp": "2026-03-31T05:53:32.235537+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 4,
+        "timestamp": "2026-03-31T06:04:50.036491+00:00"
+      }
+    }
   },
   {
     "row_id": 46,
@@ -1078,7 +1308,12 @@
       "explanation": "The sentence lists established key elements relevant to a domain (likely legal or ethical), effectively recalling domain knowledge without speculation or calculation, thus fitting well within the category description.",
       "timestamp": "2026-03-31T05:53:32.235540+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:04:54.277816+00:00"
+      }
+    }
   },
   {
     "row_id": 47,
@@ -1101,7 +1336,12 @@
       "explanation": "The sentence identifies electrons in a specific orbital, which is a factual statement recalling domain knowledge about atomic structure, fitting well with the category's requirement to state established facts without speculation or calculation.",
       "timestamp": "2026-03-31T05:53:32.235543+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:04:58.567664+00:00"
+      }
+    }
   },
   {
     "row_id": 48,
@@ -1124,7 +1364,12 @@
       "explanation": "The sentence clearly states a known fact about angle modulation by recalling that it includes both phase modulation and frequency modulation, which aligns well with the category's focus on retrieving established domain knowledge; the phrase 'From what I remember' slightly weakens the certainty but does not detract significantly from its role as recalling information.",
       "timestamp": "2026-03-31T05:53:32.235545+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:05:01.177156+00:00"
+      }
+    }
   },
   {
     "row_id": 49,
@@ -1147,7 +1392,12 @@
       "explanation": "The sentence lists specific examples of economic transactions and flows, effectively recalling established domain knowledge about components of a country's external economic activities, fitting well with the category's requirement to state known facts without speculation or calculation.",
       "timestamp": "2026-03-31T05:53:32.235548+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T06:05:06.694510+00:00"
+      }
+    }
   },
   {
     "row_id": 50,
@@ -1170,7 +1420,12 @@
       "explanation": "The sentence states a condition about impairment needing to be reasonable and not excessive but does not apply a legal rule to specific facts or draw a logical conclusion, so it does not exemplify drawing deductive inferences as defined.",
       "timestamp": "2026-03-31T05:53:32.235550+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T06:05:14.847227+00:00"
+      }
+    }
   },
   {
     "row_id": 51,
@@ -1193,7 +1448,12 @@
       "explanation": "The sentence speculates about the defendant's intent without explicitly applying a legal rule or principle to the facts to draw a logical conclusion, lacking connectors like 'therefore' or 'because' and not asserting liability or rights, so it does not fit the deductive inference category well.",
       "timestamp": "2026-03-31T05:53:32.235552+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T06:05:40.695798+00:00"
+      }
+    }
   },
   {
     "row_id": 52,
@@ -1216,7 +1476,12 @@
       "explanation": "The sentence uses 'because' to link a potential problem to a reason, indicating a logical connection, but it does not explicitly apply a specific legal rule or principle to facts to draw a formal legal conclusion as required by the category.",
       "timestamp": "2026-03-31T05:53:32.235555+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 9,
+        "timestamp": "2026-03-31T06:05:53.032036+00:00"
+      }
+    }
   },
   {
     "row_id": 53,
@@ -1239,7 +1504,12 @@
       "explanation": "The sentence speculates about a legal status without firmly applying a rule to facts or drawing a definitive logical conclusion, thus it lacks the clear deductive inference required by the category.",
       "timestamp": "2026-03-31T05:53:32.235557+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 6,
+        "timestamp": "2026-03-31T06:06:02.747623+00:00"
+      }
+    }
   },
   {
     "row_id": 54,
@@ -1262,7 +1532,12 @@
       "explanation": "The sentence applies a legal rule (two-acre minimum lot size) to specific facts (subdividing parcels into 3,4,5-acre lots) and concludes compliance, but it lacks explicit logical connectors like 'therefore' or 'so' and does not clearly state a drawn conclusion, making it a partial but not full example of drawing deductive inferences.",
       "timestamp": "2026-03-31T05:53:32.235560+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 3,
+        "timestamp": "2026-03-31T06:06:10.268450+00:00"
+      }
+    }
   },
   {
     "row_id": 55,
@@ -1285,7 +1560,12 @@
       "explanation": "The sentence uses 'so' to indicate a conclusion drawn from applying a rule about survivor benefits being based on the deceased's PIA, fitting the deductive inference role well despite the informal 'Wait' at the start.",
       "timestamp": "2026-03-31T05:53:32.235562+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 7,
+        "timestamp": "2026-03-31T06:06:21.185359+00:00"
+      }
+    }
   },
   {
     "row_id": 56,
@@ -1308,7 +1588,12 @@
       "explanation": "The sentence clearly applies a legal standard ('beyond a reasonable doubt') to a specific fact ('defendant possessed a deadly weapon') and draws a logical conclusion indicated by 'therefore,' perfectly exemplifying drawing deductive inferences as defined.",
       "timestamp": "2026-03-31T05:53:32.235564+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:06:25.645611+00:00"
+      }
+    }
   },
   {
     "row_id": 57,
@@ -1331,7 +1616,12 @@
       "explanation": "The sentence suggests a possible defense by applying the concept of mistake of fact to the scenario but hedges its likelihood, lacking a clear logical conclusion or explicit application of a legal rule to establish liability or rights, so it only partially fits the category.",
       "timestamp": "2026-03-31T05:53:32.235567+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 4,
+        "timestamp": "2026-03-31T06:06:43.363228+00:00"
+      }
+    }
   },
   {
     "row_id": 58,
@@ -1354,7 +1644,12 @@
       "explanation": "The sentence uses 'so' and 'because' to apply a legal principle about liability based on intent or negligence to the facts, drawing a logical conclusion about the woman's liability, though the use of 'maybe' introduces some uncertainty.",
       "timestamp": "2026-03-31T05:53:32.235569+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 5,
+        "timestamp": "2026-03-31T06:07:00.790976+00:00"
+      }
+    }
   },
   {
     "row_id": 59,
@@ -1377,7 +1672,12 @@
       "explanation": "The sentence applies a legal condition (severe and pervasive harassment) to a fact pattern and draws a logical conclusion about liability, using 'so' to signal deduction, fitting well with the category's definition of drawing deductive inferences.",
       "timestamp": "2026-03-31T05:53:32.235571+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:07:06.884798+00:00"
+      }
+    }
   },
   {
     "row_id": 60,
@@ -1400,7 +1700,12 @@
       "explanation": "The sentence states a fact about the initial momentum being zero due to the ball being at rest, but it does not explicitly present or recall a known equation or formula, so it only partially fits the category.",
       "timestamp": "2026-03-31T05:53:32.235598+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 2,
+        "timestamp": "2026-03-31T06:07:19.390301+00:00"
+      }
+    }
   },
   {
     "row_id": 61,
@@ -1423,7 +1728,12 @@
       "explanation": "The sentence introduces a known equation by stating the spring constant k is given by, which aligns well with the category of stating known equations, though it does not present the actual formula here.",
       "timestamp": "2026-03-31T05:53:32.235601+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:07:22.777295+00:00"
+      }
+    }
   },
   {
     "row_id": 62,
@@ -1446,7 +1756,12 @@
       "explanation": "The sentence indicates recalling the existence of tables or equations relating temperature to saturation pressure but does not explicitly state or present any specific equation or formula, so it only partially fits the category.",
       "timestamp": "2026-03-31T05:53:32.235603+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:07:27.432991+00:00"
+      }
+    }
   },
   {
     "row_id": 63,
@@ -1469,7 +1784,12 @@
       "explanation": "The sentence explicitly states a well-known physical equation with variable definitions, fitting the category of stating known equations perfectly despite the informal 'Let me confirm' preface.",
       "timestamp": "2026-03-31T05:53:32.235606+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:07:31.111485+00:00"
+      }
+    }
   },
   {
     "row_id": 64,
@@ -1492,7 +1812,12 @@
       "explanation": "The sentence states a standard chemical relationship in neutralization reactions, effectively presenting a known equation-like principle, though it is phrased conceptually rather than as a formal equation with variables; it aligns well with the category but lacks explicit formula notation.",
       "timestamp": "2026-03-31T05:53:32.235608+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:07:36.006049+00:00"
+      }
+    }
   },
   {
     "row_id": 65,
@@ -1515,7 +1840,12 @@
       "explanation": "The sentence presents a standard equilibrium constant expression as a known equation without derivation or additional commentary, perfectly matching the category of stating known equations.",
       "timestamp": "2026-03-31T05:53:32.235611+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:07:37.702049+00:00"
+      }
+    }
   },
   {
     "row_id": 66,
@@ -1538,7 +1868,12 @@
       "explanation": "The sentence clearly states a known standard equation for angular frequency without derivation or speculation, perfectly matching the category of stating known equations.",
       "timestamp": "2026-03-31T05:53:32.235613+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:07:40.230053+00:00"
+      }
+    }
   },
   {
     "row_id": 67,
@@ -1561,7 +1896,12 @@
       "explanation": "The sentence instructs a procedural step to calculate total charge rather than stating a known equation or formula explicitly, so it does not fully match the category of stating known equations.",
       "timestamp": "2026-03-31T05:53:32.235617+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:07:45.241913+00:00"
+      }
+    }
   },
   {
     "row_id": 68,
@@ -1584,7 +1924,12 @@
       "explanation": "The sentence presents a specific equation in a clear, formulaic manner without derivation or speculation, fitting well the role of stating a known equation, though it lacks introductory phrasing like 'The formula is' but still serves the purpose effectively.",
       "timestamp": "2026-03-31T05:53:32.235620+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 5,
+        "timestamp": "2026-03-31T06:07:52.020362+00:00"
+      }
+    }
   },
   {
     "row_id": 69,
@@ -1607,7 +1952,12 @@
       "explanation": "The sentence hints at a formula involving diameter and length but does not explicitly state or retrieve a known equation; it is more speculative and preparatory than declarative, so it poorly fits the category of stating known equations.",
       "timestamp": "2026-03-31T05:53:32.235622+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T06:08:05.791412+00:00"
+      }
+    }
   },
   {
     "row_id": 70,
@@ -1630,7 +1980,12 @@
       "explanation": "The sentence describes an action being performed rather than explicitly stating the next subgoal or task to be addressed, so it does not fit the category of articulating the next subgoal.",
       "timestamp": "2026-03-31T05:53:32.235625+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 1,
+        "timestamp": "2026-03-31T06:08:17.465100+00:00"
+      }
+    }
   },
   {
     "row_id": 71,
@@ -1653,7 +2008,12 @@
       "explanation": "The sentence explicitly states the immediate task to determine the best course of action, clearly framing the next reasoning step and fitting well with the category's focus on articulating the next subgoal.",
       "timestamp": "2026-03-31T05:53:32.235627+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:08:21.822338+00:00"
+      }
+    }
   },
   {
     "row_id": 72,
@@ -1676,7 +2036,12 @@
       "explanation": "The sentence simply states a phrase without indicating any next task or subgoal to be addressed, so it does not exemplify articulating the next subgoal as described.",
       "timestamp": "2026-03-31T05:53:32.235629+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:08:27.273389+00:00"
+      }
+    }
   },
   {
     "row_id": 73,
@@ -1699,7 +2064,12 @@
       "explanation": "The sentence clearly states the immediate subgoal by identifying the next specific task to find the overhead cost for the housewares department, fitting well with the category's requirement to articulate the next reasoning step without performing calculations.",
       "timestamp": "2026-03-31T05:53:32.235631+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T06:08:36.793900+00:00"
+      }
+    }
   },
   {
     "row_id": 74,
@@ -1722,7 +2092,12 @@
       "explanation": "The sentence clearly states the immediate task of recalling knowledge about Barr bodies as the next step in reasoning, explicitly framing the next subgoal, which aligns well with the category description.",
       "timestamp": "2026-03-31T05:53:32.235634+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:08:40.445611+00:00"
+      }
+    }
   },
   {
     "row_id": 75,
@@ -1745,7 +2120,12 @@
       "explanation": "The sentence clearly states the immediate task to be addressed next, explicitly framing the next subgoal as providing a skeletal format for C programs, which aligns well with the category description.",
       "timestamp": "2026-03-31T05:53:32.235636+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T06:08:49.242752+00:00"
+      }
+    }
   },
   {
     "row_id": 76,
@@ -1768,7 +2148,12 @@
       "explanation": "The sentence clearly states the immediate task to find the voltage across a specific inductor given its time-varying inductance and current, explicitly framing the next subgoal without performing any calculations, perfectly matching the category description.",
       "timestamp": "2026-03-31T05:53:32.235638+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:08:52.917714+00:00"
+      }
+    }
   },
   {
     "row_id": 77,
@@ -1791,7 +2176,12 @@
       "explanation": "The sentence identifies the topic but does not explicitly state the immediate task or subgoal to be addressed next, lacking the framing language typical of articulating a next subgoal.",
       "timestamp": "2026-03-31T05:53:32.235643+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 2,
+        "timestamp": "2026-03-31T06:08:57.201944+00:00"
+      }
+    }
   },
   {
     "row_id": 78,
@@ -1814,7 +2204,12 @@
       "explanation": "The sentence states a conclusion or result rather than explicitly articulating the next subgoal or task to be addressed, so it does not fit the category of framing the next reasoning step.",
       "timestamp": "2026-03-31T05:53:32.235646+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:08:59.959459+00:00"
+      }
+    }
   },
   {
     "row_id": 79,
@@ -1837,7 +2232,12 @@
       "explanation": "The sentence identifies components of the argument but does not explicitly state the next task or subgoal to be addressed, lacking the framing language typical of articulating the next subgoal.",
       "timestamp": "2026-03-31T05:53:32.235648+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 3,
+        "timestamp": "2026-03-31T06:09:05.694476+00:00"
+      }
+    }
   },
   {
     "row_id": 80,
@@ -1860,7 +2260,12 @@
       "explanation": "The sentence explicitly signals the reasoner's immediate next action of performing a calculation, matching the category's description of planning the next procedural step.",
       "timestamp": "2026-03-31T05:53:32.235650+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T06:09:11.805319+00:00"
+      }
+    }
   },
   {
     "row_id": 81,
@@ -1883,7 +2288,12 @@
       "explanation": "The sentence explicitly states the reasoner's immediate next action of checking notes, matching the category's requirement of signaling a concrete upcoming procedural step with a phrase like 'Let me...'.",
       "timestamp": "2026-03-31T05:53:32.235653+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T06:09:14.571735+00:00"
+      }
+    }
   },
   {
     "row_id": 82,
@@ -1906,7 +2316,12 @@
       "explanation": "The sentence explicitly states the reasoner's immediate next action using the phrase 'Let me,' indicating a procedural step to write something down, perfectly matching the category's focus on planning next steps without including substantive content.",
       "timestamp": "2026-03-31T05:53:32.235655+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T06:09:18.058589+00:00"
+      }
+    }
   },
   {
     "row_id": 83,
@@ -1929,7 +2344,12 @@
       "explanation": "The sentence explicitly states the reasoner's immediate next action to retrieve information, starting with 'Let me,' which perfectly aligns with the category's focus on planning the next procedural step without including substantive domain content.",
       "timestamp": "2026-03-31T05:53:32.235657+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T06:09:22.778829+00:00"
+      }
+    }
   },
   {
     "row_id": 84,
@@ -1952,7 +2372,12 @@
       "explanation": "The sentence 'Let me think.' signals an immediate upcoming cognitive action, aligning well with the category's emphasis on phrases like 'Let me...' that indicate the next procedural move, though it is somewhat vague about the specific next step.",
       "timestamp": "2026-03-31T05:53:32.235660+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T06:09:24.864163+00:00"
+      }
+    }
   },
   {
     "row_id": 85,
@@ -1975,7 +2400,12 @@
       "explanation": "The sentence clearly signals the reasoner's immediate next action of substituting known values into an expression, fitting well with the category of planning next steps as it outlines a concrete procedural move without including substantive domain content.",
       "timestamp": "2026-03-31T05:53:32.235662+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 9,
+        "timestamp": "2026-03-31T06:09:29.848992+00:00"
+      }
+    }
   },
   {
     "row_id": 86,
@@ -1998,7 +2428,12 @@
       "explanation": "The sentence explicitly signals the reasoner's immediate next action by indicating the start of breaking down the scenario, matching the category's requirement for stating the upcoming procedural step with a phrase like 'Let me...'.",
       "timestamp": "2026-03-31T05:53:32.235665+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:09:32.769214+00:00"
+      }
+    }
   },
   {
     "row_id": 87,
@@ -2021,7 +2456,12 @@
       "explanation": "The sentence explicitly signals the reasoner's immediate next action by indicating a repetition of a previous step, fitting well with the category's focus on planning the next procedural move.",
       "timestamp": "2026-03-31T05:53:32.235667+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T06:09:34.811612+00:00"
+      }
+    }
   },
   {
     "row_id": 88,
@@ -2044,7 +2484,12 @@
       "explanation": "The sentence expresses a desire to perform well but does not specify any concrete next action or subtask, so it does not meet the category's requirement of explicitly stating the immediate upcoming step.",
       "timestamp": "2026-03-31T05:53:32.235671+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 2,
+        "timestamp": "2026-03-31T06:09:39.104889+00:00"
+      }
+    }
   },
   {
     "row_id": 89,
@@ -2067,7 +2512,12 @@
       "explanation": "The sentence explicitly states the reasoner's immediate next action, using the phrase 'Let me,' which aligns perfectly with the category's description of planning the next step in the reasoning process.",
       "timestamp": "2026-03-31T05:53:32.235673+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 9,
+        "timestamp": "2026-03-31T06:09:44.956611+00:00"
+      }
+    }
   },
   {
     "row_id": 90,
@@ -2090,7 +2540,12 @@
       "explanation": "The sentence clearly presents a conclusion by using 'So' to introduce a resolved outcome linking the War of 1812's financial crisis to the formation of the Second Bank, matching the category's requirement for a succinct final judgment.",
       "timestamp": "2026-03-31T05:53:32.235675+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:09:49.386806+00:00"
+      }
+    }
   },
   {
     "row_id": 91,
@@ -2113,7 +2568,12 @@
       "explanation": "The sentence uses the discourse marker 'So' and succinctly states a final conclusion about the source of the outer core, fitting well with the category of presenting conclusions.",
       "timestamp": "2026-03-31T05:53:32.235678+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:09:51.527799+00:00"
+      }
+    }
   },
   {
     "row_id": 92,
@@ -2136,7 +2596,12 @@
       "explanation": "The sentence clearly presents a final conclusion using the discourse marker 'Therefore' followed by a specific answer, perfectly matching the category's requirement for succinctly stating the resolved outcome after reasoning.",
       "timestamp": "2026-03-31T05:53:32.235680+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 10,
+        "timestamp": "2026-03-31T06:09:53.147485+00:00"
+      }
+    }
   },
   {
     "row_id": 93,
@@ -2159,7 +2624,12 @@
       "explanation": "The sentence clearly presents a conclusion by stating why two compounds cannot be used for gluconeogenesis, starting with 'So' and providing a definitive reason, which aligns well with the category description of presenting resolved outcomes.",
       "timestamp": "2026-03-31T05:53:32.235683+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 9,
+        "timestamp": "2026-03-31T06:10:01.064167+00:00"
+      }
+    }
   },
   {
     "row_id": 94,
@@ -2182,7 +2652,12 @@
       "explanation": "The first sentence clearly presents a conclusion by stating the commonly accepted approximate value of the speed of light, fitting the category well; however, the second sentence expresses uncertainty and intent to explore alternatives, which does not match the category, so overall the fit is strong but not perfect.",
       "timestamp": "2026-03-31T05:53:32.235685+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 7,
+        "timestamp": "2026-03-31T06:10:09.085011+00:00"
+      }
+    }
   },
   {
     "row_id": 95,
@@ -2205,7 +2680,12 @@
       "explanation": "The sentence clearly presents a conclusion by stating a confident judgment about GARCH(1,1)'s ability to capture volatility clustering, beginning with 'So I think' and providing a definitive answer, matching the category well.",
       "timestamp": "2026-03-31T05:53:32.235687+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 9,
+        "timestamp": "2026-03-31T06:10:14.210167+00:00"
+      }
+    }
   },
   {
     "row_id": 96,
@@ -2228,7 +2708,12 @@
       "explanation": "The sentence uses 'So' to introduce a conclusion about squaring kl to get A and calls it a key insight, which aligns well with presenting a resolved outcome, though it is slightly less direct in stating a final answer and includes a minor element of explanation.",
       "timestamp": "2026-03-31T05:53:32.235690+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 5,
+        "timestamp": "2026-03-31T06:10:20.494785+00:00"
+      }
+    }
   },
   {
     "row_id": 97,
@@ -2251,7 +2736,12 @@
       "explanation": "The sentence uses 'So' as a discourse marker and appears to present a conclusion by identifying 'the breakdown slip,' but it lacks an explicit final answer, value, or judgment derived from reasoning, making it a weak example of presenting conclusions.",
       "timestamp": "2026-03-31T05:53:32.235692+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 8,
+        "timestamp": "2026-03-31T06:10:24.304178+00:00"
+      }
+    }
   },
   {
     "row_id": 98,
@@ -2274,7 +2764,12 @@
       "explanation": "The sentence clearly announces a resolved outcome by confirming the correctness of the formula, starting with the discourse marker 'so,' which aligns well with presenting a conclusion as defined in the category.",
       "timestamp": "2026-03-31T05:53:32.235695+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 0,
+        "timestamp": "2026-03-31T06:10:28.617684+00:00"
+      }
+    }
   },
   {
     "row_id": 99,
@@ -2297,6 +2792,11 @@
       "explanation": "The sentence uses 'So' to introduce a conclusion and clearly states a resolved outcome about the number of entries being based on inputs, fitting well with the category of presenting conclusions.",
       "timestamp": "2026-03-31T05:53:32.235698+00:00"
     },
-    "human_labels": {}
+    "human_labels": {
+      "ivan": {
+        "rating": 6,
+        "timestamp": "2026-03-31T06:10:35.843107+00:00"
+      }
+    }
   }
 ]
