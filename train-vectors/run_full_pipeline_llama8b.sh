@@ -12,10 +12,20 @@ BASE_MODEL="meta-llama/Llama-3.1-8B"
 MODEL_SHORT="llama-3.1-8b"
 THINKING_MODEL="deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
 SAE_LAYER=6
+STEERING_LAYER=6
 N_CLUSTERS=15
 N_TRAIN=1000
 N_EVAL=100
 N_ATTRIBUTION=50
+PAIR_GEN_MAX_NEW_TOKENS=512
+PAIR_GEN_BATCH_SIZE=32
+DOM_ATTRIBUTION_BATCH_SIZE=12
+DOM_EVAL_BATCH_SIZE=24
+EVAL_GEN_BATCH_SIZE=128
+EVAL_MAX_TOKENS=64
+HYBRID_MAX_NEW_TOKENS=2000
+HYBRID_MAX_THINKING_TOKENS=2000
+HYBRID_N_TASKS=500
 
 # ---- Paths ----
 TRAIN_PAIRS="results/synthetic_pairs/synthetic_pairs_${MODEL_SHORT}_${N_CLUSTERS}clusters.json"
@@ -43,8 +53,8 @@ else
     --n_clusters "$N_CLUSTERS" \
     --n_questions "$N_TRAIN" \
     --question_offset 0 \
-    --max_new_tokens 512 \
-    --batch_size 32 \
+    --max_new_tokens "$PAIR_GEN_MAX_NEW_TOKENS" \
+    --batch_size "$PAIR_GEN_BATCH_SIZE" \
     --dataset "TIGER-Lab/MMLU-Pro" \
     2>&1
 fi
@@ -68,8 +78,8 @@ else
     --n_clusters "$N_CLUSTERS" \
     --n_questions "$N_EVAL" \
     --question_offset "$N_TRAIN" \
-    --max_new_tokens 512 \
-    --batch_size 32 \
+    --max_new_tokens "$PAIR_GEN_MAX_NEW_TOKENS" \
+    --batch_size "$PAIR_GEN_BATCH_SIZE" \
     --dataset "TIGER-Lab/MMLU-Pro" \
     --output_suffix "_eval" \
     2>&1
@@ -86,7 +96,7 @@ python -u compute_diff_of_means.py \
   --model "$BASE_MODEL" \
   --pairs_file "$TRAIN_PAIRS" \
   --save_dir "$SAVE_DIR" \
-  --batch_size 12 \
+  --batch_size "$DOM_ATTRIBUTION_BATCH_SIZE" \
   --n_train_pairs "$N_TRAIN" \
   --n_attribution_examples "$N_ATTRIBUTION" \
   --n_eval_questions 0 \
@@ -94,25 +104,25 @@ python -u compute_diff_of_means.py \
   2>&1
 
 # ==============================================================================
-# STEP 3: Multi-coefficient eval sweep on UNSEEN eval pairs (32-token window)
+# STEP 3: Multi-coefficient eval sweep on UNSEEN eval pairs (64-token window)
 # ==============================================================================
 echo ""
 echo "=============================================="
-echo "STEP 3: Multi-coefficient eval sweep on UNSEEN eval pairs (32-token window)"
+echo "STEP 3: Multi-coefficient eval sweep on UNSEEN eval pairs (64-token window)"
 echo "=============================================="
 python -u compute_diff_of_means.py \
   --model "$BASE_MODEL" \
   --pairs_file "$TRAIN_PAIRS" \
   --eval_pairs_file "$EVAL_PAIRS" \
   --save_dir "$SAVE_DIR" \
-  --batch_size 24 \
+  --batch_size "$DOM_EVAL_BATCH_SIZE" \
   --skip_vectors \
   --skip_attribution \
   --use_raw_norm \
   --steer_coeffs "0.5,1.0,1.5,2.0,2.5,3.0" \
-  --eval_max_tokens 32 \
+  --eval_max_tokens "$EVAL_MAX_TOKENS" \
   --n_eval_questions "$N_EVAL" \
-  --gen_batch_size 128 \
+  --gen_batch_size "$EVAL_GEN_BATCH_SIZE" \
   --min_layer_frac 0.2 \
   2>&1
 
@@ -139,29 +149,26 @@ for cid in sorted(data.keys(), key=int):
 # ==============================================================================
 echo ""
 echo "=============================================="
-echo "STEP 5: Hybrid model on MATH500 (skip if base correct, disagreement-only steering)"
+echo "STEP 5: Hybrid model on MATH500 (all tasks, batched standalone, KV-cached hybrid)"
 echo "=============================================="
 cd /workspace/thinking-llms-interp/hybrid
 PYTHONPATH=/workspace/thinking-llms-interp:$PYTHONPATH python -u hybrid_token.py \
   --dataset math500 \
   --thinking_model "$THINKING_MODEL" \
   --base_model "$BASE_MODEL" \
-  --steering_layer 6 \
+  --steering_layer "$STEERING_LAYER" \
   --sae_layer "$SAE_LAYER" \
   --n_clusters "$N_CLUSTERS" \
-  --max_new_tokens 2000 \
-  --max_thinking_tokens 2000 \
-  --coefficients 1.0 \
-  --token_windows 0 \
-  --no-guardrail \
-  --n_tasks 500 \
-  --n_cold_start_tokens 0 \
+  --max_new_tokens "$HYBRID_MAX_NEW_TOKENS" \
+  --max_thinking_tokens "$HYBRID_MAX_THINKING_TOKENS" \
+  --coefficient 1.0 \
+  --n_tasks "$HYBRID_N_TASKS" \
+  --batch_gen_size 32 \
+  --hybrid_gen_batch_size 8 \
   --dom-vectors-dir "$DOM_DIR" \
   --dom-vectors-model-short "$MODEL_SHORT" \
   --dom-raw-norm \
   --disable-sae-mean \
-  --skip-if-base-correct \
-  --filter-base-wrong-thinking-right \
   --results-suffix dom-vectors-best-coeff \
   --show_progress \
   2>&1

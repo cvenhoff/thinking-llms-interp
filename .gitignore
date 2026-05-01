@@ -4,4 +4,8 @@ __pycache__
 .DS_Store
 base_models_reasoning_interp.egg-info/
 train-vectors/results/vars/perplexity/
+# Trained correction-vector / bias artifacts (regenerable from the
+# bias-first run scripts; large .pt checkpoints).
+train-vectors/results/vars/correction_vectors_*/
+train-vectors/results/vars/qwen32b_linear/
 

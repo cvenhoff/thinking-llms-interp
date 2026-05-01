@@ -3,6 +3,8 @@ import dotenv
 dotenv.load_dotenv("../.env")
 
 import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import torch
 import json
 import zlib
@@ -196,6 +198,10 @@ def parse_args():
         help='Generate base model FIRST; if the base model answer is correct, '
              'skip thinking and hybrid generation entirely for that task.',
     )
+    parser.add_argument('--debug_trace_file', type=str, default=None,
+                        help='If set, dump per-token hybrid decode state JSONL to this path.')
+    parser.add_argument('--debug_single_task_idx', type=int, default=None,
+                        help='If set, run only the given dataset index (for tracing).')
     args, unknown = parser.parse_known_args()
     assert not unknown, f"Unknown arguments: {unknown}"
     # Validate incompatible flag combinations
@@ -417,6 +423,7 @@ def hybrid_generate_token(
     random_guardrail: bool = False,
     base_guardrail: bool = False,
     steering_layer_map: Optional[dict] = None,
+    debug_trace_file: Optional[str] = None,
 ):
     """Per-token variant of hybrid generation.
 
@@ -481,7 +488,12 @@ def hybrid_generate_token(
     if show_progress and tqdm is not None:
         pbar = tqdm(total=max_new_tokens, desc="Hybrid tokens", leave=False)
 
+    _trace_f = None
+    if debug_trace_file is not None:
+        _trace_f = open(debug_trace_file, "w")
+
     while generated_tokens < max_new_tokens:
+        _trace_rec = {}  # populated as we go
         # 1) THINKING MODEL — derive steering vector from current position (skip activation trace if random_firing)
         latent_acts = None
         if not random_firing:
@@ -589,6 +601,8 @@ def hybrid_generate_token(
             chosen = "unsteered"
             chosen_coef = None
             chosen_window = None
+            if _trace_f is not None:
+                _trace_rec["candidates"] = []
             del candidate_tokens
             del last_logits_thinking
         else:
@@ -718,6 +732,17 @@ def hybrid_generate_token(
                         best = (p, idx)
                 assert best is not None
                 chosen_cand = candidate_tokens[best[1]]
+            if _trace_f is not None:
+                _trace_rec["candidates"] = [
+                    {
+                        "coef": float(c.get("coef", -1)),
+                        "window": int(c.get("window", 0)),
+                        "tok": int(c.get("tok", -1)),
+                        "tok_str": str(c.get("tok_str", "")),
+                        "perplexity": float(c.get("perplexity", float("nan"))),
+                    }
+                    for c in candidate_tokens
+                ]
             next_tok = chosen_cand["tok"]
             next_tok_str = chosen_cand["tok_str"]
             token_perpl = chosen_cand["perplexity"]
@@ -733,6 +758,27 @@ def hybrid_generate_token(
             del _last_logits_unsteered
         except NameError:
             pass
+
+        if _trace_f is not None:
+            _trace_rec["step"] = int(generated_tokens)
+            _trace_rec["base_pred_tok"] = int(base_pred_tok)
+            _trace_rec["think_pred_tok"] = int(thinking_pred_tok)
+            _trace_rec["disagree"] = bool(perform_steering)
+            _trace_rec["latent_id"] = int(latent_id)
+            _trace_rec["latent_key"] = str(latent_key)
+            _trace_rec["latent_act_value"] = float(activation_value)
+            _trace_rec["eff_steering_layer"] = int(eff_steering_layer)
+            _trace_rec["chosen_type"] = str(chosen)
+            _trace_rec["chosen_coef"] = (
+                float(chosen_coef) if chosen_coef is not None else 0.0)
+            _trace_rec["chosen_window"] = (
+                int(chosen_window) if chosen_window is not None else 0)
+            _trace_rec["chosen_tok"] = int(next_tok)
+            _trace_rec["chosen_tok_str"] = str(next_tok_str)
+            if steer_vec is not None and hasattr(steer_vec, "float"):
+                _trace_rec["steer_vec_norm"] = float(steer_vec.float().norm().item())
+            _trace_f.write(json.dumps(_trace_rec) + "\n")
+            _trace_f.flush()
 
         # 4) Append chosen token to both sequences
         base_tok_ids = base_tokenizer.encode(
@@ -1878,6 +1924,9 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             continue
         if task_counter >= args.n_tasks:
             break
+        if (getattr(args, "debug_single_task_idx", None) is not None
+                and i != int(args.debug_single_task_idx)):
+            continue
         task_counter += 1
         print(f"\n===== Processing Task {task_counter}/{args.n_tasks} (dataset idx {i}) =====")
         
@@ -2297,6 +2346,7 @@ def run_evaluation(thinking_model, thinking_tokenizer, base_model, base_tokenize
             random_guardrail=bool(getattr(args, "random_guardrail", False)),
             base_guardrail=bool(getattr(args, "base_guardrail", False)),
             steering_layer_map=steering_layer_map,
+            debug_trace_file=getattr(args, "debug_trace_file", None),
         )
         hybrid_tokens = len(hybrid_output_ids[0]) - len(base_input_with_cold_start[0])
         hybrid_response = f"{cold_start_text}{base_tokenizer.decode(hybrid_output_ids[0][len(base_input_with_cold_start[0]):], skip_special_tokens=True)}"

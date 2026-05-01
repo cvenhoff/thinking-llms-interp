@@ -108,8 +108,7 @@ def generate_batch(hf_model, tokenizer, prompts, max_new_tokens, batch_size,
     results = [None] * len(prompts)
     for bs in range(0, len(prompts), batch_size):
         batch = prompts[bs: bs + batch_size]
-        inputs = tokenizer(batch, return_tensors="pt", padding=True,
-                           truncation=True).to(hf_model.device)
+        inputs = tokenizer(batch, return_tensors="pt", padding=True).to(hf_model.device)
         handle = None
         if steering_vector is not None and layer is not None:
             sv = steering_vector.to(hf_model.device).to(hf_model.dtype)
