@@ -1,0 +1,48 @@
+{
+  "total": 128,
+  "per_rep": {
+    "thinking": {
+      "per_rep_pct": [
+        78.125,
+        78.125,
+        77.34375
+      ],
+      "mean_pct": 77.86458333333333,
+      "std_pct": 0.4510548978043951,
+      "per_rep_correct": [
+        100,
+        100,
+        99
+      ]
+    },
+    "base": {
+      "per_rep_pct": [
+        68.75,
+        68.75,
+        68.75
+      ],
+      "mean_pct": 68.75,
+      "std_pct": 0.0,
+      "per_rep_correct": [
+        88,
+        88,
+        88
+      ]
+    },
+    "hybrid": {
+      "per_rep_pct": [
+        75.78125,
+        75.78125,
+        75.78125
+      ],
+      "mean_pct": 75.78125,
+      "std_pct": 0.0,
+      "per_rep_correct": [
+        97,
+        97,
+        97
+      ]
+    }
+  },
+  "n_reps": 3
+}

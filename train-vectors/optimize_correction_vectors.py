@@ -55,6 +55,7 @@ from contextlib import contextmanager
 from typing import Dict, List, Optional, Tuple
 
 import torch
+import torch.distributed as dist
 import torch.nn.functional as F
 from torch import nn
 from tqdm import tqdm
@@ -66,6 +67,69 @@ dotenv.load_dotenv("../.env")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import utils  # noqa: E402
 from utils.responses import extract_thinking_process  # noqa: E402
+
+
+# ---------------------------------------------------------------------------
+# DDP helpers
+# ---------------------------------------------------------------------------
+# We data-parallelize over `example_batch_size`-sized minibatches: each rank
+# holds a full copy of the (frozen) base model on its own GPU, processes its
+# shard of training examples, and we all-reduce V.grad / b.grad after each
+# backward pass.  This works because V/b are tiny (a few KB - a few MB) so
+# the gradient sync is essentially free, and each per-rank step is much
+# faster than the equivalent pipeline-parallel step at the same effective
+# batch size (no inter-GPU activation forwarding latency).
+
+def _is_ddp() -> bool:
+    return "RANK" in os.environ and "WORLD_SIZE" in os.environ \
+        and int(os.environ.get("WORLD_SIZE", "1")) > 1
+
+
+def _ddp_setup() -> Tuple[int, int, int]:
+    """Initialise torch.distributed if launched via torchrun.  Returns
+    (rank, world_size, local_rank).  Sets the active CUDA device to
+    ``local_rank`` so subsequent ``device_map={"": rank}`` model loads
+    place the full base model on this rank's GPU."""
+    if not _is_ddp():
+        return 0, 1, 0
+    rank = int(os.environ["RANK"])
+    world_size = int(os.environ["WORLD_SIZE"])
+    local_rank = int(os.environ.get("LOCAL_RANK", str(rank)))
+    if not dist.is_initialized():
+        # Collective timeout: configurable via NCCL_COLLECTIVE_TIMEOUT_SEC,
+        # default 86400 s (24 h).  H200 + two 32 B models can hit CUDA-
+        # allocator hiccups that stall a rank for hours; we rely on
+        # the tqdm wall-clock to detect genuine hangs rather than an
+        # auto-kill that loses the whole run.
+        import datetime as _dt
+        _nccl_timeout = int(os.environ.get("NCCL_COLLECTIVE_TIMEOUT_SEC", "86400"))
+        dist.init_process_group(
+            backend="nccl",
+            timeout=_dt.timedelta(seconds=_nccl_timeout))
+    torch.cuda.set_device(local_rank)
+    return rank, world_size, local_rank
+
+
+def _ddp_cleanup() -> None:
+    if dist.is_initialized():
+        dist.destroy_process_group()
+
+
+def _is_rank_zero() -> bool:
+    return (not _is_ddp()) or (int(os.environ.get("RANK", "0")) == 0)
+
+
+def _ddp_print(*args, **kwargs) -> None:
+    """Print only from rank 0 (avoid log spam from all ranks)."""
+    if _is_rank_zero():
+        print(*args, **kwargs)
+
+
+def _ddp_allreduce_(t: torch.Tensor, op=dist.ReduceOp.SUM) -> torch.Tensor:
+    """In-place all-reduce.  No-op when not DDP."""
+    if dist.is_initialized():
+        dist.all_reduce(t, op=op)
+    return t
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +221,7 @@ class _InjectHook:
         # element is the hidden state.  Only mutate the hidden state.
         h = out[0] if isinstance(out, tuple) else out
         shifted = h + self.mask.to(h.device, h.dtype) \
-            * self.v.to(h.dtype).view(1, 1, -1)
+            * self.v.to(h.device, h.dtype).view(1, 1, -1)
         return (shifted,) + out[1:] if isinstance(out, tuple) else shifted
 
 
@@ -201,13 +265,24 @@ class _InjectMultiHook:
         # + bias_frozen if set).  Using a zeros_like(h) + index_copy
         # keeps the op autograd-friendly and avoids any in-place
         # mutation on `h` itself.
+        # ----- Multi-GPU safety -----
+        # ``device_map="auto"`` may place the steer layer on a different
+        # device than the trainable params (V/b) and the precomputed
+        # index tensors.  Move everything to ``h``'s device so the
+        # in-place index assign and the residual add are well-defined.
+        # Cross-device ``.to`` is differentiable, so gradients still
+        # flow back into V (and b/bias_frozen if trainable).
+        h_dev = h.device
         update = torch.zeros_like(h)
-        per_pos = self.V[self.pos_cats]                       # (N, hidden) f32
+        cats = self.pos_cats.to(h_dev)
+        per_pos = self.V.to(h_dev)[cats]                      # (N, hidden) f32
         if self.b is not None:
-            per_pos = per_pos + self.b.unsqueeze(0)           # broadcast bias
+            per_pos = per_pos + self.b.to(h_dev).unsqueeze(0)  # broadcast bias
         if self.bias_frozen is not None:
-            per_pos = per_pos + self.bias_frozen.unsqueeze(0)
-        update[self.pos_bids, self.pos_tids, :] = per_pos.to(h.dtype)
+            per_pos = per_pos + self.bias_frozen.to(h_dev).unsqueeze(0)
+        bids = self.pos_bids.to(h_dev)
+        tids = self.pos_tids.to(h_dev)
+        update[bids, tids, :] = per_pos.to(h.dtype)
         shifted = h + update
         return (shifted,) + out[1:] if isinstance(out, tuple) else shifted
 
@@ -234,7 +309,7 @@ class _BiasOnlyHook:
 
     def __call__(self, _module, _inp, out):
         h = out[0] if isinstance(out, tuple) else out
-        shifted = h + self.bias.to(h.dtype).view(1, 1, -1)
+        shifted = h + self.bias.to(h.device, h.dtype).view(1, 1, -1)
         return (shifted,) + out[1:] if isinstance(out, tuple) else shifted
 
 
@@ -334,6 +409,9 @@ def collect_disagreements(
     entropy_threshold: float = 1.0,
     frozen_bias: Optional[torch.Tensor] = None,
     frozen_bias_layer: Optional[int] = None,
+    sae_classifier=None,
+    sae_classify_layer: Optional[int] = None,
+    sae_n_clusters: Optional[int] = None,
 ) -> Tuple[List[dict], Dict[str, List[Tuple[int, int, torch.Tensor, torch.Tensor]]]]:
     """Return ``(per_example, per_category)``.
 
@@ -383,6 +461,34 @@ def collect_disagreements(
 
     base_device = next(base_model.parameters()).device
     think_device = next(thinking_model.parameters()).device
+
+    # If an SAE classifier is provided, register a forward hook on the
+    # thinking model at ``sae_classify_layer`` so we can classify EACH
+    # disagreement position with the SAE on its OWN per-token activation
+    # -- exactly as ``hybrid_eval.py`` does at generation time.  This
+    # bypasses the (sentence-level) ``annotated_thinking`` labels for
+    # category assignment, eliminating the train/eval semantic mismatch.
+    _sae_state: Dict[str, Optional[torch.Tensor]] = {"acts": None}
+    _sae_hook_handle = None
+    if sae_classifier is not None:
+        if sae_classify_layer is None:
+            raise ValueError("sae_classify_layer must be set when "
+                             "sae_classifier is provided.")
+        try:
+            _sae_target = thinking_model.model.layers[sae_classify_layer]
+        except Exception:
+            _sae_target = thinking_model.module.model.layers[sae_classify_layer]
+
+        def _sae_capture_hook(_mod, _inp, out):
+            h = out[0] if isinstance(out, tuple) else out
+            _sae_state["acts"] = h.detach()
+        _sae_hook_handle = _sae_target.register_forward_hook(_sae_capture_hook)
+        if _is_rank_zero():
+            print(f"  [sae-cat] classifying each disagreement position with "
+                  f"SAE on thinking-model activation @ layer "
+                  f"{sae_classify_layer}; bypassing sentence annotations.",
+                  flush=True)
+
     it = responses[:max_examples] if max_examples else responses
     if collection_mode == "disagreement":
         desc = "Collecting disagreements"
@@ -423,10 +529,16 @@ def collect_disagreements(
         base_prompt_len = len(
             base_tokenizer(base_prompt, return_tensors="pt")["input_ids"][0])
 
-        tok_cat = _token_category_labels(ann, base_full_text, base_tokenizer)
-        if not tok_cat:
-            n_no_labels += 1
-            continue
+        if sae_classifier is not None:
+            # Cats come from per-token SAE classification of thinking
+            # activations (computed below); skip the (sentence-level)
+            # annotation parser so we don't gate on it.
+            tok_cat: Dict[int, str] = {}
+        else:
+            tok_cat = _token_category_labels(ann, base_full_text, base_tokenizer)
+            if not tok_cat:
+                n_no_labels += 1
+                continue
 
         # --- Thinking side: chat-templated prompt + same rollout text.
         try:
@@ -471,6 +583,22 @@ def collect_disagreements(
         out_t = thinking_model(ids_gpu_t, use_cache=False)
         t_logits = out_t.logits[0]  # (Lt, vocab), bf16
         del out_t
+
+        # If SAE-based per-position classification is enabled, classify
+        # every thinking position once (vectorised) using the activations
+        # captured via the forward hook above.  This mirrors hybrid_eval's
+        # last-token classification on a per-token basis -- exactly the
+        # signal the steering hook will see at generation time.
+        sae_cat_per_pos: Optional[List[str]] = None
+        if sae_classifier is not None:
+            acts_t = _sae_state.get("acts")
+            if acts_t is None:
+                raise RuntimeError(
+                    "SAE classify hook did not fire on the thinking model.")
+            # acts_t: (1, Lt, hidden)
+            cat_ids = sae_classifier(acts_t[0])  # (Lt,) int
+            sae_cat_per_pos = [f"idx{int(c)}" for c in cat_ids.tolist()]
+            _sae_state["acts"] = None
         t_logprobs = torch.log_softmax(t_logits.float(), dim=-1)
         del t_logits
         # Compute next-token entropy at every thinking position from the
@@ -490,9 +618,17 @@ def collect_disagreements(
         n_ex_miss = 0
         for i in range(max(base_prompt_len - 1, 0), Lb - 1):
             target = int(base_ids[i + 1].item())
-            cat = tok_cat.get(i + 1)
-            if cat is None:
-                continue
+            if sae_cat_per_pos is not None:
+                # Classify the THINKING activation at the position that
+                # produces this base position's prediction (i.e. the
+                # thinking position aligned with base position i).  We do
+                # the alignment check below; defer the cat lookup until
+                # after we know i_t.
+                cat = None
+            else:
+                cat = tok_cat.get(i + 1)
+                if cat is None:
+                    continue
             n_pos_considered += 1
             if collection_mode == "disagreement":
                 if int(pred_b[i].item()) == target:
@@ -508,6 +644,15 @@ def collect_disagreements(
             if int(think_ids[i_t + 1].item()) != target:
                 n_ex_miss += 1
                 continue
+            # Now that i_t is validated, look up the SAE-classified cat
+            # at the THINKING position whose activation drives this base
+            # position's prediction.  This matches eval semantics: at
+            # generation step t the SAE sees the thinking-model's
+            # activation at position t-1.
+            if sae_cat_per_pos is not None:
+                if i_t < 0 or i_t >= len(sae_cat_per_pos):
+                    continue
+                cat = sae_cat_per_pos[i_t]
             if collection_mode == "entropy":
                 ent = float(t_entropy[i_t].item())
                 entropy_sum += ent
@@ -571,6 +716,11 @@ def collect_disagreements(
                       and k[3:].isdigit() else 0):
         print(f"  {cat}: {len(per_category[cat])} {label}",
               flush=True)
+    if _sae_hook_handle is not None:
+        try:
+            _sae_hook_handle.remove()
+        except Exception:
+            pass
     return per_example, per_category
 
 
@@ -825,6 +975,13 @@ def train_vectors_joint(
     cap_resample_each_epoch: bool = False,
     init_v_norm: float = 0.0,
     bias_frozen: Optional[torch.Tensor] = None,
+    # Crash-resilient checkpointing of the best-holdout snapshot to disk.
+    # When provided (and we're on rank 0), every time we improve the
+    # holdout KL we additionally write the snapshot to
+    # ``{checkpoint_dir}/{checkpoint_prefix}_best.pt`` so that an NCCL
+    # timeout near the end of training doesn't lose the entire run.
+    checkpoint_dir: Optional[str] = None,
+    checkpoint_prefix: Optional[str] = None,
 ) -> Tuple[torch.Tensor, Optional[torch.Tensor], List[dict]]:
     """Train ``n_cats`` category vectors simultaneously in one sweep.
 
@@ -967,14 +1124,18 @@ def train_vectors_joint(
 
     steps_per_epoch = math.ceil(len(ex_ids_sorted) / example_batch_size)
     total_steps = n_epochs * steps_per_epoch
-    pbar = tqdm(total=total_steps, desc=desc, mininterval=1.0)
+    # Rank-zero tqdm; other ranks get a no-op pbar (still iterates fine).
+    pbar = tqdm(total=total_steps, desc=desc, mininterval=1.0,
+                disable=(not _is_rank_zero()))
     last_loss = float("nan")
 
     # Structured-metrics log: one JSONL record per training step + one per
     # epoch marker.  Makes downstream plotting and regressions trivial
     # (no tqdm-line regex needed).
     metrics_records: List[dict] = []
-    metrics_fh = open(metrics_path, "w") if metrics_path else None
+    # Only rank 0 writes the metrics file (avoid racing/clobbering).
+    metrics_fh = (open(metrics_path, "w")
+                  if metrics_path and _is_rank_zero() else None)
     def _emit(rec: dict) -> None:
         metrics_records.append(rec)
         if metrics_fh is not None:
@@ -1000,6 +1161,43 @@ def train_vectors_joint(
     best_V_cpu: Optional[torch.Tensor] = None
     best_b_cpu: Optional[torch.Tensor] = None
     best_epoch: int = 0
+    # Periodic step-based fallback checkpointing: write the *current*
+    # V/b to disk every CKPT_EVERY_STEPS so that even if we crash
+    # *before* the first holdout-eval (e.g. NCCL timeout right at the
+    # epoch boundary), downstream stages can still recover something
+    # reasonable.  Best-holdout snapshot, when available, is always
+    # preferred over this; we only write the step ckpt when a best
+    # checkpoint does not yet exist for this run.  We also force a
+    # checkpoint at the end of every training epoch (before the
+    # epoch-end barrier) so a crash in the post-loop allreduce / eval
+    # never wastes a full epoch of work.
+    ckpt_every_steps = 50
+
+    def _maybe_write_step_ckpt(epoch_idx: int, force: bool = False) -> None:
+        # rank 0 only; never overwrites a real best-holdout snapshot
+        if (checkpoint_dir is None or checkpoint_prefix is None
+                or not _is_rank_zero()):
+            return
+        if best_V_cpu is not None:
+            return  # a real best snapshot is already on disk
+        if not force and (global_step % ckpt_every_steps != 0):
+            return
+        try:
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            ckpt_path = os.path.join(
+                checkpoint_dir, f"{checkpoint_prefix}_best.pt")
+            torch.save({
+                "V": V.detach().float().cpu().clone(),
+                "b": (b.detach().float().cpu().clone()
+                      if b is not None else None),
+                "epoch": int(epoch_idx + 1),
+                "step": int(global_step),
+                "holdout_kl": float("nan"),
+                "kind": "step_fallback",
+            }, ckpt_path)
+        except Exception as exc:
+            print(f"    [joint] WARN: step ckpt write failed: {exc}",
+                  flush=True)
     for epoch in range(n_epochs):
         if cap_resample_each_epoch:
             # Re-cap positions for this epoch with fresh randomness so
@@ -1015,7 +1213,23 @@ def train_vectors_joint(
         # length-bucketing benefits while keeping some stochasticity.
         bucket_starts = list(range(0, len(ex_ids_sorted),
                                    example_batch_size))
+        # All ranks shuffle identically (same `rng` seeded by `seed`),
+        # then take every `world_size`-th bucket starting at `rank`.
         rng.shuffle(bucket_starts)
+        ddp_world = (int(os.environ["WORLD_SIZE"])
+                     if _is_ddp() else 1)
+        ddp_rank = (int(os.environ["RANK"])
+                    if _is_ddp() else 0)
+        if ddp_world > 1:
+            # Trim to a multiple of world_size so every rank processes
+            # exactly the same number of batches.  Without this, rank 0
+            # gets ceil(n/W) while others get floor(n/W); the extra batch
+            # causes rank 0 to arrive at the epoch-end barrier late, which
+            # triggers a 25+ min NCCL barrier spin (100% SM, 0% mem).
+            # We lose at most world_size-1 batches (<1% of epoch data).
+            trim = len(bucket_starts) - (len(bucket_starts) % ddp_world)
+            bucket_starts = bucket_starts[:trim]
+        bucket_starts = bucket_starts[ddp_rank::ddp_world]
 
         ep_loss_sum = 0.0
         ep_positions = 0
@@ -1062,6 +1276,18 @@ def train_vectors_joint(
                 # (matches the historical aggregation).
                 loss = loss_sum / n_pts
             loss.backward()
+            # ---- DDP gradient sync ----
+            # V/b are tiny (a few KB - a few MB), so an all-reduce is
+            # essentially free.  We average the per-rank grads so the
+            # optimiser step is the SAME on every rank (deterministic
+            # with the same V/b state, lr, weight_decay).
+            if dist.is_initialized():
+                if V.grad is not None:
+                    dist.all_reduce(V.grad, op=dist.ReduceOp.SUM)
+                    V.grad.div_(float(dist.get_world_size()))
+                if b is not None and b.grad is not None:
+                    dist.all_reduce(b.grad, op=dist.ReduceOp.SUM)
+                    b.grad.div_(float(dist.get_world_size()))
             opt.step()
             # Optional row-wise norm clip on V (and b if present).
             if max_norm and max_norm > 0:
@@ -1127,7 +1353,50 @@ def train_vectors_joint(
                     int(x) for x in batch_cat_cnt.tolist()],
             })
             global_step += 1
+            _maybe_write_step_ckpt(epoch)
+            # Periodic Python GC to prevent reference-cycle accumulation
+            # across 700-900 steps building up a huge deferred-free list
+            # that triggers a 25+ min GPU memory compaction at epoch end.
+            if global_step % 50 == 0:
+                import gc as _gc
+                _gc.collect()
+        # End-of-training-loop ckpt (force write even if not at the
+        # CKPT_EVERY_STEPS boundary): this is the snapshot that
+        # crash-recovery downstream will use if the upcoming holdout
+        # eval / allreduce times out.
+        _maybe_write_step_ckpt(epoch, force=True)
         # End-of-epoch summary.
+        # Ensure all ranks have finished the training loop before
+        # issuing the small allreduces below.  We intentionally skip
+        # empty_cache() here: on H200 with ~100 GB allocated and many
+        # fragmented free blocks, empty_cache() triggers a GPU-side
+        # memory compaction that can take 30+ minutes (100% SM, 0% mem
+        # bandwidth), which outlasts even a 24-hour NCCL timeout in the
+        # worst case.  The 24-h collective timeout set at init_process_group
+        # and TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=86400 give us enough
+        # headroom for any legitimate tail latency without the compaction.
+        try:
+            torch.cuda.synchronize()
+        except Exception:
+            pass
+        if dist.is_initialized():
+            try:
+                dist.barrier()
+            except Exception as _exc:
+                print(f"    [joint] WARN: epoch-end barrier failed "
+                      f"({_exc}); proceeding", flush=True)
+        # ---- DDP: aggregate per-cat sums/counts and total loss across
+        # ranks so the printed/logged numbers reflect the FULL epoch
+        # (each rank only saw its 1/world_size shard).
+        if dist.is_initialized():
+            _ddp_allreduce_(ep_cat_sum)
+            _ddp_allreduce_(ep_cat_cnt)
+            _ep_loss_t = torch.tensor(
+                [ep_loss_sum, float(ep_positions)],
+                device=device, dtype=torch.float64)
+            _ddp_allreduce_(_ep_loss_t)
+            ep_loss_sum = float(_ep_loss_t[0].item())
+            ep_positions = int(_ep_loss_t[1].item())
         with torch.no_grad():
             norms = V.detach().norm(dim=-1)
             per_cat_avg_kl = [
@@ -1155,13 +1424,14 @@ def train_vectors_joint(
             "per_cat_positions": [int(x) for x in ep_cat_cnt.tolist()],
         })
 
-        # -- Per-epoch no-grad eval on BOTH train and holdout splits
-        # (generalisation check). We eval on the full train split (not
-        # the capped / in-epoch running average) so the number is
-        # comparable to the holdout number apples-to-apples.
+        # -- Per-epoch no-grad eval on the holdout split only.
+        # (We used to also eval on the full train split for a
+        # generalisation check, but on the 32 B pair that doubled
+        # the per-epoch wall time and was the dominant cost; we keep
+        # only the holdout-split eval since that's what drives the
+        # best-snapshot selection downstream.)
         with torch.no_grad():
             for split_name, bex, ex_ids_eval in (
-                ("train", by_example, ex_ids_sorted),
                 ("holdout", holdout_by_example, holdout_ex_ids_sorted),
             ):
                 if bex is None or not ex_ids_eval:
@@ -1170,8 +1440,17 @@ def train_vectors_joint(
                     n_cats, device=device, dtype=torch.float64)
                 eval_cat_cnt = torch.zeros(
                     n_cats, device=device, dtype=torch.long)
-                for i in range(0, len(ex_ids_eval), example_batch_size):
-                    mb_eval = ex_ids_eval[i:i + example_batch_size]
+                # Shard eval batch starts across ranks the same way as
+                # training so each rank does 1/world_size of the work,
+                # then we all-reduce the accumulators below.
+                _eval_starts = list(range(
+                    0, len(ex_ids_eval), example_batch_size))
+                if ddp_world > 1:
+                    trim_e = len(_eval_starts) - (len(_eval_starts) % ddp_world)
+                    _eval_starts = _eval_starts[:trim_e]
+                _eval_starts = _eval_starts[ddp_rank::ddp_world]
+                for _i in _eval_starts:
+                    mb_eval = ex_ids_eval[_i:_i + example_batch_size]
                     per_pos_e, pos_cats_e = _compute_batch_kl_loss_joint(
                         base_model, mb_eval, per_example, bex,
                         V.detach(), steer_layer, pad_token_id,
@@ -1185,6 +1464,10 @@ def train_vectors_joint(
                     eval_cat_cnt.scatter_add_(
                         0, pos_cats_e,
                         torch.ones_like(pos_cats_e, dtype=torch.long))
+                # DDP: aggregate per-cat eval sums/counts across ranks.
+                if dist.is_initialized():
+                    _ddp_allreduce_(eval_cat_sum)
+                    _ddp_allreduce_(eval_cat_cnt)
                 total_cnt = int(eval_cat_cnt.sum().item())
                 total_kl = (float(eval_cat_sum.sum().item()) /
                             max(total_cnt, 1))
@@ -1215,6 +1498,30 @@ def train_vectors_joint(
                     print(f"    [joint] new best holdout_kl="
                           f"{total_kl:.4f} at epoch {epoch+1} "
                           f"-> snapshot saved", flush=True)
+                    # Crash-resilient: persist the new best-holdout
+                    # snapshot to disk immediately (rank 0 only) so
+                    # that downstream stages can recover even if the
+                    # process gets killed by an NCCL timeout / OOM
+                    # before the final save in ``main``.
+                    if (checkpoint_dir is not None
+                            and checkpoint_prefix is not None
+                            and _is_rank_zero()):
+                        try:
+                            os.makedirs(checkpoint_dir, exist_ok=True)
+                            ckpt_path = os.path.join(
+                                checkpoint_dir,
+                                f"{checkpoint_prefix}_best.pt")
+                            torch.save({
+                                "V": best_V_cpu,
+                                "b": best_b_cpu,
+                                "epoch": int(best_epoch),
+                                "holdout_kl": float(best_holdout_kl),
+                            }, ckpt_path)
+                            print(f"    [joint] checkpointed best to "
+                                  f"{ckpt_path}", flush=True)
+                        except Exception as exc:
+                            print(f"    [joint] WARN: checkpoint "
+                                  f"write failed: {exc}", flush=True)
     pbar.close()
     if select_best_holdout and best_V_cpu is not None:
         print(f"    [joint] selecting best-holdout snapshot from "
@@ -1328,8 +1635,13 @@ def _compute_batch_kl_loss_joint(
         body_out = base_model.model(
             input_ids=ids_batch, attention_mask=attn, use_cache=False)
     hidden = body_out.last_hidden_state
-    selected = hidden[pos_bids_t, pos_tids_t, :]
+    h_dev = hidden.device
+    selected = hidden[pos_bids_t.to(h_dev), pos_tids_t.to(h_dev), :]
     logits = base_model.lm_head(selected).float()
+    log_dev = logits.device
+    topk_idx_t = topk_idx_t.to(log_dev)
+    topk_probs = topk_probs.to(log_dev)
+    pos_tgt_t_dev = pos_tgt_t.to(log_dev)
 
     if kl_mode == "full_vocab":
         base_lp = torch.log_softmax(logits, dim=-1)
@@ -1349,11 +1661,13 @@ def _compute_batch_kl_loss_joint(
         # Hard-label CE against the rollout target token over the full
         # vocab.  Sharpest possible training signal.
         base_lp = torch.log_softmax(logits, dim=-1)
-        per_pos = -base_lp.gather(-1, pos_tgt_t.unsqueeze(-1)).squeeze(-1)
+        per_pos = -base_lp.gather(-1, pos_tgt_t_dev.unsqueeze(-1)).squeeze(-1)
     else:
         raise ValueError(f"Unknown kl_mode={kl_mode!r}; "
                          f"expected 'topk', 'full_vocab', or 'ce'")
-    return per_pos, pos_cats_t
+    # Move per_pos back to the trainer's primary device so downstream
+    # scatter_add_ ops with pos_cats_t / pos_bids_t see matching devices.
+    return per_pos.to(device), pos_cats_t
 
 
 # ---------------------------------------------------------------------------
@@ -1361,6 +1675,15 @@ def _compute_batch_kl_loss_joint(
 # ---------------------------------------------------------------------------
 
 def main():
+    # Initialise DDP early so per-rank GPU + log prefix is set before
+    # any other CUDA/torch ops happen.  Outside DDP this is a no-op
+    # and (rank, world_size, local_rank) defaults to (0, 1, 0).
+    rank, world_size, local_rank = _ddp_setup()
+    if _is_ddp():
+        # Tag stdout so per-rank tqdm bars are distinguishable.
+        print(f"[ddp rank={rank}/{world_size} local_rank={local_rank}] "
+              f"initialised", flush=True)
+
     p = argparse.ArgumentParser()
     p.add_argument("--base_model", type=str, required=True)
     p.add_argument("--thinking_model", type=str, required=True,
@@ -1526,6 +1849,25 @@ def main():
     p.add_argument("--frozen_bias_layer", type=int, default=None,
                    help="Layer at which the frozen bias is applied.  "
                         "Defaults to --steer_layer.")
+    p.add_argument("--sae_classify_layer", type=int, default=None,
+                   help="If set, classify EACH disagreement position by "
+                        "running the thinking-model activation at this "
+                        "layer through the SAE -- exactly mirroring "
+                        "hybrid_eval.py's last-token classification "
+                        "(but applied per-position during collection).  "
+                        "When set, the (sentence-level) annotated "
+                        "categories are bypassed for category "
+                        "assignment, eliminating the train/eval "
+                        "category-distribution mismatch.")
+    p.add_argument("--sae_n_clusters", type=int, default=10,
+                   help="n_clusters of the SAE used for "
+                        "--sae_classify_layer.  Default 10 (matches the "
+                        "ORZ-7B / QwQ-32B SAEs).")
+    p.add_argument("--sae_disable_mean", action="store_true",
+                   help="If set, skip activation-mean centering during "
+                        "SAE classification (matches hybrid_eval.py "
+                        "--disable_sae_mean).  Auto-on when the SAE "
+                        "checkpoint has no activation_mean.")
     p.add_argument("--skip_cats_phase", action="store_true",
                    help="Skip Phase 3a (per-category vector training) "
                         "entirely.  Use together with --train_global_bias "
@@ -1637,6 +1979,32 @@ def main():
         base_tokenizer = AutoTokenizer.from_pretrained(args.base_model)
         if base_tokenizer.pad_token_id is None:
             base_tokenizer.pad_token = base_tokenizer.eos_token
+
+        # Apply load-time max_seq_len filter: the dump may have been
+        # collected with a higher cap (eg 2048).  Keeping that data when
+        # the user wants 1536 to fit memory means we'd OOM mid-training
+        # at the longest batch.  Drop overlength examples here AND every
+        # disagreement record that points at them so per_category stays
+        # consistent.
+        if args.max_seq_len and args.max_seq_len > 0:
+            keep_ex_ids = {
+                i for i, ex in enumerate(per_example)
+                if ex.get("ids") is not None
+                and ex["ids"].shape[0] <= args.max_seq_len}
+            n_dropped = len(per_example) - len(keep_ex_ids)
+            if n_dropped > 0:
+                old_n_pos = sum(len(v) for v in per_category.values())
+                # Filter records by ex_idx (records are 4-tuples
+                # (ex_idx, pos, topk_lp, topk_idx)).
+                for k in list(per_category.keys()):
+                    per_category[k] = [
+                        r for r in per_category[k] if r[0] in keep_ex_ids]
+                new_n_pos = sum(len(v) for v in per_category.values())
+                _ddp_print(
+                    f"  [seq_filter] dropped {n_dropped}/{len(per_example)} "
+                    f"examples > {args.max_seq_len} tokens "
+                    f"({old_n_pos} -> {new_n_pos} positions)")
+
         print(f"  loaded {len(per_example)} examples, "
               f"{sum(len(v) for v in per_category.values())} positions "
               f"across {len(per_category)} categories", flush=True)
@@ -1646,8 +2014,12 @@ def main():
         base_tokenizer = AutoTokenizer.from_pretrained(args.base_model)
         if base_tokenizer.pad_token_id is None:
             base_tokenizer.pad_token = base_tokenizer.eos_token
+        # In DDP each rank loads the full (frozen) base model on its own
+        # GPU; outside DDP we let HF auto-shard across visible GPUs.
+        _device_map = ({"": local_rank} if _is_ddp()
+                       else "auto")
         base_model = AutoModelForCausalLM.from_pretrained(
-            args.base_model, device_map="auto", dtype=torch.bfloat16)
+            args.base_model, device_map=_device_map, dtype=torch.bfloat16)
         for p_ in base_model.parameters():
             p_.requires_grad = False
 
@@ -1665,7 +2037,7 @@ def main():
         if thinking_tokenizer.pad_token_id is None:
             thinking_tokenizer.pad_token = thinking_tokenizer.eos_token
         thinking_model = AutoModelForCausalLM.from_pretrained(
-            args.thinking_model, device_map="auto", dtype=torch.bfloat16)
+            args.thinking_model, device_map=_device_map, dtype=torch.bfloat16)
         for p_ in thinking_model.parameters():
             p_.requires_grad = False
         thinking_model.eval()
@@ -1691,6 +2063,48 @@ def main():
                 f"base={b_ids[:10]}... thinking={t_ids[:10]}...  "
                 "Base-position top-K targets cannot be aligned cross-model; "
                 "use a matching tokenizer family.")
+
+        # ---- Optional: load SAE for per-position classification --------
+        sae_classifier_fn = None
+        if args.sae_classify_layer is not None:
+            from utils.sae import load_sae
+            # Match hybrid_eval.py's SAE filename convention exactly:
+            # sae_<short-lower>_layer<L>_clusters<N>.pt
+            think_id = args.thinking_model.split("/")[-1].lower()
+            sae_obj, _ = load_sae(think_id, args.sae_classify_layer,
+                                  args.sae_n_clusters,
+                                  require_activation_mean=False)
+            sae_obj = sae_obj.to(next(thinking_model.parameters()).device)
+            sae_obj.eval()
+            for _p in sae_obj.parameters():
+                _p.requires_grad = False
+            sae_disable_mean = args.sae_disable_mean
+            if (not hasattr(sae_obj, "activation_mean")) and \
+                    not sae_disable_mean:
+                sae_disable_mean = True
+                print("  [sae-cat] no activation_mean on SAE; auto-set "
+                      "--sae_disable_mean (matches hybrid_eval).",
+                      flush=True)
+            sae_act_mean = (sae_obj.activation_mean
+                            if hasattr(sae_obj, "activation_mean")
+                            and not sae_disable_mean else None)
+            sae_dev = next(sae_obj.parameters()).device
+
+            @torch.no_grad()
+            def sae_classifier_fn(acts):  # noqa: E306
+                # acts: (Lt, hidden) on the thinking-model device.
+                x = acts.float().to(sae_dev)
+                if sae_act_mean is not None:
+                    x = x - sae_act_mean.to(sae_dev)
+                    x = x / (x.norm(dim=-1, keepdim=True) + 1e-8)
+                la = sae_obj.encoder(x - sae_obj.b_dec)
+                ids = la.argmax(dim=-1)
+                return ids.cpu()
+
+            print(f"  [sae-cat] loaded SAE for {think_id} layer "
+                  f"{args.sae_classify_layer} clusters "
+                  f"{args.sae_n_clusters} (disable_mean="
+                  f"{sae_disable_mean})", flush=True)
 
         # ---- Load annotated responses ----
         responses_path = os.path.join(
@@ -1737,7 +2151,10 @@ def main():
                 frozen_bias=frozen_bias_cpu,
                 frozen_bias_layer=(args.frozen_bias_layer
                                    if args.frozen_bias_layer is not None
-                                   else args.steer_layer))
+                                   else args.steer_layer),
+                sae_classifier=sae_classifier_fn,
+                sae_classify_layer=args.sae_classify_layer,
+                sae_n_clusters=args.sae_n_clusters)
             probe_total = sum(len(v) for v in per_category.values())
             probe_idx_cats = [k for k in per_category.keys()
                               if k.startswith("idx") and k[3:].isdigit()]
@@ -1779,7 +2196,10 @@ def main():
                     frozen_bias=frozen_bias_cpu,
                     frozen_bias_layer=(args.frozen_bias_layer
                                        if args.frozen_bias_layer is not None
-                                       else args.steer_layer))
+                                       else args.steer_layer),
+                    sae_classifier=sae_classifier_fn,
+                    sae_classify_layer=args.sae_classify_layer,
+                    sae_n_clusters=args.sae_n_clusters)
                 # Merge pe_more/pc_more into per_example/per_category,
                 # offsetting example indices.
                 offset = len(per_example)
@@ -1804,7 +2224,10 @@ def main():
                 frozen_bias=frozen_bias_cpu,
                 frozen_bias_layer=(args.frozen_bias_layer
                                    if args.frozen_bias_layer is not None
-                                   else args.steer_layer))
+                                   else args.steer_layer),
+                sae_classifier=sae_classifier_fn,
+                sae_classify_layer=args.sae_classify_layer,
+                sae_n_clusters=args.sae_n_clusters)
 
         # Persist and exit if this is the collect-only phase -- the caller
         # will re-run the script with --load_collected on a fresh process.
@@ -1850,8 +2273,9 @@ def main():
     # ========================================================================
     if args.load_collected:
         print(f"Loading base model {args.base_model}...", flush=True)
+        _device_map = ({"": local_rank} if _is_ddp() else "auto")
         base_model = AutoModelForCausalLM.from_pretrained(
-            args.base_model, device_map="auto", dtype=torch.bfloat16)
+            args.base_model, device_map=_device_map, dtype=torch.bfloat16)
         for p_ in base_model.parameters():
             p_.requires_grad = False
         if frozen_bias_cpu is not None:
@@ -2067,7 +2491,9 @@ def main():
             per_example_loss=bool(args.per_example_loss),
             cap_resample_each_epoch=bool(args.cap_resample_each_epoch),
             init_v_norm=init_v_norm_value,
-            bias_frozen=frozen_bias_cpu)
+            bias_frozen=frozen_bias_cpu,
+            checkpoint_dir=args.save_dir,
+            checkpoint_prefix=f"{model_short}_cats_seed{seed_i}")
         kl_i = _best_holdout_from_metrics(cats_metrics_i)
         seed_results.append({"seed": seed_i, "best_holdout_kl": kl_i})
         print(f"  [seed {seed_i}] best_holdout_kl = {kl_i:.4f}", flush=True)
@@ -2101,7 +2527,7 @@ def main():
     # category training we just finished.  Files written here are the
     # final cats artefacts; the bias phase below only adds the bias
     # files, never re-touches these.
-    if not args.skip_cats_phase:
+    if not args.skip_cats_phase and _is_rank_zero():
         for k in active_keys:
             c = key_to_cat[k]
             v = V_cat[c]
@@ -2115,6 +2541,8 @@ def main():
             json.dump(layer_map_partial, f, indent=2)
         print(f"  [interim] cats vectors safely persisted "
               f"({len(active_keys)} keys + layer_map.json)", flush=True)
+    if dist.is_initialized():
+        dist.barrier()
 
     # ---- Phase 3b: global bias (single vector on union of all pos) ----
     # Skipped entirely when --joint_cats_and_bias is used; in that mode
@@ -2162,7 +2590,10 @@ def main():
             kl_mode=args.kl_mode,
             train_topk=min(args.train_topk, args.topk),
             holdout_positions_with_cat=(bias_holdout_records
-                                        if bias_holdout_records else None))
+                                        if bias_holdout_records else None),
+            max_norm=float(args.max_norm),
+            checkpoint_dir=args.save_dir,
+            checkpoint_prefix=f"{model_short}_bias")
 
     # ---- Phase 4: finalise metadata.  Cats vectors + layer_map.json are
     # already on disk from the Phase 3a.1 interim save above; we just
@@ -2182,7 +2613,7 @@ def main():
                                   "n_positions": len(per_category[k])})
             print(f"[{k}] norm={norm:.3f}  -> {out_path}", flush=True)
 
-    if bias_V is not None:
+    if bias_V is not None and _is_rank_zero():
         bv = bias_V[0]
         bias_path = os.path.join(args.save_dir,
                                  f"{model_short}_bias_global.pt")
@@ -2192,7 +2623,16 @@ def main():
                        "norm": float(bv.norm().item())}, f, indent=2)
         print(f"[_global] norm={bv.norm().item():.3f}  -> {bias_path}",
               flush=True)
+    if dist.is_initialized():
+        dist.barrier()
 
+    if not _is_rank_zero():
+        # Non-rank-0 ranks have done their share of the training/eval
+        # work; rank 0 owns saving the meta file.
+        if dist.is_initialized():
+            dist.barrier()
+            _ddp_cleanup()
+        return
     meta_path = os.path.join(
         args.save_dir, f"{model_short}_correction_meta.json")
     with open(meta_path, "w") as f:
@@ -2225,6 +2665,9 @@ def main():
           f"+ {'1 bias' if bias_V is not None else 'no bias'}, "
           f"skipped {len(skipped)}: {skipped}")
     print(f"Metadata at {meta_path}")
+    if dist.is_initialized():
+        dist.barrier()
+        _ddp_cleanup()
 
 
 if __name__ == "__main__":

@@ -26,6 +26,17 @@ parser.add_argument("--max_batch_tokens", type=int, default=32_000,
                     help="Token-budget cap per batch (tune for your GPU)")
 parser.add_argument("--max_batch_size", type=int, default=16,
                     help="Maximum number of responses per batch")
+parser.add_argument("--classify_with", type=str, default="last_token",
+                    choices=["last_token", "sentence_mean"],
+                    help="How to compute the activation used to classify "
+                         "each sentence: 'last_token' uses the activation "
+                         "at the last token of the sentence (matches the "
+                         "eval-time hybrid classifier which sees only the "
+                         "last token's activation); 'sentence_mean' is the "
+                         "legacy behaviour (mean across all sentence tokens). "
+                         "Last-token is recommended so the training-time "
+                         "category labels match the eval-time category "
+                         "assignment distribution.")
 args, _ = parser.parse_known_args()
 
 
@@ -57,7 +68,8 @@ def _build_batches(items, tokenizer, max_batch_tokens, max_batch_size):
 
 
 def process_responses(responses_file, model, tokenizer, sae, layer, output_file,
-                      max_batch_tokens, max_batch_size):
+                      max_batch_tokens, max_batch_size,
+                      classify_with="last_token"):
     """Annotate thinking processes using batched hook-based forward passes."""
     with open(responses_file, 'r') as f:
         responses_data = json.load(f)
@@ -168,8 +180,14 @@ def process_responses(responses_file, model, tokenizer, sae, layer, output_file,
                 adj_end = pad_offset + token_end
                 if adj_start < 0:
                     adj_start = 0
-                avg_act = acts_cpu[j, adj_start:adj_end, :].mean(dim=0)
-                all_avg_acts.append(avg_act)
+                if classify_with == "last_token":
+                    last_idx = adj_end - 1
+                    if last_idx < adj_start:
+                        last_idx = adj_start
+                    sent_act = acts_cpu[j, last_idx, :]
+                else:
+                    sent_act = acts_cpu[j, adj_start:adj_end, :].mean(dim=0)
+                all_avg_acts.append(sent_act)
                 all_sent_meta.append((j, s_idx, sentence))
 
         del acts_cpu
@@ -234,7 +252,11 @@ model_id = model_name.split('/')[-1].lower()
 
 # %%  Cluster count in filename so different configs don't overwrite each other
 responses_file = f"results/vars/responses_{model_id}.json"
-output_file = f"results/vars/annotated_responses_{model_id}_{args.n_clusters}clusters_layer{args.layer}.json"
+_classify_tag = "" if args.classify_with == "sentence_mean" else f"_{args.classify_with}"
+output_file = (
+    f"results/vars/annotated_responses_{model_id}"
+    f"_{args.n_clusters}clusters_layer{args.layer}{_classify_tag}.json"
+)
 
 # Load model and tokenizer
 print(f"Loading model {model_name}...")
@@ -246,8 +268,16 @@ print(f"Loading SAE for model {model_id}, layer {args.layer}, clusters {args.n_c
 sae, _ = load_sae(model_id, args.layer, args.n_clusters, require_activation_mean=False)
 sae_path = f'../train-saes/results/vars/saes/sae_{model_id}_layer{args.layer}_clusters{args.n_clusters}.pt'
 ckpt = torch.load(sae_path, weights_only=False)
-assert "activation_mean" in ckpt, "SAE checkpoint must contain activation_mean"
-sae.activation_mean.copy_(ckpt["activation_mean"].to(torch.float32))
+if "activation_mean" in ckpt:
+    sae.activation_mean.copy_(ckpt["activation_mean"].to(torch.float32))
+    print(f"  Loaded activation_mean from SAE checkpoint (norm="
+          f"{float(sae.activation_mean.norm()):.3f})")
+else:
+    # Centering becomes a no-op; matches hybrid_eval.py behaviour for
+    # SAE checkpoints that don't carry an activation_mean.
+    print("  WARN: SAE checkpoint has no activation_mean; using zero "
+          "mean (centering is a no-op).  This is consistent with the "
+          "eval script's fallback for SAEs without a stored mean.")
 del ckpt
 raw_model = model._model if hasattr(model, '_model') else model
 sae = sae.to(next(raw_model.parameters()).device)
@@ -262,6 +292,7 @@ processed_data = process_responses(
     output_file,
     max_batch_tokens=args.max_batch_tokens,
     max_batch_size=args.max_batch_size,
+    classify_with=args.classify_with,
 )
 
 print(f"Annotation complete. {len(processed_data)} responses saved to {output_file}")

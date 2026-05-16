@@ -1,0 +1,115 @@
+{
+  "base_model": "Qwen/Qwen2.5-1.5B",
+  "thinking_model": "Open-Reasoner-Zero/Open-Reasoner-Zero-1.5B",
+  "base_id": "qwen2.5-1.5b",
+  "thinking_id": "open-reasoner-zero-1.5b",
+  "dataset": "math500",
+  "sae_layer": 16,
+  "n_clusters": 10,
+  "sae_path": null,
+  "coef_sweep": [
+    0.5,
+    1.0,
+    1.5,
+    2.0
+  ],
+  "coef_select": "pg",
+  "kl_topk": 3,
+  "bias_only": false,
+  "bias_vector_path": "../train-vectors/results/vars/correction_vectors_orz-1.5b_orz7b_stage1/qwen2.5-1.5b_bias_global.pt",
+  "bias_layer": null,
+  "random_firing": false,
+  "random_guardrail": false,
+  "random_seed": 42,
+  "steer_all_positions": false,
+  "steer_all_positions_full": false,
+  "disable_sae_mean": true,
+  "old_vectors_dir": "../train-vectors/results/vars/correction_vectors_orz-1.5b_orz7b_stage2",
+  "old_vectors_layer": 14,
+  "n_latent_descriptions": 10,
+  "layer_map": {
+    "idx0": 14,
+    "idx1": 14,
+    "idx2": 14,
+    "idx3": 14,
+    "idx4": 14,
+    "idx5": 14,
+    "idx6": 14,
+    "idx7": 14,
+    "idx8": 14,
+    "idx9": 14
+  },
+  "steering_vectors": {
+    "idx0": {
+      "shape": [
+        1536
+      ],
+      "norm": 19.767194747924805,
+      "layer": 14
+    },
+    "idx1": {
+      "shape": [
+        1536
+      ],
+      "norm": 17.417999267578125,
+      "layer": 14
+    },
+    "idx2": {
+      "shape": [
+        1536
+      ],
+      "norm": 22.79861831665039,
+      "layer": 14
+    },
+    "idx3": {
+      "shape": [
+        1536
+      ],
+      "norm": 17.285907745361328,
+      "layer": 14
+    },
+    "idx4": {
+      "shape": [
+        1536
+      ],
+      "norm": 21.02240562438965,
+      "layer": 14
+    },
+    "idx5": {
+      "shape": [
+        1536
+      ],
+      "norm": 16.814855575561523,
+      "layer": 14
+    },
+    "idx6": {
+      "shape": [
+        1536
+      ],
+      "norm": 17.188554763793945,
+      "layer": 14
+    },
+    "idx7": {
+      "shape": [
+        1536
+      ],
+      "norm": 16.078413009643555,
+      "layer": 14
+    },
+    "idx8": {
+      "shape": [
+        1536
+      ],
+      "norm": 21.892202377319336,
+      "layer": 14
+    },
+    "idx9": {
+      "shape": [
+        1536
+      ],
+      "norm": 21.49871063232422,
+      "layer": 14
+    }
+  },
+  "suffix": "_orz-1.5b-saefix-rand-128"
+}

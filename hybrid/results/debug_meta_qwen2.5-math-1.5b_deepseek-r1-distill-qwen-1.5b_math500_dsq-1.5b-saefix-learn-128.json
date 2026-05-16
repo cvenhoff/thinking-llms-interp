@@ -1,0 +1,115 @@
+{
+  "base_model": "Qwen/Qwen2.5-Math-1.5B",
+  "thinking_model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+  "base_id": "qwen2.5-math-1.5b",
+  "thinking_id": "deepseek-r1-distill-qwen-1.5b",
+  "dataset": "math500",
+  "sae_layer": 16,
+  "n_clusters": 10,
+  "sae_path": null,
+  "coef_sweep": [
+    0.5,
+    1.0,
+    1.5,
+    2.0
+  ],
+  "coef_select": "pg",
+  "kl_topk": 3,
+  "bias_only": false,
+  "bias_vector_path": "../train-vectors/results/vars/correction_vectors_dsq-1.5b_orz7b_stage1/qwen2.5-math-1.5b_bias_global.pt",
+  "bias_layer": null,
+  "random_firing": false,
+  "random_guardrail": false,
+  "random_seed": 0,
+  "steer_all_positions": false,
+  "steer_all_positions_full": false,
+  "disable_sae_mean": false,
+  "old_vectors_dir": "../train-vectors/results/vars/correction_vectors_dsq-1.5b_orz7b_stage2",
+  "old_vectors_layer": 14,
+  "n_latent_descriptions": 10,
+  "layer_map": {
+    "idx0": 14,
+    "idx1": 14,
+    "idx2": 14,
+    "idx3": 14,
+    "idx4": 14,
+    "idx5": 14,
+    "idx6": 14,
+    "idx7": 14,
+    "idx8": 14,
+    "idx9": 14
+  },
+  "steering_vectors": {
+    "idx0": {
+      "shape": [
+        1536
+      ],
+      "norm": 76.49603271484375,
+      "layer": 14
+    },
+    "idx1": {
+      "shape": [
+        1536
+      ],
+      "norm": 93.45462036132812,
+      "layer": 14
+    },
+    "idx2": {
+      "shape": [
+        1536
+      ],
+      "norm": 78.93544006347656,
+      "layer": 14
+    },
+    "idx3": {
+      "shape": [
+        1536
+      ],
+      "norm": 108.2455062866211,
+      "layer": 14
+    },
+    "idx4": {
+      "shape": [
+        1536
+      ],
+      "norm": 115.08139038085938,
+      "layer": 14
+    },
+    "idx5": {
+      "shape": [
+        1536
+      ],
+      "norm": 84.68878936767578,
+      "layer": 14
+    },
+    "idx6": {
+      "shape": [
+        1536
+      ],
+      "norm": 91.97626495361328,
+      "layer": 14
+    },
+    "idx7": {
+      "shape": [
+        1536
+      ],
+      "norm": 97.89053344726562,
+      "layer": 14
+    },
+    "idx8": {
+      "shape": [
+        1536
+      ],
+      "norm": 65.39663696289062,
+      "layer": 14
+    },
+    "idx9": {
+      "shape": [
+        1536
+      ],
+      "norm": 134.87254333496094,
+      "layer": 14
+    }
+  },
+  "suffix": "_dsq-1.5b-saefix-learn-128"
+}

@@ -1,0 +1,114 @@
+{
+  "base_model": "Qwen/Qwen2.5-32B",
+  "thinking_model": "Qwen/QwQ-32B",
+  "base_id": "qwen2.5-32b",
+  "thinking_id": "qwq-32b",
+  "dataset": "math500",
+  "sae_layer": 27,
+  "n_clusters": 10,
+  "sae_path": null,
+  "coef_sweep": [
+    0.5,
+    1.0,
+    1.5
+  ],
+  "coef_select": "pg",
+  "kl_topk": 3,
+  "bias_only": true,
+  "bias_vector_path": "../train-vectors/results/vars/correction_vectors_qwq32b_biasfirst_orzcanon_stage1/qwen2.5-32b_bias_global.pt",
+  "bias_layer": 38,
+  "random_firing": false,
+  "random_guardrail": false,
+  "random_seed": 0,
+  "steer_all_positions": false,
+  "steer_all_positions_full": false,
+  "disable_sae_mean": true,
+  "old_vectors_dir": "../train-vectors/results/vars/correction_vectors_qwq32b_biasfirst_orzcanon_stage2",
+  "old_vectors_layer": 38,
+  "n_latent_descriptions": 10,
+  "layer_map": {
+    "idx0": 38,
+    "idx1": 38,
+    "idx2": 38,
+    "idx3": 38,
+    "idx4": 38,
+    "idx5": 38,
+    "idx6": 38,
+    "idx7": 38,
+    "idx8": 38,
+    "idx9": 38
+  },
+  "steering_vectors": {
+    "idx0": {
+      "shape": [
+        5120
+      ],
+      "norm": 25.000123977661133,
+      "layer": 38
+    },
+    "idx1": {
+      "shape": [
+        5120
+      ],
+      "norm": 25.000123977661133,
+      "layer": 38
+    },
+    "idx2": {
+      "shape": [
+        5120
+      ],
+      "norm": 25.000123977661133,
+      "layer": 38
+    },
+    "idx3": {
+      "shape": [
+        5120
+      ],
+      "norm": 25.000123977661133,
+      "layer": 38
+    },
+    "idx4": {
+      "shape": [
+        5120
+      ],
+      "norm": 25.000123977661133,
+      "layer": 38
+    },
+    "idx5": {
+      "shape": [
+        5120
+      ],
+      "norm": 25.000123977661133,
+      "layer": 38
+    },
+    "idx6": {
+      "shape": [
+        5120
+      ],
+      "norm": 25.000123977661133,
+      "layer": 38
+    },
+    "idx7": {
+      "shape": [
+        5120
+      ],
+      "norm": 25.000123977661133,
+      "layer": 38
+    },
+    "idx8": {
+      "shape": [
+        5120
+      ],
+      "norm": 25.000123977661133,
+      "layer": 38
+    },
+    "idx9": {
+      "shape": [
+        5120
+      ],
+      "norm": 25.000123977661133,
+      "layer": 38
+    }
+  },
+  "suffix": "_qwq-orzcanon-biasonly-n128"
+}

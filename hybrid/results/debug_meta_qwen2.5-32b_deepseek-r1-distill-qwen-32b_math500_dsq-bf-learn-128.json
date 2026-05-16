@@ -1,0 +1,154 @@
+{
+  "base_model": "Qwen/Qwen2.5-32B",
+  "thinking_model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+  "base_id": "qwen2.5-32b",
+  "thinking_id": "deepseek-r1-distill-qwen-32b",
+  "dataset": "math500",
+  "sae_layer": 27,
+  "n_clusters": 15,
+  "sae_path": null,
+  "coef_sweep": [
+    0.5,
+    1.0,
+    1.5
+  ],
+  "coef_select": "pg",
+  "kl_topk": 3,
+  "bias_only": false,
+  "bias_vector_path": "../train-vectors/results/vars/correction_vectors_dsqwen32b_biasfirst_stage1/qwen2.5-32b_bias_global.pt",
+  "bias_layer": null,
+  "random_firing": false,
+  "random_guardrail": false,
+  "random_seed": 0,
+  "steer_all_positions": false,
+  "steer_all_positions_full": false,
+  "disable_sae_mean": false,
+  "old_vectors_dir": "../train-vectors/results/vars/correction_vectors_dsqwen32b_biasfirst_stage2",
+  "old_vectors_layer": 38,
+  "n_latent_descriptions": 15,
+  "layer_map": {
+    "idx0": 38,
+    "idx1": 38,
+    "idx2": 38,
+    "idx3": 38,
+    "idx4": 38,
+    "idx5": 38,
+    "idx6": 38,
+    "idx7": 38,
+    "idx8": 38,
+    "idx9": 38,
+    "idx10": 38,
+    "idx11": 38,
+    "idx12": 38,
+    "idx13": 38,
+    "idx14": 38
+  },
+  "steering_vectors": {
+    "idx0": {
+      "shape": [
+        5120
+      ],
+      "norm": 107.67124938964844,
+      "layer": 38
+    },
+    "idx1": {
+      "shape": [
+        5120
+      ],
+      "norm": 115.35247039794922,
+      "layer": 38
+    },
+    "idx2": {
+      "shape": [
+        5120
+      ],
+      "norm": 119.54785919189453,
+      "layer": 38
+    },
+    "idx3": {
+      "shape": [
+        5120
+      ],
+      "norm": 111.5196533203125,
+      "layer": 38
+    },
+    "idx4": {
+      "shape": [
+        5120
+      ],
+      "norm": 116.35433197021484,
+      "layer": 38
+    },
+    "idx5": {
+      "shape": [
+        5120
+      ],
+      "norm": 111.34649658203125,
+      "layer": 38
+    },
+    "idx6": {
+      "shape": [
+        5120
+      ],
+      "norm": 113.26241302490234,
+      "layer": 38
+    },
+    "idx7": {
+      "shape": [
+        5120
+      ],
+      "norm": 114.43917083740234,
+      "layer": 38
+    },
+    "idx8": {
+      "shape": [
+        5120
+      ],
+      "norm": 113.45916748046875,
+      "layer": 38
+    },
+    "idx9": {
+      "shape": [
+        5120
+      ],
+      "norm": 110.83195495605469,
+      "layer": 38
+    },
+    "idx10": {
+      "shape": [
+        5120
+      ],
+      "norm": 115.72740173339844,
+      "layer": 38
+    },
+    "idx11": {
+      "shape": [
+        5120
+      ],
+      "norm": 114.67715454101562,
+      "layer": 38
+    },
+    "idx12": {
+      "shape": [
+        5120
+      ],
+      "norm": 115.45438385009766,
+      "layer": 38
+    },
+    "idx13": {
+      "shape": [
+        5120
+      ],
+      "norm": 117.71017456054688,
+      "layer": 38
+    },
+    "idx14": {
+      "shape": [
+        5120
+      ],
+      "norm": 113.37322998046875,
+      "layer": 38
+    }
+  },
+  "suffix": "_dsq-bf-learn-128"
+}

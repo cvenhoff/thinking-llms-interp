@@ -1,0 +1,114 @@
+{
+  "base_model": "Qwen/Qwen2.5-7B",
+  "thinking_model": "Open-Reasoner-Zero/Open-Reasoner-Zero-7B",
+  "base_id": "qwen2.5-7b",
+  "thinking_id": "open-reasoner-zero-7b",
+  "dataset": "math500",
+  "sae_layer": 20,
+  "n_clusters": 10,
+  "sae_path": null,
+  "coef_sweep": [
+    0.5,
+    1.0,
+    1.5
+  ],
+  "coef_select": "pg",
+  "kl_topk": 3,
+  "bias_only": false,
+  "bias_vector_path": "../train-vectors/results/vars/correction_vectors_orz7b_biasfirst_stage1_canon/qwen2.5-7b_bias_global.pt",
+  "bias_layer": null,
+  "random_firing": false,
+  "random_guardrail": false,
+  "random_seed": 42,
+  "steer_all_positions": false,
+  "steer_all_positions_full": false,
+  "disable_sae_mean": false,
+  "old_vectors_dir": "../train-vectors/results/vars/correction_vectors_orz7b_biasfirst_stage2_canon",
+  "old_vectors_layer": 16,
+  "n_latent_descriptions": 10,
+  "layer_map": {
+    "idx0": 16,
+    "idx1": 16,
+    "idx2": 16,
+    "idx3": 16,
+    "idx4": 16,
+    "idx5": 16,
+    "idx6": 16,
+    "idx7": 16,
+    "idx8": 16,
+    "idx9": 16
+  },
+  "steering_vectors": {
+    "idx0": {
+      "shape": [
+        3584
+      ],
+      "norm": 23.27862548828125,
+      "layer": 16
+    },
+    "idx1": {
+      "shape": [
+        3584
+      ],
+      "norm": 20.583948135375977,
+      "layer": 16
+    },
+    "idx2": {
+      "shape": [
+        3584
+      ],
+      "norm": 20.283754348754883,
+      "layer": 16
+    },
+    "idx3": {
+      "shape": [
+        3584
+      ],
+      "norm": 22.60581398010254,
+      "layer": 16
+    },
+    "idx4": {
+      "shape": [
+        3584
+      ],
+      "norm": 20.71116828918457,
+      "layer": 16
+    },
+    "idx5": {
+      "shape": [
+        3584
+      ],
+      "norm": 21.66703224182129,
+      "layer": 16
+    },
+    "idx6": {
+      "shape": [
+        3584
+      ],
+      "norm": 22.048189163208008,
+      "layer": 16
+    },
+    "idx7": {
+      "shape": [
+        3584
+      ],
+      "norm": 21.09236717224121,
+      "layer": 16
+    },
+    "idx8": {
+      "shape": [
+        3584
+      ],
+      "norm": 23.6373233795166,
+      "layer": 16
+    },
+    "idx9": {
+      "shape": [
+        3584
+      ],
+      "norm": 23.23534393310547,
+      "layer": 16
+    }
+  },
+  "suffix": "_orz-bf-rand-canon-48"
+}

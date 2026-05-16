@@ -117,7 +117,8 @@ def parse_args():
                         "a much stronger bias perturbation.")
     p.add_argument("--coef_select", type=str, default="pg",
                    choices=["pg", "kl_top3", "kl_topk",
-                            "think_top1", "think_top1_match"],
+                            "think_top1", "think_top1_match",
+                            "think_top1_match_maxconf"],
                    help="Coefficient-selection rule used together with "
                         "--coef_sweep on disagreement positions. "
                         "'pg' (default, legacy): pick coef whose steered-"
@@ -146,7 +147,16 @@ def parse_args():
                         "produces a match, leave the row UNSTEERED "
                         "(output unsteered base argmax, coef=0).  Real "
                         "upper bound on what the learned vectors can "
-                        "achieve at this position with the given sweep.")
+                        "achieve at this position with the given sweep. "
+                        "'think_top1_match_maxconf': low-confound oracle. "
+                        "Like think_top1_match (only consider coefs whose "
+                        "argmax==T), but among those matching coefs pick "
+                        "the one with the HIGHEST log p_steered(T) "
+                        "(margin-tiebreak). Random vectors fail the strict "
+                        "argmax==T condition (~1/V per coef) so they fall "
+                        "through to base unsteered; trained vectors that "
+                        "actually point in T's direction get credit, with "
+                        "highest-confidence coef chosen.")
     p.add_argument("--kl_topk", type=int, default=3,
                    help="K for --coef_select=kl_topk (and kl_top3 alias).")
     p.add_argument("--steer_all_positions_full", action="store_true",
@@ -483,12 +493,24 @@ def hybrid_generate_batched(
                 if v is None:
                     return out
                 h = out[0] if isinstance(out, tuple) else out
+                # When the base model is sharded across multiple GPUs
+                # (device_map="auto"), the layer's output `h` lives on
+                # whichever device that layer landed on, while `mask`,
+                # `v`, and `coef` were created on the trainer's primary
+                # `device`.  Move them to h.device for indexing.
+                h_dev = h.device
+                if mask.device != h_dev:
+                    mask = mask.to(h_dev)
+                if v.device != h_dev:
+                    v = v.to(h_dev, dtype=h.dtype)
                 h = h.clone()
                 coef = steer_s["coef"]
                 if isinstance(coef, torch.Tensor):
                     # Per-row coefficient (used when committing the
                     # winning coef back into the KV cache under
                     # --steer_all_positions).
+                    if coef.device != h_dev:
+                        coef = coef.to(h_dev)
                     delta = (coef[mask].view(-1, 1, 1)
                              * v[mask].unsqueeze(1))
                 else:
@@ -515,14 +537,25 @@ def hybrid_generate_batched(
     # ---- SAE helpers ----
     def _classify(sae_act_batch):
         """Classify + set up steering vectors/masks in steer_s."""
+        # The SAE-layer hook on the thinking model captures activations on
+        # whatever device that layer lives on (with device_map="auto" the
+        # thinking model can be sharded across multiple GPUs).  The SAE
+        # itself was placed on the FIRST thinking-model parameter's device
+        # in main(), which may differ.  Move the activation onto the SAE's
+        # device before encoding to avoid a cuda:N vs cuda:0 mismatch.
+        sae_dev = next(sae.parameters()).device
+        if sae_act_batch.device != sae_dev:
+            sae_act_batch = sae_act_batch.to(sae_dev)
         if act_mean is not None:
-            x = sae_act_batch - act_mean.to(device)
+            x = sae_act_batch - act_mean.to(sae_dev)
             x = x / (x.norm(dim=-1, keepdim=True) + 1e-8)
         else:
             x = sae_act_batch
         la = sae.encoder(x - sae.b_dec)
         ids = la.argmax(dim=-1)
-        vals = la[torch.arange(B, device=device), ids]
+        vals = la[torch.arange(B, device=sae_dev), ids]
+        ids = ids.to(device)
+        vals = vals.to(device)
 
         vecs = torch.zeros(B, hidden_size, device=device, dtype=dtype)
         assigns = [default_layer] * B
@@ -665,10 +698,11 @@ def hybrid_generate_batched(
                         (B,), float("-inf"),
                         device=device, dtype=think_lp.dtype)
                 best_tok = base_next_toks.clone()
-                # think_top1_match: track whether any coef in the sweep
+                # think_top1_match*: track whether any coef in the sweep
                 # produced an argmax matching thinking's top-1 for each
                 # disagreement row.  Rows that never match stay UNSTEERED.
-                if coef_select == "think_top1_match":
+                if coef_select in ("think_top1_match",
+                                   "think_top1_match_maxconf"):
                     matched_row = torch.zeros(B, dtype=torch.bool, device=device)
                 raw_vecs = steer_s["vecs"]
 
@@ -690,6 +724,8 @@ def hybrid_generate_batched(
 
                 # For think_top1_match we want the SMALLEST coef that
                 # produces an argmax==thinking top-1, so iterate sorted.
+                # For think_top1_match_maxconf we iterate the full sweep
+                # and pick the matching coef with highest log p(T).
                 _sweep_iter = (sorted(_SWEEP)
                                if coef_select == "think_top1_match"
                                else _SWEEP)
@@ -753,6 +789,30 @@ def hybrid_generate_batched(
                             matched_row[new_match] = True
                             best_coeff[new_match] = sc
                             best_tok[new_match] = cand[new_match]
+                    elif coef_select == "think_top1_match_maxconf":
+                        # Low-confound oracle: among coefs whose steered
+                        # argmax EQUALS thinking's top-1 token T, pick the
+                        # one with the HIGHEST log p_steered(T).  Random
+                        # vectors fail the strict argmax==T condition (~1/V
+                        # per coef) and fall through to base unsteered.
+                        is_match = (
+                            (cand == think_next_toks) & disagree_mask)
+                        if is_match.any():
+                            base_lp = torch.log_softmax(
+                                last_logits.float(), dim=-1)
+                            c_lp = base_lp[arange_B, think_next_toks]
+                            c_lp = c_lp.to(best_lp.dtype)
+                            # Only consider matching rows: non-matchers'
+                            # logp shouldn't compete.
+                            c_lp = torch.where(
+                                is_match, c_lp,
+                                torch.full_like(c_lp, float("-inf")))
+                            better = (c_lp > best_lp) & is_match
+                            if better.any():
+                                matched_row[better] = True
+                                best_lp[better] = c_lp[better]
+                                best_coeff[better] = sc
+                                best_tok[better] = cand[better]
                     else:
                         if coef_select == "pg":
                             c_lp = think_lp[arange_B, cand]
@@ -783,7 +843,8 @@ def hybrid_generate_batched(
                             best_coeff[better] = sc
                             best_tok[better] = cand[better]
 
-                if coef_select == "think_top1_match":
+                if coef_select in ("think_top1_match",
+                                   "think_top1_match_maxconf"):
                     # Only count rows that actually matched thinking's top-1
                     # at some coef as "steered"; the rest fall through to
                     # the unsteered base argmax.
@@ -1143,9 +1204,11 @@ def _list_rolling(prefix):
 
 
 def _load_prev_counts(args, base_id, think_id):
+    """Load previous majority-vote and per-rep accuracy counts."""
     files = _list_rolling(_rolling_prefix(args, base_id, think_id))
     n = 0
     counts = {"thinking": 0, "base": 0, "hybrid": 0}
+    per_rep = {"thinking": [], "base": [], "hybrid": []}
     for path in files:
         with open(path) as f:
             for line in f:
@@ -1155,10 +1218,28 @@ def _load_prev_counts(args, base_id, think_id):
                 rec = json.loads(line)
                 for k in counts:
                     j = rec.get("judges", {}).get(k, {})
-                    if isinstance(j, dict) and j.get("correct"):
+                    if not isinstance(j, dict):
+                        continue
+                    if j.get("correct"):
                         counts[k] += 1
+                    reps = j.get("repetitions") or []
+                    if reps:
+                        rep_correct = [bool(r.get("correct")) for r in reps]
+                    else:
+                        rep_correct = [bool(j.get("correct"))]
+                    if not per_rep[k]:
+                        per_rep[k] = [0] * len(rep_correct)
+                    if len(per_rep[k]) != len(rep_correct):
+                        target = max(len(per_rep[k]), len(rep_correct))
+                        per_rep[k] = per_rep[k] + [0] * (
+                            target - len(per_rep[k]))
+                        rep_correct = rep_correct + [False] * (
+                            target - len(rep_correct))
+                    for i, c in enumerate(rep_correct):
+                        if c:
+                            per_rep[k][i] += 1
                 n += 1
-    return n, counts
+    return n, counts, per_rep
 
 
 def append_rolling(record, args, base_id, think_id):
@@ -1255,7 +1336,6 @@ def main():
         "Wait, lets backtrack.",
         "Therefore, the answer is \\boxed{42}.",
         "\\frac{1}{2}",
-        "<|im_start|>user\nHello<|im_end|>",
     ]
     for _s in _probes:
         _b = base_tok(_s, add_special_tokens=False)["input_ids"]
@@ -1588,10 +1668,23 @@ def main():
     hbs = args.hybrid_gen_batch_size
     print(f"\n=== Hybrid (B={hbs}, KV-cached, coeff-sweep) + judge ===")
 
-    prev_n, prev_counts = _load_prev_counts(args, base_id, think_id)
+    prev_n, prev_counts, prev_per_rep = _load_prev_counts(
+        args, base_id, think_id)
+    n_reps_eff = max(1, int(args.judge_repetitions))
     results = {"thinking_correct": 0, "base_correct": 0, "hybrid_correct": 0,
+               "thinking_per_rep": [0] * n_reps_eff,
+               "base_per_rep": [0] * n_reps_eff,
+               "hybrid_per_rep": [0] * n_reps_eff,
                "thinking_eos": [], "base_eos": [], "hybrid_eos": [],
                "thinking_lengths": [], "base_lengths": [], "hybrid_lengths": []}
+    for _k in ("thinking", "base", "hybrid"):
+        if prev_per_rep.get(_k) and len(prev_per_rep[_k]) != n_reps_eff:
+            target = max(len(prev_per_rep[_k]), n_reps_eff)
+            prev_per_rep[_k] = prev_per_rep[_k] + [0] * (
+                target - len(prev_per_rep[_k]))
+            results[_k + "_per_rep"] = results[_k + "_per_rep"] + [0] * (
+                target - len(results[_k + "_per_rep"]))
+            n_reps_eff = target
 
     for batch_start in range(0, n_tasks, hbs):
         batch = tasks[batch_start:batch_start + hbs]
@@ -1678,6 +1771,21 @@ def main():
             if te["correct"]: results["thinking_correct"] += 1
             if be["correct"]: results["base_correct"] += 1
             if he["correct"]: results["hybrid_correct"] += 1
+            for _key, _entry in (("thinking", te), ("base", be),
+                                 ("hybrid", he)):
+                _reps = _entry.get("repetitions") or []
+                if not _reps:
+                    _reps = [{"correct": _entry.get("correct", False)}]
+                _per = results[_key + "_per_rep"]
+                if len(_per) != len(_reps):
+                    _target = max(len(_per), len(_reps))
+                    while len(_per) < _target:
+                        _per.append(0)
+                    while len(_reps) < _target:
+                        _reps.append({"correct": False})
+                for _i, _r in enumerate(_reps):
+                    if _r.get("correct"):
+                        _per[_i] += 1
             results["thinking_eos"].append(m["think_eos"])
             results["base_eos"].append(m["base_eos"])
             results["hybrid_eos"].append(m["hybrid_eos"])
@@ -1723,6 +1831,61 @@ def main():
     if gap > 0:
         rec = (ch/total*100 - min(ct/total, cb/total)*100) / gap
         print(f"Gap recovered: {max(0, rec)*100:.1f}%")
+
+    # Per-rep accuracy mean / std (judge-noise quantification).
+    def _combine_per_rep(prev, cur):
+        if prev and cur:
+            target = max(len(prev), len(cur))
+            prev = prev + [0] * (target - len(prev))
+            cur = cur + [0] * (target - len(cur))
+            return [a + b for a, b in zip(prev, cur)]
+        return list(prev or cur or [])
+
+    rep_totals = {
+        "thinking": _combine_per_rep(prev_per_rep.get("thinking"),
+                                     results["thinking_per_rep"]),
+        "base": _combine_per_rep(prev_per_rep.get("base"),
+                                 results["base_per_rep"]),
+        "hybrid": _combine_per_rep(prev_per_rep.get("hybrid"),
+                                   results["hybrid_per_rep"]),
+    }
+    if rep_totals["thinking"] and len(rep_totals["thinking"]) > 1:
+        import statistics as _stats
+        print("\n===== Judge sampling (mean +/- std across reps) =====")
+        rep_summary = {}
+        for _name, _counts_list in rep_totals.items():
+            accs = [c / total * 100 for c in _counts_list]
+            mu = _stats.mean(accs)
+            sd = _stats.stdev(accs) if len(accs) > 1 else 0.0
+            rep_summary[_name] = {"per_rep_pct": accs,
+                                  "mean_pct": mu, "std_pct": sd,
+                                  "per_rep_correct": list(_counts_list)}
+            print(f"{_name.capitalize():9s}: {mu:.2f}% +/- {sd:.2f}%   "
+                  f"per-rep: {[f'{a:.2f}%' for a in accs]}")
+        # Hybrid gap-recovered mean/std
+        t_mean = rep_summary["thinking"]["mean_pct"]
+        b_mean = rep_summary["base"]["mean_pct"]
+        h_per = rep_summary["hybrid"]["per_rep_pct"]
+        gap0 = abs(t_mean - b_mean)
+        if gap0 > 0:
+            recs = [max(0.0, (h - min(t_mean, b_mean)) / gap0 * 100)
+                    for h in h_per]
+            mu_r = _stats.mean(recs)
+            sd_r = (_stats.stdev(recs) if len(recs) > 1 else 0.0)
+            print(f"Gap recovered (per-rep, vs majority t/b means): "
+                  f"{mu_r:.2f}% +/- {sd_r:.2f}%")
+        # Persist alongside the existing summary JSON.
+        try:
+            _suffix = _result_suffix(args)
+            _sj = (f"{args.results_dir}/judge_reps_{base_id}"
+                   f"_{args.dataset}{_suffix}.json")
+            with open(_sj, "w") as _f:
+                json.dump({"total": total, "per_rep": rep_summary,
+                           "n_reps": len(rep_totals['thinking'])}, _f,
+                          indent=2)
+            print(f"Wrote judge-reps summary to {_sj}")
+        except Exception as _e:
+            print(f"warn: failed to save judge_reps json: {_e}")
 
     plt.figure(figsize=(10, 6))
     accs = [cb/total*100, ct/total*100, ch/total*100]

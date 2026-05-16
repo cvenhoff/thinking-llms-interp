@@ -36,6 +36,7 @@ run_one () {
         --bias_vector_path "$BIAS_PATH" \
         --bias_layer 19 \
         --coef_sweep "0.1,0.25,0.5" \
+        --judge_repetitions 3 \
         --results_suffix "${TAG}" \
         $EXTRA 2>&1 | tee "/tmp/${TAG}.log"
 }
