@@ -678,6 +678,51 @@ def hybrid_generate_batched(
             int(_think_close_seq_think[0])
             if len(_think_close_seq_think) == 1 else -1)
 
+        # BPE-aware multi-token detection.
+        # For ORZ / Qwen-base tokenizers, "</think>" is split by BPE into
+        # context-dependent pieces.  Examples encountered in real ORZ outputs:
+        #   "</think>"        -> [522,   26865, 29]   ('</', 'think', '>')
+        #   " </think>"       -> [690,   26865, 29]   (' </', 'think', '>')
+        #   ".</think>"       -> [3918,  26865, 29]   ('.</', 'think', '>')
+        #   "</answer></think>" splits as [..., '></', 'think', '>'] etc.
+        # In every variant, the trailing two tokens are 26865 ('think') + 29
+        # ('>'); only the LEADING token differs.  We therefore detect on the
+        # invariant suffix:
+        #   state 0: see any token whose decoded form ends with "</"   -> 1
+        #   state 1: see id 26865 ('think')                            -> 2
+        #   state 2: see id 29 ('>')                                   -> DETECTED
+        # This catches all BPE variants without false positives (the suffix
+        # 'think>' only follows '</' in close-tag context; '<think>' opening
+        # tokenises differently, e.g. [13708, 766, 29] where 766 = 'ink').
+        _think_close_mid: int = -1
+        _think_close_end: int = -1
+        _opener_ids: set = set()
+        if _think_close_id_single < 0:
+            try:
+                _think_close_mid = int(
+                    _think_tok_for_tags.encode("think", add_special_tokens=False)[0])
+                _think_close_end = int(
+                    _think_tok_for_tags.encode(">", add_special_tokens=False)[0])
+            except Exception:
+                # Fallback to original tokenisation of bare "</think>" if the
+                # tokenizer doesn't expose the expected pieces.
+                if len(_think_close_seq_think) >= 3:
+                    _think_close_mid = int(_think_close_seq_think[-2])
+                    _think_close_end = int(_think_close_seq_think[-1])
+            # Enumerate every token id whose decoded text ends with '</'.
+            # Vocab is ~150k tokens; one-shot decode is cheap.
+            try:
+                _vocab = _think_tok_for_tags.get_vocab()
+                for tok_str, tok_id in _vocab.items():
+                    s = _think_tok_for_tags.decode([int(tok_id)])
+                    if s.endswith("</"):
+                        _opener_ids.add(int(tok_id))
+            except Exception:
+                # Fallback: at minimum, include the leading token of the bare
+                # encoding so we still match the most common variant.
+                if len(_think_close_seq_think) >= 3:
+                    _opener_ids.add(int(_think_close_seq_think[0]))
+
         # Base-friendly transition sequence.  Same string for all model
         # families; tokenised in the base vocab (length varies per family).
         _BASE_TRANSITION_STR = "\n\nFinal answer: "
@@ -690,8 +735,9 @@ def hybrid_generate_batched(
                   f"base transition {_BASE_TRANSITION_STR!r} = "
                   f"{_base_transition_seq} ({len(_base_transition_seq)} tok)")
         else:
-            print(f"[hybrid] </think> detection: multi-token in think vocab "
-                  f"({_think_close_seq_think}); "
+            print(f"[hybrid] </think> detection: BPE-suffix in think vocab "
+                  f"(mid={_think_close_mid} 'think', end={_think_close_end} '>', "
+                  f"openers={len(_opener_ids)} tokens ending in '</'); "
                   f"base transition {_BASE_TRANSITION_STR!r} = "
                   f"{_base_transition_seq} ({len(_base_transition_seq)} tok)")
 
@@ -1024,22 +1070,43 @@ def hybrid_generate_batched(
                     if think_tok_id == _think_close_id_single:
                         detected_close = True
                 else:
-                    # Multi-token detection via partial match (ORZ / Qwen base).
-                    # CRITICAL for the new prompt design: base/think KV caches
-                    # diverge during reasoning, so we MUST feed the thinking
-                    # model its own close-sequence token during the partial
-                    # window — otherwise its KV gets fed base's reasoning and
-                    # the partial match never completes.
-                    expected = _think_close_seq_think[_think_close_partial[_b]]
-                    if think_tok_id == expected:
-                        _think_close_partial[_b] += 1
-                        in_partial_window = True
-                        if _think_close_partial[_b] == len(_think_close_seq_think):
+                    # BPE-suffix detection (ORZ / Qwen base).  The close-tag
+                    # tokenisation is context-dependent — the LEADING token
+                    # varies (522 '</', 690 ' </', 3918 '.</', ...) but the
+                    # trailing two tokens are invariant: 26865 'think' + 29
+                    # '>'.  We use a 3-state machine over the SUFFIX:
+                    #   0 -> 1: any token decoding to a string ending with '</'
+                    #   1 -> 2: 26865 ('think')
+                    #   2 -> DETECTED: 29 ('>')
+                    # During the partial window we feed the thinking model
+                    # its OWN predicted token so its KV builds the close
+                    # sequence correctly (regardless of what the steered
+                    # base model emits this step).
+                    s = _think_close_partial[_b]
+                    if s == 0:
+                        if think_tok_id in _opener_ids:
+                            _think_close_partial[_b] = 1
+                            in_partial_window = True
+                    elif s == 1:
+                        if think_tok_id == _think_close_mid:
+                            _think_close_partial[_b] = 2
+                            in_partial_window = True
+                        elif think_tok_id in _opener_ids:
+                            # Stay in state 1 (back-to-back `</` openers).
+                            in_partial_window = True
+                        else:
                             _think_close_partial[_b] = 0
-                            in_partial_window = False
+                    elif s == 2:
+                        if think_tok_id == _think_close_end:
+                            _think_close_partial[_b] = 0
                             detected_close = True
-                    else:
-                        _think_close_partial[_b] = 0
+                        elif think_tok_id in _opener_ids:
+                            # False alarm on the suffix, but the new token is
+                            # itself a fresh `</` opener — restart at state 1.
+                            _think_close_partial[_b] = 1
+                            in_partial_window = True
+                        else:
+                            _think_close_partial[_b] = 0
                 if detected_close:
                     # Full close detected — start transition.
                     # Seed both queues with their respective transition seqs.
