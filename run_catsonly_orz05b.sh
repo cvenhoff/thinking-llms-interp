@@ -51,13 +51,13 @@ if ls "${SAVE_DIR}/${BASE_SHORT}_idx"*"_linear.pt" &>/dev/null; then
 else
     echo "[${TAG}-catsonly] Train: cats only (no bias)..."
     mkdir -p "${SAVE_DIR}"
-    cd train-vectors
-
-    # Copy disagreements from the joint run to avoid re-collection.
+    # Copy disagreements from the joint run before cd-ing into train-vectors.
     if [ -f "${JOINT_DIR}/disagreements.pt" ] && [ ! -f "${SAVE_DIR}/disagreements.pt" ]; then
-        echo "  Linking disagreements.pt from joint run..."
+        echo "  Copying disagreements.pt from joint run..."
         cp "${JOINT_DIR}/disagreements.pt" "${SAVE_DIR}/disagreements.pt"
     fi
+
+    cd train-vectors
 
     CUDA_VISIBLE_DEVICES=$GPU python -u optimize_correction_vectors.py \
         --base_model        "$BASE" \
