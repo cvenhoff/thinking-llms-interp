@@ -1076,6 +1076,11 @@ def train_vectors_joint(
     # timeout near the end of training doesn't lose the entire run.
     checkpoint_dir: Optional[str] = None,
     checkpoint_prefix: Optional[str] = None,
+    # How many times PER EPOCH to run holdout + train-mean eval.  4 means
+    # at 25/50/75/100 % of each epoch; 1 keeps the historical (epoch-end
+    # only) cadence.  Mid-epoch chunk evals feed the best-holdout
+    # snapshot selection too.
+    eval_chunks_per_epoch: int = 4,
 ) -> Tuple[torch.Tensor, Optional[torch.Tensor], List[dict]]:
     """Train ``n_cats`` category vectors simultaneously in one sweep.
 
@@ -1255,6 +1260,129 @@ def train_vectors_joint(
     best_V_cpu: Optional[torch.Tensor] = None
     best_b_cpu: Optional[torch.Tensor] = None
     best_epoch: int = 0
+    # Mid-epoch eval cadence: we run a quick holdout eval ``_ec`` times
+    # per epoch so the train/holdout curves are denser than the
+    # historical 1/epoch.  The exact step cadence is computed per epoch
+    # because the rank-local batch count can drift slightly when the
+    # DDP trimming kicks in.
+    _ec = max(1, int(eval_chunks_per_epoch))
+    if _is_rank_zero():
+        print(f"    [joint] eval cadence: {_ec} chunks/epoch "
+              f"(~{max(1, math.ceil(steps_per_epoch / _ec))} train "
+              "steps per chunk)", flush=True)
+
+    def _run_holdout_eval(epoch_idx: int, chunk_idx: int, total_chunks: int,
+                          train_kl_local: float, train_pos_local: int) -> None:
+        """Run a no-grad holdout eval with current V/b and emit metrics.
+
+        ``train_kl_local`` and ``train_pos_local`` are this rank's running
+        epoch loss accumulators; we all-reduce them inside so the
+        printed/recorded train_kl reflects the full DDP shard.  Updates
+        ``best_holdout_kl`` and the on-disk best checkpoint.
+        """
+        nonlocal best_holdout_kl, best_V_cpu, best_b_cpu, best_epoch
+        if holdout_by_example is None or not holdout_ex_ids_sorted:
+            return
+        # All-reduce the running train numbers for the print line.
+        if dist.is_initialized():
+            _t = torch.tensor(
+                [float(train_kl_local), float(train_pos_local)],
+                device=device, dtype=torch.float64)
+            _ddp_allreduce_(_t)
+            tr_sum = float(_t[0].item())
+            tr_cnt = int(_t[1].item())
+        else:
+            tr_sum = float(train_kl_local)
+            tr_cnt = int(train_pos_local)
+        train_kl = tr_sum / max(tr_cnt, 1)
+        with torch.no_grad():
+            ec_sum = torch.zeros(n_cats, device=device, dtype=torch.float64)
+            ec_cnt = torch.zeros(n_cats, device=device, dtype=torch.long)
+            _e_starts = list(range(0, len(holdout_ex_ids_sorted),
+                                   example_batch_size))
+            _ddp_w = (int(os.environ["WORLD_SIZE"])
+                      if _is_ddp() else 1)
+            _ddp_r = (int(os.environ["RANK"])
+                      if _is_ddp() else 0)
+            if _ddp_w > 1:
+                _trim = len(_e_starts) - (len(_e_starts) % _ddp_w)
+                _e_starts = _e_starts[:_trim]
+            _e_starts = _e_starts[_ddp_r::_ddp_w]
+            for _i in _e_starts:
+                mb_eval = holdout_ex_ids_sorted[_i:_i + example_batch_size]
+                per_pos_e, pos_cats_e = _compute_batch_kl_loss_joint(
+                    base_model, mb_eval, per_example, holdout_by_example,
+                    V.detach(), steer_layer, pad_token_id,
+                    kl_mode=kl_mode, train_topk=train_topk,
+                    b=(b.detach() if b is not None else None),
+                    bias_frozen=bias_frozen)
+                if per_pos_e.numel() == 0:
+                    continue
+                pp_e = per_pos_e.detach().double()
+                ec_sum.scatter_add_(0, pos_cats_e, pp_e)
+                ec_cnt.scatter_add_(0, pos_cats_e,
+                                    torch.ones_like(pos_cats_e,
+                                                    dtype=torch.long))
+            if dist.is_initialized():
+                _ddp_allreduce_(ec_sum)
+                _ddp_allreduce_(ec_cnt)
+            total_cnt = int(ec_cnt.sum().item())
+            total_kl = float(ec_sum.sum().item()) / max(total_cnt, 1)
+            per_cat_kl_eval = [
+                (float((ec_sum[i] / ec_cnt[i]).item())
+                 if int(ec_cnt[i].item()) > 0 else None)
+                for i in range(n_cats)]
+        print(f"    [joint] ep{epoch_idx+1}/{n_epochs} "
+              f"chunk {chunk_idx}/{total_chunks}: "
+              f"train_kl={train_kl:.4f} (n={tr_cnt})  "
+              f"holdout_kl={total_kl:.4f} (n={total_cnt})", flush=True)
+        _emit({
+            "phase": desc, "event": "chunk_eval",
+            "epoch": int(epoch_idx + 1),
+            "chunk": int(chunk_idx),
+            "total_chunks": int(total_chunks),
+            "step": int(global_step),
+            "split": "holdout",
+            "train_running_kl": float(train_kl),
+            "train_n_positions": int(tr_cnt),
+            "avg_kl": float(total_kl),
+            "n_positions": int(total_cnt),
+            "per_cat_avg_kl": per_cat_kl_eval,
+            "per_cat_positions": [int(x) for x in ec_cnt.tolist()],
+        })
+        # Update best-holdout snapshot (mirrors the historical
+        # end-of-epoch logic, just runs at chunk cadence now).
+        if (select_best_holdout and total_cnt > 0
+                and total_kl < best_holdout_kl):
+            best_holdout_kl = float(total_kl)
+            best_V_cpu = V.detach().float().cpu().clone()
+            best_b_cpu = (b.detach().float().cpu().clone()
+                          if b is not None else None)
+            best_epoch = int(epoch_idx + 1)
+            print(f"    [joint] new best holdout_kl="
+                  f"{total_kl:.4f} at ep{epoch_idx+1} "
+                  f"chunk {chunk_idx}/{total_chunks} -> snapshot saved",
+                  flush=True)
+            if (checkpoint_dir is not None
+                    and checkpoint_prefix is not None
+                    and _is_rank_zero()):
+                try:
+                    os.makedirs(checkpoint_dir, exist_ok=True)
+                    ckpt_path = os.path.join(
+                        checkpoint_dir,
+                        f"{checkpoint_prefix}_best.pt")
+                    torch.save({
+                        "V": best_V_cpu,
+                        "b": best_b_cpu,
+                        "epoch": int(best_epoch),
+                        "chunk": int(chunk_idx),
+                        "holdout_kl": float(best_holdout_kl),
+                    }, ckpt_path)
+                    print(f"    [joint] checkpointed best to "
+                          f"{ckpt_path}", flush=True)
+                except Exception as exc:
+                    print(f"    [joint] WARN: checkpoint write "
+                          f"failed: {exc}", flush=True)
     # Periodic step-based fallback checkpointing: write the *current*
     # V/b to disk every CKPT_EVERY_STEPS so that even if we crash
     # *before* the first holdout-eval (e.g. NCCL timeout right at the
@@ -1330,6 +1458,13 @@ def train_vectors_joint(
         # Per-category running accumulators for this epoch.
         ep_cat_sum = torch.zeros(n_cats, device=device, dtype=torch.float64)
         ep_cat_cnt = torch.zeros(n_cats, device=device, dtype=torch.long)
+        # Rank-local step counter used to schedule mid-epoch chunk evals.
+        # Using len(bucket_starts) (this rank's batch count) keeps the
+        # cadence the same in single-rank and DDP runs.
+        step_in_epoch_local = 0
+        n_steps_this_epoch = len(bucket_starts)
+        eval_step_period_local = max(
+            1, math.ceil(n_steps_this_epoch / _ec))
         for start in bucket_starts:
             mb = ex_ids_sorted[start:start + example_batch_size]
             opt.zero_grad(set_to_none=True)
@@ -1342,6 +1477,7 @@ def train_vectors_joint(
             if n_pts == 0:
                 pbar.update(1)
                 global_step += 1
+                step_in_epoch_local += 1
                 continue
             loss_sum = per_pos.sum()
             if per_example_loss:
@@ -1447,6 +1583,7 @@ def train_vectors_joint(
                     int(x) for x in batch_cat_cnt.tolist()],
             })
             global_step += 1
+            step_in_epoch_local += 1
             _maybe_write_step_ckpt(epoch)
             # Periodic Python GC to prevent reference-cycle accumulation
             # across 700-900 steps building up a huge deferred-free list
@@ -1454,6 +1591,20 @@ def train_vectors_joint(
             if global_step % 50 == 0:
                 import gc as _gc
                 _gc.collect()
+            # Mid-epoch holdout eval: every ``eval_step_period_local``
+            # rank-local steps we run a quick no-grad holdout pass so
+            # the train/holdout curves are sampled ``_ec`` times per
+            # epoch (and the best-holdout snapshot can capture an
+            # intra-epoch minimum).  Skip the boundary that coincides
+            # with the end of the epoch -- the existing end-of-epoch
+            # eval handles that.
+            at_chunk_boundary = (
+                step_in_epoch_local % eval_step_period_local == 0
+                and step_in_epoch_local < n_steps_this_epoch)
+            if at_chunk_boundary:
+                chunk_idx = step_in_epoch_local // eval_step_period_local
+                _run_holdout_eval(epoch, chunk_idx, _ec,
+                                  ep_loss_sum, ep_positions)
         # End-of-training-loop ckpt (force write even if not at the
         # CKPT_EVERY_STEPS boundary): this is the snapshot that
         # crash-recovery downstream will use if the upcoming holdout
@@ -1518,104 +1669,13 @@ def train_vectors_joint(
             "per_cat_positions": [int(x) for x in ep_cat_cnt.tolist()],
         })
 
-        # -- Per-epoch no-grad eval on the holdout split only.
-        # (We used to also eval on the full train split for a
-        # generalisation check, but on the 32 B pair that doubled
-        # the per-epoch wall time and was the dominant cost; we keep
-        # only the holdout-split eval since that's what drives the
-        # best-snapshot selection downstream.)
-        with torch.no_grad():
-            for split_name, bex, ex_ids_eval in (
-                ("holdout", holdout_by_example, holdout_ex_ids_sorted),
-            ):
-                if bex is None or not ex_ids_eval:
-                    continue
-                eval_cat_sum = torch.zeros(
-                    n_cats, device=device, dtype=torch.float64)
-                eval_cat_cnt = torch.zeros(
-                    n_cats, device=device, dtype=torch.long)
-                # Shard eval batch starts across ranks the same way as
-                # training so each rank does 1/world_size of the work,
-                # then we all-reduce the accumulators below.
-                _eval_starts = list(range(
-                    0, len(ex_ids_eval), example_batch_size))
-                if ddp_world > 1:
-                    trim_e = len(_eval_starts) - (len(_eval_starts) % ddp_world)
-                    _eval_starts = _eval_starts[:trim_e]
-                _eval_starts = _eval_starts[ddp_rank::ddp_world]
-                for _i in _eval_starts:
-                    mb_eval = ex_ids_eval[_i:_i + example_batch_size]
-                    per_pos_e, pos_cats_e = _compute_batch_kl_loss_joint(
-                        base_model, mb_eval, per_example, bex,
-                        V.detach(), steer_layer, pad_token_id,
-                        kl_mode=kl_mode, train_topk=train_topk,
-                        b=(b.detach() if b is not None else None),
-                        bias_frozen=bias_frozen)
-                    if per_pos_e.numel() == 0:
-                        continue
-                    pp_e = per_pos_e.detach().double()
-                    eval_cat_sum.scatter_add_(0, pos_cats_e, pp_e)
-                    eval_cat_cnt.scatter_add_(
-                        0, pos_cats_e,
-                        torch.ones_like(pos_cats_e, dtype=torch.long))
-                # DDP: aggregate per-cat eval sums/counts across ranks.
-                if dist.is_initialized():
-                    _ddp_allreduce_(eval_cat_sum)
-                    _ddp_allreduce_(eval_cat_cnt)
-                total_cnt = int(eval_cat_cnt.sum().item())
-                total_kl = (float(eval_cat_sum.sum().item()) /
-                            max(total_cnt, 1))
-                per_cat_kl_eval = [
-                    (float((eval_cat_sum[i] / eval_cat_cnt[i]).item())
-                     if int(eval_cat_cnt[i].item()) > 0 else None)
-                    for i in range(n_cats)]
-                print(f"    [joint] epoch {epoch+1} {split_name}_kl = "
-                      f"{total_kl:.4f}  (n={total_cnt})", flush=True)
-                _emit({
-                    "phase": desc, "event": "epoch_eval",
-                    "epoch": int(epoch + 1),
-                    "split": split_name,
-                    "avg_kl": float(total_kl),
-                    "n_positions": int(total_cnt),
-                    "per_cat_avg_kl": per_cat_kl_eval,
-                    "per_cat_positions": [
-                        int(x) for x in eval_cat_cnt.tolist()],
-                })
-                # Track best holdout KL for early-stopping-style snapshot.
-                if (split_name == "holdout" and select_best_holdout
-                        and total_cnt > 0 and total_kl < best_holdout_kl):
-                    best_holdout_kl = float(total_kl)
-                    best_V_cpu = V.detach().float().cpu().clone()
-                    best_b_cpu = (b.detach().float().cpu().clone()
-                                  if b is not None else None)
-                    best_epoch = int(epoch + 1)
-                    print(f"    [joint] new best holdout_kl="
-                          f"{total_kl:.4f} at epoch {epoch+1} "
-                          f"-> snapshot saved", flush=True)
-                    # Crash-resilient: persist the new best-holdout
-                    # snapshot to disk immediately (rank 0 only) so
-                    # that downstream stages can recover even if the
-                    # process gets killed by an NCCL timeout / OOM
-                    # before the final save in ``main``.
-                    if (checkpoint_dir is not None
-                            and checkpoint_prefix is not None
-                            and _is_rank_zero()):
-                        try:
-                            os.makedirs(checkpoint_dir, exist_ok=True)
-                            ckpt_path = os.path.join(
-                                checkpoint_dir,
-                                f"{checkpoint_prefix}_best.pt")
-                            torch.save({
-                                "V": best_V_cpu,
-                                "b": best_b_cpu,
-                                "epoch": int(best_epoch),
-                                "holdout_kl": float(best_holdout_kl),
-                            }, ckpt_path)
-                            print(f"    [joint] checkpointed best to "
-                                  f"{ckpt_path}", flush=True)
-                        except Exception as exc:
-                            print(f"    [joint] WARN: checkpoint "
-                                  f"write failed: {exc}", flush=True)
+        # -- End-of-epoch no-grad eval on the holdout split.
+        # This is the FINAL ("chunk_idx == _ec") sample for the epoch
+        # -- the mid-epoch chunk evals above already sampled chunks
+        # 1..(_ec - 1).  We reuse the same closure so all chunk evals
+        # are recorded identically; the closure also updates the
+        # best-holdout snapshot.
+        _run_holdout_eval(epoch, _ec, _ec, ep_loss_sum, ep_positions)
     pbar.close()
     if select_best_holdout and best_V_cpu is not None:
         print(f"    [joint] selecting best-holdout snapshot from "
@@ -1884,14 +1944,33 @@ def main():
     p.add_argument("--example_batch_size", type=int, default=4)
     p.add_argument("--lr", type=float, default=1e-2)
     p.add_argument("--weight_decay", type=float, default=0.0)
-    p.add_argument("--max_norm", type=float, default=0.0,
+    p.add_argument("--max_norm", type=float, default=-1.0,
                    help="Per-step row-wise norm clip on V (and b if "
-                        "trained). 0 disables. Useful to keep "
-                        "vector magnitudes in a steerable range.")
+                        "trained).  Negative (default) = AUTO: cap "
+                        "every vector at "
+                        "norm_cap_frac * mean_residual_norm at the "
+                        "steer layer (probed at startup).  0 disables "
+                        "the cap.  Positive = explicit cap value.")
+    p.add_argument("--norm_cap_frac", type=float, default=0.5,
+                   help="When --max_norm < 0, cap each vector (bias "
+                        "AND every category vector) at "
+                        "norm_cap_frac * mean_residual_norm.  Default "
+                        "0.5 keeps every learned vector at most half "
+                        "the typical activation magnitude.")
+    p.add_argument("--norm_cap_probe_examples", type=int, default=32,
+                   help="Examples used to probe the mean residual-"
+                        "stream norm at the steer layer for the auto "
+                        "norm cap (--max_norm < 0).")
     p.add_argument("--no_select_best_holdout", action="store_true",
                    help="Disable best-holdout-KL snapshot selection. "
                         "By default we save the V from the epoch that "
                         "achieved the lowest holdout KL.")
+    p.add_argument("--eval_chunks_per_epoch", type=int, default=4,
+                   help="How many times PER EPOCH we run a no-grad "
+                        "holdout eval (and emit train_kl + holdout_kl "
+                        "in the same record).  4 means at "
+                        "25/50/75/100%% of every epoch -- denser "
+                        "monitoring than the historical 1/epoch.")
     p.add_argument("--per_example_loss", action="store_true",
                    help="Use per-example mean -> mean over examples "
                         "loss aggregation (balances per-example "
@@ -1992,24 +2071,26 @@ def main():
                    default="../generate-responses/results/vars")
     p.add_argument("--min_disagreements", type=int, default=1,
                    help="Absolute lower bound on positions a category "
-                        "needs before we train its vector.  Final gate "
+                        "needs before we train its vector.  Default 1 "
+                        "means we train every category with at least "
+                        "one disagreement position; categories with "
+                        "literally zero data are dropped.  Final gate "
                         "is max(--min_disagreements, "
-                        "ceil(--min_disagreements_ratio * hidden_size)).")
+                        "ceil(--min_disagreements_ratio * hidden_size), "
+                        "share*equal).")
     p.add_argument("--min_disagreements_ratio", type=float, default=0.0,
                    help="LEGACY dim-aware gate: drop any category with "
                         "fewer than ratio * hidden_size positions. "
-                        "Off by default now -- use --min_category_share "
-                        "(data-adaptive) instead.  Gate is the MAX of "
-                        "the two.")
-    p.add_argument("--min_category_share", type=float, default=0.1,
+                        "Off by default.  Gate is the MAX with the "
+                        "other floors.")
+    p.add_argument("--min_category_share", type=float, default=0.0,
                    help="Data-adaptive gate: drop any category with "
                         "fewer positions than SHARE * (total_positions "
-                        "/ n_categories).  So a category needs at "
-                        "least SHARE of the equal-split share to "
-                        "qualify. Default 0.1 -- a category must have "
-                        ">= 10%% of what it would receive under "
-                        "uniform distribution. Self-scales with both "
-                        "the observed disagreement rate (few "
+                        "/ n_categories).  Default 0.0 == off; we "
+                        "train every category with any data.  Set to "
+                        "e.g. 0.1 to require >= 10%% of the equal-split "
+                        "share, scaling with both the observed "
+                        "disagreement rate (few "
                         "disagreements -> small gate) and the "
                         "category granularity (many categories -> "
                         "small gate). Set 0 to disable.")
@@ -2508,6 +2589,46 @@ def main():
               f"{init_v_norm_value:.4f} -> using as init magnitude",
               flush=True)
 
+    # ---- Auto norm cap (run unless explicitly disabled).
+    # When --max_norm < 0 we probe the mean residual-stream L2 norm at
+    # the steer layer and cap EVERY trained vector (bias AND each
+    # category vector) at norm_cap_frac * mean.  This prevents any
+    # single vector from blowing past the typical activation magnitude
+    # while still letting the optimiser route signal across categories.
+    # Re-use the init probe result if we already computed it.
+    if args.max_norm < 0:
+        if args.norm_cap_frac <= 0:
+            print("\n[Phase 2.6] norm_cap_frac <= 0 -> norm cap "
+                  "DISABLED (max_norm=0)", flush=True)
+            args.max_norm = 0.0
+        else:
+            if init_v_norm_value > 0:
+                mean_norm_for_cap = init_v_norm_value
+                print("\n[Phase 2.6] Reusing init-probe mean norm = "
+                      f"{mean_norm_for_cap:.4f} for auto norm cap",
+                      flush=True)
+            else:
+                print("\n[Phase 2.6] Probing mean residual-stream norm "
+                      f"at layer {steer_layer} over "
+                      f"{args.norm_cap_probe_examples} examples for "
+                      "auto norm cap...", flush=True)
+                mean_norm_for_cap = compute_mean_activation_magnitude(
+                    base_model, per_example, steer_layer,
+                    base_tokenizer.pad_token_id,
+                    n_examples=args.norm_cap_probe_examples,
+                    seed=args.seed)
+            args.max_norm = float(mean_norm_for_cap * args.norm_cap_frac)
+            print(f"  mean_norm at layer {steer_layer} = "
+                  f"{mean_norm_for_cap:.4f}; auto-cap each vector at "
+                  f"{args.max_norm:.4f}  "
+                  f"(= {args.norm_cap_frac:g} * mean)", flush=True)
+    elif args.max_norm == 0:
+        print("\n[Phase 2.6] max_norm = 0 -> norm cap DISABLED",
+              flush=True)
+    else:
+        print(f"\n[Phase 2.6] using explicit max_norm = {args.max_norm:g}",
+              flush=True)
+
     if args.skip_cats_phase:
         print("\n[Phase 3a] SKIPPED (--skip_cats_phase): no per-category "
               "vectors will be trained or saved this run.  Phase 3b "
@@ -2587,7 +2708,8 @@ def main():
             init_v_norm=init_v_norm_value,
             bias_frozen=frozen_bias_cpu,
             checkpoint_dir=args.save_dir,
-            checkpoint_prefix=f"{model_short}_cats_seed{seed_i}")
+            checkpoint_prefix=f"{model_short}_cats_seed{seed_i}",
+            eval_chunks_per_epoch=int(args.eval_chunks_per_epoch))
         kl_i = _best_holdout_from_metrics(cats_metrics_i)
         seed_results.append({"seed": seed_i, "best_holdout_kl": kl_i})
         print(f"  [seed {seed_i}] best_holdout_kl = {kl_i:.4f}", flush=True)
@@ -2687,7 +2809,8 @@ def main():
                                         if bias_holdout_records else None),
             max_norm=float(args.max_norm),
             checkpoint_dir=args.save_dir,
-            checkpoint_prefix=f"{model_short}_bias")
+            checkpoint_prefix=f"{model_short}_bias",
+            eval_chunks_per_epoch=int(args.eval_chunks_per_epoch))
 
     # ---- Phase 4: finalise metadata.  Cats vectors + layer_map.json are
     # already on disk from the Phase 3a.1 interim save above; we just

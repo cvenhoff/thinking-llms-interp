@@ -93,7 +93,7 @@ run_pair() {
             --sae_n_clusters    "$K" \
             --joint_cats_and_bias \
             --kl_mode topk --topk 50 --train_topk 3 \
-            --n_epochs 5 --lr 0.01 --max_norm 0.0 \
+            --n_epochs 5 --lr 0.01 \
             --example_batch_size "$TRAIN_BS" \
             --max_seq_len 2048 --max_positions_per_example 64 \
             --holdout_frac 0.1 \
