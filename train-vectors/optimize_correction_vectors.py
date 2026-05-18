@@ -389,8 +389,7 @@ def compute_mean_activation_magnitude(
 # ---------------------------------------------------------------------------
 
 def _build_base_prompt(question: str) -> str:
-    return (f"Answer the question below. Explain your reasoning step by step."
-            f"\n\nQuestion:\n{question}\n\nStep by step answer:\n")
+    return f"User: {question}\nAssistant: <think>"
 
 
 @torch.no_grad()
@@ -505,6 +504,7 @@ def collect_disagreements(
     n_pos_dropped_low_entropy = 0
     entropy_sum = 0.0
     entropy_n = 0
+
     for resp in it_iter:
         ann = resp.get("annotated_thinking")
         if not ann:

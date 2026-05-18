@@ -1,0 +1,52 @@
+{
+  "base_model": "Qwen/Qwen2.5-1.5B",
+  "thinking_model": "Open-Reasoner-Zero/Open-Reasoner-Zero-1.5B",
+  "base_id": "qwen2.5-1.5b",
+  "thinking_id": "open-reasoner-zero-1.5b",
+  "dataset": "math500",
+  "sae_layer": 8,
+  "n_clusters": 5,
+  "sae_path": null,
+  "coef_sweep": [
+    0.1,
+    0.25,
+    0.5,
+    1.0,
+    1.5
+  ],
+  "coef_select": "pg",
+  "kl_topk": 3,
+  "bias_only": false,
+  "bias_vector_path": "../train-vectors/results/vars/correction_vectors_orz-1.5b_joint/qwen2.5-1.5b_bias_global.pt",
+  "bias_layer": null,
+  "random_firing": false,
+  "random_guardrail": false,
+  "random_seed": 42,
+  "steer_all_positions": false,
+  "steer_all_positions_full": false,
+  "disable_sae_mean": false,
+  "old_vectors_dir": "../train-vectors/results/vars/correction_vectors_orz-1.5b_joint",
+  "old_vectors_layer": 10,
+  "n_latent_descriptions": 5,
+  "layer_map": {
+    "idx0": 10,
+    "idx2": 10
+  },
+  "steering_vectors": {
+    "idx0": {
+      "shape": [
+        1536
+      ],
+      "norm": 10.705183029174805,
+      "layer": 10
+    },
+    "idx2": {
+      "shape": [
+        1536
+      ],
+      "norm": 9.906731605529785,
+      "layer": 10
+    }
+  },
+  "suffix": "_orz-1.5b-joint-rand-500"
+}

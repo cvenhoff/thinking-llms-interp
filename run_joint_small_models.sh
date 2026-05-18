@@ -55,6 +55,7 @@ run_pair() {
     local K="$8"
     local GEN_BS="${9:-64}"       # base+thinking standalone gen batch
     local HYBRID_BS="${10:-64}"   # hybrid decoding batch
+    local TRAIN_BS="${11:-16}"    # example_batch_size for training
 
     local BASE_SHORT
     BASE_SHORT=$(python3 -c "print('$BASE'.split('/')[-1].lower())")
@@ -71,12 +72,18 @@ run_pair() {
     echo "======================================================"
 
     # ---- Training: joint bias+cats in one pass ----
-    if [ -f "${SAVE_DIR}/${BASE_SHORT}_idx0_linear.pt" ]; then
+    if ls "${SAVE_DIR}/${BASE_SHORT}_idx"*"_linear.pt" &>/dev/null; then
         echo "[${TAG}] Train: already done — skipping."
     else
         echo "[${TAG}] Train: joint bias+cats..."
         mkdir -p "${SAVE_DIR}"
         cd train-vectors
+        # Detect if a prior collection run saved disagreements.pt
+        EXTRA_TRAIN_FLAGS=""
+        if [ -f "results/vars/correction_vectors_${TAG}_joint/disagreements.pt" ]; then
+            echo "[${TAG}] Found prior disagreements.pt — using --load_collected to skip re-collection."
+            EXTRA_TRAIN_FLAGS="--load_collected"
+        fi
         CUDA_VISIBLE_DEVICES=$GPU python -u optimize_correction_vectors.py \
             --base_model        "$BASE" \
             --thinking_model    "$THINK" \
@@ -87,7 +94,7 @@ run_pair() {
             --joint_cats_and_bias \
             --kl_mode topk --topk 50 --train_topk 3 \
             --n_epochs 5 --lr 0.01 --max_norm 0.0 \
-            --example_batch_size 64 \
+            --example_batch_size "$TRAIN_BS" \
             --max_seq_len 2048 --max_positions_per_example 64 \
             --holdout_frac 0.1 \
             --n_responses 20000 \
@@ -95,12 +102,14 @@ run_pair() {
             --responses_dir "$RESP_DIR" \
             --save_dir "results/vars/correction_vectors_${TAG}_joint" \
             --seed 42 \
+            $EXTRA_TRAIN_FLAGS \
             2>&1 | tee "${LOG_PREFIX}_train.log"
         cd /workspace/thinking-llms-interp
 
-        # Verify outputs
+        # Verify outputs (idx0 may be absent if no samples for cat 0 — check any cat vector)
         [ -f "$BIAS_PATH" ] || { echo "ERROR: bias not saved at $BIAS_PATH"; exit 1; }
-        [ -f "${SAVE_DIR}/${BASE_SHORT}_idx0_linear.pt" ] || { echo "ERROR: cat vectors not saved"; exit 1; }
+        NCAT=$(ls "${SAVE_DIR}/${BASE_SHORT}_idx"*"_linear.pt" 2>/dev/null | wc -l)
+        [ "$NCAT" -gt 0 ] || { echo "ERROR: no cat vectors saved in ${SAVE_DIR}"; exit 1; }
         echo "[${TAG}] Train done."
     fi
 
@@ -134,6 +143,7 @@ print(len(rows))")" -ge 500 ]; then
             --thinking_model "$THINK" \
             --sae_layer     "$SAE_L" \
             --n_clusters    "$K" \
+            --dom_vectors_dir   "../${SAVE_DIR}" \
             --old_vectors_dir   "../${SAVE_DIR}" \
             --old_vectors_layer "$STEER" \
             --bias_vector_path  "../${BIAS_PATH}" \
@@ -177,13 +187,14 @@ else: print('small')
 #   gen_bs=64  hybrid_bs=64  (both 8B models, generous headroom)
 # ============================================================
 run_gpu1() {
+    # 8B model pair: example_batch_size=16 to avoid OOM during training
     run_pair 1 \
         "meta-llama/Llama-3.1-8B" \
         "deepseek-ai/DeepSeek-R1-Distill-Llama-8B" \
         "deepseek-r1-distill-llama-8b" \
         "dsl-8b" \
         12 6 15 \
-        64 64
+        64 64 16
 }
 
 # ============================================================
@@ -191,13 +202,14 @@ run_gpu1() {
 #   gen_bs=256  hybrid_bs=128
 # ============================================================
 run_gpu2() {
+    # 1.5B but SAE + both models + grad state: use 32 to be safe
     run_pair 2 \
         "Qwen/Qwen2.5-Math-1.5B" \
         "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B" \
         "deepseek-r1-distill-qwen-1.5b" \
         "dsq-math-1.5b" \
         10 4 15 \
-        256 128
+        256 128 32
 }
 
 # ============================================================
@@ -206,13 +218,14 @@ run_gpu2() {
 #   gen_bs=256  hybrid_bs=128 for 1.5B
 # ============================================================
 run_gpu0() {
+    # Sub-2B models: training batch 64 is fine
     run_pair 0 \
         "Qwen/Qwen2.5-0.5B" \
         "Open-Reasoner-Zero/Open-Reasoner-Zero-0.5B" \
         "open-reasoner-zero-0.5b" \
         "orz-0.5b" \
         9 8 10 \
-        512 256
+        512 256 64
 
     run_pair 0 \
         "Qwen/Qwen2.5-1.5B" \
@@ -220,7 +233,7 @@ run_gpu0() {
         "open-reasoner-zero-1.5b" \
         "orz-1.5b" \
         10 8 5 \
-        256 128
+        256 128 64
 }
 
 # ============================================================

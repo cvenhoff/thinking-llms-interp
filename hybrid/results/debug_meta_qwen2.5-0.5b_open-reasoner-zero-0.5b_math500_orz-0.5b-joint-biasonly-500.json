@@ -1,0 +1,84 @@
+{
+  "base_model": "Qwen/Qwen2.5-0.5B",
+  "thinking_model": "Open-Reasoner-Zero/Open-Reasoner-Zero-0.5B",
+  "base_id": "qwen2.5-0.5b",
+  "thinking_id": "open-reasoner-zero-0.5b",
+  "dataset": "math500",
+  "sae_layer": 8,
+  "n_clusters": 10,
+  "sae_path": null,
+  "coef_sweep": [
+    0.1,
+    0.25,
+    0.5,
+    1.0,
+    1.5
+  ],
+  "coef_select": "pg",
+  "kl_topk": 3,
+  "bias_only": true,
+  "bias_vector_path": "../train-vectors/results/vars/correction_vectors_orz-0.5b_joint/qwen2.5-0.5b_bias_global.pt",
+  "bias_layer": 9,
+  "random_firing": false,
+  "random_guardrail": false,
+  "random_seed": 0,
+  "steer_all_positions": false,
+  "steer_all_positions_full": false,
+  "disable_sae_mean": false,
+  "old_vectors_dir": "../train-vectors/results/vars/correction_vectors_orz-0.5b_joint",
+  "old_vectors_layer": 9,
+  "n_latent_descriptions": 10,
+  "layer_map": {
+    "idx1": 9,
+    "idx2": 9,
+    "idx4": 9,
+    "idx5": 9,
+    "idx7": 9,
+    "idx8": 9
+  },
+  "steering_vectors": {
+    "idx1": {
+      "shape": [
+        896
+      ],
+      "norm": 2.899742364883423,
+      "layer": 9
+    },
+    "idx2": {
+      "shape": [
+        896
+      ],
+      "norm": 2.899742364883423,
+      "layer": 9
+    },
+    "idx4": {
+      "shape": [
+        896
+      ],
+      "norm": 2.899742364883423,
+      "layer": 9
+    },
+    "idx5": {
+      "shape": [
+        896
+      ],
+      "norm": 2.899742364883423,
+      "layer": 9
+    },
+    "idx7": {
+      "shape": [
+        896
+      ],
+      "norm": 2.899742364883423,
+      "layer": 9
+    },
+    "idx8": {
+      "shape": [
+        896
+      ],
+      "norm": 2.899742364883423,
+      "layer": 9
+    }
+  },
+  "suffix": "_orz-0.5b-joint-biasonly-500"
+}
