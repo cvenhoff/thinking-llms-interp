@@ -1064,6 +1064,8 @@ def train_vectors_joint(
         Tuple[int, int, int, torch.Tensor, torch.Tensor]]] = None,
     train_bias: bool = False,
     max_norm: float = 0.0,
+    cat_max_norm: float = 0.0,
+    orth_cats_to_bias: bool = False,
     select_best_holdout: bool = True,
     per_example_loss: bool = False,
     cap_resample_each_epoch: bool = False,
@@ -1519,17 +1521,30 @@ def train_vectors_joint(
                     dist.all_reduce(b.grad, op=dist.ReduceOp.SUM)
                     b.grad.div_(float(dist.get_world_size()))
             opt.step()
-            # Optional row-wise norm clip on V (and b if present).
-            if max_norm and max_norm > 0:
-                with torch.no_grad():
+            # Post-step constraints on V (and b).
+            with torch.no_grad():
+                # 1) Orthogonalise each category vector to the bias direction.
+                #    This forces cats to capture only the orthogonal residual
+                #    correction that bias cannot provide, preventing them from
+                #    amplifying or cancelling the global bias (which was the
+                #    dominant failure mode: 69% of positions got anti-bias cats).
+                if orth_cats_to_bias and b is not None:
+                    b_hat = b.detach() / (b.detach().norm().clamp_min(1e-9))
+                    proj = (V @ b_hat).unsqueeze(-1)   # [n_cats, 1]
+                    V.sub_(proj * b_hat)
+
+                # 2) Row-wise norm clip: cats use cat_max_norm (or max_norm as
+                #    fallback), bias uses max_norm.
+                _vmax = cat_max_norm if (cat_max_norm and cat_max_norm > 0) else max_norm
+                if _vmax and _vmax > 0:
                     row_norms = V.detach().norm(dim=-1, keepdim=True)
-                    scale = torch.clamp(max_norm / row_norms.clamp(min=1e-8),
+                    scale = torch.clamp(_vmax / row_norms.clamp(min=1e-8),
                                         max=1.0)
                     V.mul_(scale)
-                    if b is not None:
-                        bn = b.detach().norm()
-                        if bn > max_norm:
-                            b.mul_(max_norm / bn)
+                if b is not None and max_norm and max_norm > 0:
+                    bn = b.detach().norm()
+                    if bn > max_norm:
+                        b.mul_(max_norm / bn)
             # Per-cat stats (no grad).
             with torch.no_grad():
                 pp = per_pos.detach().double()
@@ -1961,6 +1976,20 @@ def main():
                    help="Examples used to probe the mean residual-"
                         "stream norm at the steer layer for the auto "
                         "norm cap (--max_norm < 0).")
+    p.add_argument("--cat_max_norm", type=float, default=0.0,
+                   help="Separate per-step row-wise norm cap applied to "
+                        "CATEGORY vectors only (bias uses --max_norm). "
+                        "0 (default) = no separate cat cap; cats share "
+                        "--max_norm with the bias vector. "
+                        "Positive = explicit cap value.")
+    p.add_argument("--orth_cats_to_bias", action="store_true",
+                   help="After each optimiser step, project every category "
+                        "vector to be orthogonal to the current bias vector. "
+                        "This prevents cats from amplifying or cancelling the "
+                        "global bias (both were observed in practice, with "
+                        "69%% of training positions receiving anti-bias cats). "
+                        "Cats then capture ONLY the rotational residual that "
+                        "the scalar-scaled bias cannot provide.")
     p.add_argument("--no_select_best_holdout", action="store_true",
                    help="Disable best-holdout-KL snapshot selection. "
                         "By default we save the V from the epoch that "
@@ -2629,6 +2658,18 @@ def main():
         print(f"\n[Phase 2.6] using explicit max_norm = {args.max_norm:g}",
               flush=True)
 
+    if args.cat_max_norm > 0:
+        print(f"[Phase 2.6] cat_max_norm = {args.cat_max_norm:g} "
+              "(separate cap for category vectors)", flush=True)
+    else:
+        print("[Phase 2.6] cat_max_norm = 0 -> cats share --max_norm cap "
+              f"({args.max_norm:.4f})", flush=True)
+
+    if args.orth_cats_to_bias:
+        print("[Phase 2.6] --orth_cats_to_bias ON: cat vectors will be "
+              "projected orthogonal to bias after every optimiser step.",
+              flush=True)
+
     if args.skip_cats_phase:
         print("\n[Phase 3a] SKIPPED (--skip_cats_phase): no per-category "
               "vectors will be trained or saved this run.  Phase 3b "
@@ -2702,6 +2743,8 @@ def main():
                                         else None),
             train_bias=bool(args.joint_cats_and_bias),
             max_norm=float(args.max_norm),
+            cat_max_norm=float(args.cat_max_norm),
+            orth_cats_to_bias=bool(args.orth_cats_to_bias),
             select_best_holdout=(not args.no_select_best_holdout),
             per_example_loss=bool(args.per_example_loss),
             cap_resample_each_epoch=bool(args.cap_resample_each_epoch),

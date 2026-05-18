@@ -92,6 +92,7 @@ run_pair() {
             --sae_classify_layer "$SAE_L" \
             --sae_n_clusters    "$K" \
             --joint_cats_and_bias \
+            --orth_cats_to_bias \
             --kl_mode topk --topk 50 --train_topk 3 \
             --n_epochs 5 --lr 0.01 \
             --example_batch_size "$TRAIN_BS" \
