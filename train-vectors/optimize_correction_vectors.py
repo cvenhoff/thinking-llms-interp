@@ -1533,18 +1533,31 @@ def train_vectors_joint(
                     proj = (V @ b_hat).unsqueeze(-1)   # [n_cats, 1]
                     V.sub_(proj * b_hat)
 
-                # 2) Row-wise norm clip: cats use cat_max_norm (or max_norm as
-                #    fallback), bias uses max_norm.
-                _vmax = cat_max_norm if (cat_max_norm and cat_max_norm > 0) else max_norm
+                # 2) Row-wise norm clip on bias.
+                if b is not None and max_norm and max_norm > 0:
+                    bn = b.detach().norm()
+                    if bn > max_norm:
+                        b.mul_(max_norm / bn)
+
+                # 3) Row-wise norm clip on category vectors.
+                #    When orthogonality is enforced AND a static cat_max_norm is
+                #    not set, we cap cats dynamically at the current bias norm so
+                #    that |cat| <= |bias|.  This guarantees the combined vector
+                #    (bias + cat_orth) stays within 45° of the bias direction,
+                #    preserving bias as the dominant steering component.
+                #    If cat_max_norm is explicitly set (> 0), use that instead.
+                if cat_max_norm and cat_max_norm > 0:
+                    _vmax = cat_max_norm
+                elif orth_cats_to_bias and b is not None:
+                    # Dynamic cap: current bias norm (enforces |cat| <= |bias|).
+                    _vmax = float(b.detach().norm().item())
+                else:
+                    _vmax = max_norm
                 if _vmax and _vmax > 0:
                     row_norms = V.detach().norm(dim=-1, keepdim=True)
                     scale = torch.clamp(_vmax / row_norms.clamp(min=1e-8),
                                         max=1.0)
                     V.mul_(scale)
-                if b is not None and max_norm and max_norm > 0:
-                    bn = b.detach().norm()
-                    if bn > max_norm:
-                        b.mul_(max_norm / bn)
             # Per-cat stats (no grad).
             with torch.no_grad():
                 pp = per_pos.detach().double()
