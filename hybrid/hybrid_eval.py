@@ -680,48 +680,53 @@ def hybrid_generate_batched(
 
         # BPE-aware multi-token detection.
         # For ORZ / Qwen-base tokenizers, "</think>" is split by BPE into
-        # context-dependent pieces.  Examples encountered in real ORZ outputs:
-        #   "</think>"        -> [522,   26865, 29]   ('</', 'think', '>')
-        #   " </think>"       -> [690,   26865, 29]   (' </', 'think', '>')
-        #   ".</think>"       -> [3918,  26865, 29]   ('.</', 'think', '>')
-        #   "</answer></think>" splits as [..., '></', 'think', '>'] etc.
-        # In every variant, the trailing two tokens are 26865 ('think') + 29
-        # ('>'); only the LEADING token differs.  We therefore detect on the
-        # invariant suffix:
-        #   state 0: see any token whose decoded form ends with "</"   -> 1
-        #   state 1: see id 26865 ('think')                            -> 2
-        #   state 2: see id 29 ('>')                                   -> DETECTED
-        # This catches all BPE variants without false positives (the suffix
-        # 'think>' only follows '</' in close-tag context; '<think>' opening
-        # tokenises differently, e.g. [13708, 766, 29] where 766 = 'ink').
+        # context-dependent pieces.  Both the leading AND trailing tokens
+        # are context-dependent because BPE merges `</` with the preceding
+        # character class AND `>` with the following character class.
+        # Examples observed in real ORZ outputs (via offset_mapping):
+        #   ORZ-7B:   "...\n</think>\n"   -> ['</', 'think', '>\n']        ids = (522, 26865, 397)
+        #   ORZ-32B:  "...\n</think>\n"   -> ['</', 'think', '>\n']        (522, 26865, 397)
+        #   ORZ-0.5B: "... </think> "     -> [' </', 'think', '>']         (690, 26865,  29)
+        #   ORZ-1.5B: "...).</think>\n"   -> [').</', 'think', '>\n']      (66233, 26865, 397)
+        #   ORZ-1.5B: "...</think>\n\n"   -> ['</', 'think', '>\n\n']     (522, 26865, 1339)
+        # In every variant the MIDDLE token is invariant: 26865 ('think').
+        # We use a 3-state machine over the invariant centre:
+        #   state 0 -> 1: any token whose decoded form ends with '</'      ("opener")
+        #   state 1 -> 2: token id 26865 ('think')
+        #   state 2 -> DETECTED: any token whose decoded form starts with '>'   ("closer")
+        # False-positive risk is low: the suffix `think>` only follows
+        # `</` in `</think>` context; `<think>` opening tokenises to a
+        # different mid-token (e.g. 766 = 'ink' for bare, or doesn't
+        # transit out of state 0 because the leading token doesn't end in '</').
         _think_close_mid: int = -1
-        _think_close_end: int = -1
         _opener_ids: set = set()
+        _closer_ids: set = set()
         if _think_close_id_single < 0:
             try:
                 _think_close_mid = int(
                     _think_tok_for_tags.encode("think", add_special_tokens=False)[0])
-                _think_close_end = int(
-                    _think_tok_for_tags.encode(">", add_special_tokens=False)[0])
             except Exception:
-                # Fallback to original tokenisation of bare "</think>" if the
-                # tokenizer doesn't expose the expected pieces.
+                # Fallback to the trailing-but-one token of bare "</think>".
                 if len(_think_close_seq_think) >= 3:
                     _think_close_mid = int(_think_close_seq_think[-2])
-                    _think_close_end = int(_think_close_seq_think[-1])
-            # Enumerate every token id whose decoded text ends with '</'.
-            # Vocab is ~150k tokens; one-shot decode is cheap.
+            # Enumerate every token id whose decoded text ends with '</' (opener)
+            # and every token id whose decoded text starts with '>' (closer).
+            # Vocab is ~150k tokens; one-shot decode is cheap (~20s, once per
+            # generation call).
             try:
                 _vocab = _think_tok_for_tags.get_vocab()
                 for tok_str, tok_id in _vocab.items():
                     s = _think_tok_for_tags.decode([int(tok_id)])
                     if s.endswith("</"):
                         _opener_ids.add(int(tok_id))
+                    if s.startswith(">"):
+                        _closer_ids.add(int(tok_id))
             except Exception:
-                # Fallback: at minimum, include the leading token of the bare
-                # encoding so we still match the most common variant.
+                # Fallback: at minimum, include the leading and trailing
+                # token IDs of the bare encoding.
                 if len(_think_close_seq_think) >= 3:
                     _opener_ids.add(int(_think_close_seq_think[0]))
+                    _closer_ids.add(int(_think_close_seq_think[-1]))
 
         # Base-friendly transition sequence.  Same string for all model
         # families; tokenised in the base vocab (length varies per family).
@@ -736,8 +741,9 @@ def hybrid_generate_batched(
                   f"{_base_transition_seq} ({len(_base_transition_seq)} tok)")
         else:
             print(f"[hybrid] </think> detection: BPE-suffix in think vocab "
-                  f"(mid={_think_close_mid} 'think', end={_think_close_end} '>', "
-                  f"openers={len(_opener_ids)} tokens ending in '</'); "
+                  f"(mid={_think_close_mid} 'think', "
+                  f"openers={len(_opener_ids)} tokens ending in '</', "
+                  f"closers={len(_closer_ids)} tokens starting with '>'); "
                   f"base transition {_BASE_TRANSITION_STR!r} = "
                   f"{_base_transition_seq} ({len(_base_transition_seq)} tok)")
 
@@ -1070,14 +1076,13 @@ def hybrid_generate_batched(
                     if think_tok_id == _think_close_id_single:
                         detected_close = True
                 else:
-                    # BPE-suffix detection (ORZ / Qwen base).  The close-tag
-                    # tokenisation is context-dependent — the LEADING token
-                    # varies (522 '</', 690 ' </', 3918 '.</', ...) but the
-                    # trailing two tokens are invariant: 26865 'think' + 29
-                    # '>'.  We use a 3-state machine over the SUFFIX:
-                    #   0 -> 1: any token decoding to a string ending with '</'
-                    #   1 -> 2: 26865 ('think')
-                    #   2 -> DETECTED: 29 ('>')
+                    # BPE-suffix detection (ORZ / Qwen base).  Both leading
+                    # and trailing tokens of the </think> tokenisation are
+                    # context-dependent.  We anchor on the INVARIANT middle
+                    # token (26865 = 'think') and use opener/closer sets:
+                    #   state 0 -> 1: token whose decoded form ends with '</'
+                    #   state 1 -> 2: token id 26865 ('think')
+                    #   state 2 -> DETECTED: token whose decoded form starts with '>'
                     # During the partial window we feed the thinking model
                     # its OWN predicted token so its KV builds the close
                     # sequence correctly (regardless of what the steered
@@ -1097,7 +1102,7 @@ def hybrid_generate_batched(
                         else:
                             _think_close_partial[_b] = 0
                     elif s == 2:
-                        if think_tok_id == _think_close_end:
+                        if think_tok_id in _closer_ids:
                             _think_close_partial[_b] = 0
                             detected_close = True
                         elif think_tok_id in _opener_ids:
