@@ -389,7 +389,7 @@ def compute_mean_activation_magnitude(
 # ---------------------------------------------------------------------------
 
 def _build_base_prompt(question: str) -> str:
-    return f"User: {question}\nAssistant: <think>"
+    return f"User: {question}\nAssistant:"
 
 
 @torch.no_grad()

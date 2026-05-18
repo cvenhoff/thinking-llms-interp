@@ -273,10 +273,10 @@ def _build_task_prompts(item, i, args):
         bp = f"{tp}\n\n{CODING_BASE_SUFFIX}"
     elif args.dataset in ("medqa", "gpqa"):
         tp = f"{q}\n\nPlease select the correct answer (A, B, C, or D) and explain your reasoning."
-        bp = f"User: {q}\nAssistant: <think>"
+        bp = f"User: {q}\nAssistant:"
     else:
         tp = q
-        bp = f"User: {q}\nAssistant: <think>"
+        bp = f"User: {q}\nAssistant:"
 
     return {"question": q, "correct_answer": a,
             "thinking_prompt": tp, "base_prompt": bp, "test_list": test_list}
@@ -650,44 +650,59 @@ def hybrid_generate_batched(
         n_gen = 0
 
         # ---- Think-region state ----
-        # Base prompts end with "...<think>", so the base model starts inside
-        # the think region.  We detect </think> using the THINKING tokenizer
-        # (where it may be a single special token, e.g. DeepSeek distill) and
-        # force the BASE tokenizer's representation (possibly multiple tokens)
-        # via a per-row emit queue.
-        #
-        # For models where both tokenizers multi-tokenise </think> (e.g. ORZ),
-        # we track a partial-match counter against the thinking model's token
-        # stream to detect the full sequence.
+        # Base prompts are "User: {q}\nAssistant:" — they DO NOT contain
+        # <think>.  The two models run in parallel with DIFFERENT prompts:
+        #   - Thinking model: native template (e.g. "<|begin_of_thinking|>..."
+        #     or "User: {q}\nAssistant: <think>") and stays inside <think>.
+        #   - Base model:  "User: {q}\nAssistant:" — it generates an answer
+        #     directly.  During the reasoning phase its tokens are steered
+        #     by the thinking model's hidden states.
+        # When the thinking model emits </think>, we transition:
+        #   - Thinking KV is advanced by its own </think> token(s).
+        #   - Base KV is advanced by a base-friendly transition sequence
+        #     (e.g. "\n\nFinal answer: ").
+        # Each model has its own forced-token queue because the two
+        # transition sequences differ in length and content.
+        # After transition, the row is in "answer" phase: NO steering,
+        # NO EOS suppression, no disagreement protocol — base generates
+        # freely until its natural EOS.  The thinking model is fed the
+        # base-emitted tokens to keep its KV advancing, but its logits
+        # are no longer used.
         _think_tok_for_tags = think_tok  # thinking tokenizer
 
         def _close_seq_think():
             return _think_tok_for_tags.encode("</think>", add_special_tokens=False)
 
-        def _open_id_think():
-            ids = _think_tok_for_tags.encode("<think>", add_special_tokens=False)
-            return int(ids[0]) if len(ids) == 1 else -1
-
         _think_close_seq_think = _close_seq_think()       # think vocab ids for </think>
         _think_close_id_single = (                        # -1 if multi-token in think
             int(_think_close_seq_think[0])
             if len(_think_close_seq_think) == 1 else -1)
-        _think_open_id = _open_id_think()
-        _base_close_seq = base_tokenizer.encode("</think>", add_special_tokens=False)
+
+        # Base-friendly transition sequence.  Same string for all model
+        # families; tokenised in the base vocab (length varies per family).
+        _BASE_TRANSITION_STR = "\n\nFinal answer: "
+        _base_transition_seq = base_tokenizer.encode(
+            _BASE_TRANSITION_STR, add_special_tokens=False)
 
         if len(_think_close_seq_think) == 1:
             print(f"[hybrid] </think> detection: single-token in think vocab "
-                  f"(id={_think_close_id_single}), "
-                  f"base repr={_base_close_seq} ({len(_base_close_seq)} tok)")
+                  f"(id={_think_close_id_single}); "
+                  f"base transition {_BASE_TRANSITION_STR!r} = "
+                  f"{_base_transition_seq} ({len(_base_transition_seq)} tok)")
         else:
             print(f"[hybrid] </think> detection: multi-token in think vocab "
-                  f"({_think_close_seq_think}), "
-                  f"base repr={_base_close_seq} ({len(_base_close_seq)} tok)")
+                  f"({_think_close_seq_think}); "
+                  f"base transition {_BASE_TRANSITION_STR!r} = "
+                  f"{_base_transition_seq} ({len(_base_transition_seq)} tok)")
 
         # One bool per row: True while the thinking model is still inside <think>.
+        # Flips to False once the thinking model has emitted </think> and the
+        # base model has been advanced by the transition sequence.
         inside_think = torch.ones(B, dtype=torch.bool, device=device)
-        # Per-row queue of base-vocab token IDs to force (for </think> emission).
-        _forced_queues: list = [[] for _ in range(B)]
+        # Per-row queues of token IDs to force.  Independent per model
+        # because the transition sequences differ.
+        _think_forced_queues: list = [[] for _ in range(B)]
+        _base_forced_queues: list = [[] for _ in range(B)]
         # Per-row partial-match counter for multi-token </think> in think vocab.
         _think_close_partial: list = [0] * B
 
@@ -701,19 +716,21 @@ def hybrid_generate_batched(
             # ---- 1. Candidate tokens from each model ----
             base_next_toks = torch.argmax(base_logits, dim=-1)
             think_next_toks = torch.argmax(think_logits, dim=-1)
-            # Rows with a pending forced-token queue skip steering entirely
-            # (we're mid-emit of the base-vocab </think> sequence).
+            # Skip steering on:
+            #  - finished rows
+            #  - rows draining a forced-token queue (transition mid-flight)
+            #  - rows already past the think region (answer phase)
+            #  - rows where think model is signalling </think> this step
             _is_forced = torch.tensor(
-                [len(q) > 0 for q in _forced_queues],
+                [len(qb) > 0 or len(qt) > 0
+                 for qb, qt in zip(_base_forced_queues, _think_forced_queues)],
                 dtype=torch.bool, device=device)
-            # Treat think-vocab structural tag tokens as "agreed" to skip
-            # the coefficient sweep (forcing logic below handles them).
+            _not_inside = ~inside_think
             _is_tag = torch.zeros(B, dtype=torch.bool, device=device)
             if _think_close_id_single >= 0:
                 _is_tag |= (think_next_toks == _think_close_id_single)
-            if _think_open_id >= 0:
-                _is_tag |= (think_next_toks == _think_open_id)
-            token_agree = (think_next_toks == base_next_toks) | finished | _is_tag | _is_forced
+            token_agree = ((think_next_toks == base_next_toks)
+                           | finished | _is_tag | _is_forced | _not_inside)
 
             best_coeff = torch.zeros(B, device=device)
             did_steer = torch.zeros(B, dtype=torch.bool, device=device)
@@ -950,71 +967,116 @@ def hybrid_generate_batched(
                     base_kv = revert.past_key_values
                     del revert
 
-            # ---- 2b. Think-region: </think> forcing and EOS suppression ----
-            # Cases per row, applied in priority order:
-            #  (i)   _is_forced: draining a per-row queue of base-vocab tokens
-            #        for the multi-token </think> representation (ORZ only).
-            #  (ii)  think model signals </think> this step:
-            #        - Single-token in think vocab (DeepSeek distill): pass the
-            #          thinking model's token through directly so both KV caches
-            #          stay in sync; the token decodes as a special token in
-            #          base vocab and is dropped by skip_special_tokens=True.
-            #        - Multi-token in think vocab (ORZ / plain Qwen): partial-
-            #          match tracking; once the full sequence is seen, force
-            #          the equivalent base tokens (same IDs, shared tokenizer).
-            #  (iii) base emits EOS while still inside think → suppress.
-            # inside_think only flips to False via (i)/(ii), never because
-            # the base model happened to predict the </think> token on its own.
+            # ---- 2b. Think-region state machine ----
+            # Per-row logic (applied in this priority order):
+            #
+            # Phase: REASONING (inside_think=True, no forced queue active)
+            #   - normal: emit steered base token (already in output_toks);
+            #     also advance thinking model's KV with the same token.
+            #   - detect </think> on thinking stream → start TRANSITION:
+            #       seed _think_forced_queue with </think> tokens (think vocab)
+            #       seed _base_forced_queue with "\n\nFinal answer: " (base vocab)
+            #   - if base argmax == EOS → suppress (substitute think argmax).
+            #
+            # Phase: TRANSITION (forced queues being drained)
+            #   - base emit:  drain _base_forced_queue → output_toks[b]
+            #   - think feed: drain _think_forced_queue → think_feed_toks[b]
+            #   - Queues are independent (different lengths).  Row flips to
+            #     ANSWER phase once BOTH queues are empty.
+            #
+            # Phase: ANSWER (inside_think=False, both queues empty)
+            #   - emit base argmax as-is (no steering, no EOS suppression).
+            #   - thinking model fed the same base token to keep KV moving.
+            think_feed_toks = think_next_toks.clone()
             for _b in range(B):
                 if finished[_b]:
                     continue
-                # Case (i): drain forced-token queue
-                if _forced_queues[_b]:
-                    output_toks[_b] = _forced_queues[_b].pop(0)
-                    if not _forced_queues[_b]:
+                # Drain forced queues first (transition phase)
+                if _base_forced_queues[_b] or _think_forced_queues[_b]:
+                    if _base_forced_queues[_b]:
+                        output_toks[_b] = _base_forced_queues[_b].pop(0)
+                    else:
+                        # Base queue drained first; emit base argmax
+                        # (no steering — we're past think region).
+                        output_toks[_b] = base_next_toks[_b]
+                    if _think_forced_queues[_b]:
+                        think_feed_toks[_b] = _think_forced_queues[_b].pop(0)
+                    else:
+                        # Think queue drained first; feed the same token
+                        # as base (the answer phase has begun).
+                        think_feed_toks[_b] = output_toks[_b]
+                    # Once BOTH queues drained, flip to answer phase
+                    if (not _base_forced_queues[_b]
+                            and not _think_forced_queues[_b]):
                         inside_think[_b] = False
                     continue
+                # Answer phase: pass through, no steering, no EOS suppression.
+                # think KV keeps moving with the same emitted base token.
                 if not inside_think[_b]:
+                    think_feed_toks[_b] = output_toks[_b]
                     continue
+                # Reasoning phase: detect </think> in thinking stream
                 think_tok_id = int(think_next_toks[_b].item())
-                # Case (ii): detect </think> close tag in thinking model's stream
                 detected_close = False
+                in_partial_window = False  # true while building multi-token match
                 if _think_close_id_single >= 0:
                     # Single-token detection (DeepSeek distill)
                     if think_tok_id == _think_close_id_single:
                         detected_close = True
                 else:
-                    # Multi-token detection via partial match (ORZ / Qwen base)
+                    # Multi-token detection via partial match (ORZ / Qwen base).
+                    # CRITICAL for the new prompt design: base/think KV caches
+                    # diverge during reasoning, so we MUST feed the thinking
+                    # model its own close-sequence token during the partial
+                    # window — otherwise its KV gets fed base's reasoning and
+                    # the partial match never completes.
                     expected = _think_close_seq_think[_think_close_partial[_b]]
                     if think_tok_id == expected:
                         _think_close_partial[_b] += 1
+                        in_partial_window = True
                         if _think_close_partial[_b] == len(_think_close_seq_think):
                             _think_close_partial[_b] = 0
+                            in_partial_window = False
                             detected_close = True
                     else:
                         _think_close_partial[_b] = 0
                 if detected_close:
+                    # Full close detected — start transition.
+                    # Seed both queues with their respective transition seqs.
+                    # For multi-token close: the close_seq has already been
+                    # fed to think KV across the partial-match steps, so the
+                    # think queue is empty here.  For single-token close: the
+                    # close token is fed THIS step (output below).
+                    base_seq = list(_base_transition_seq)
+                    output_toks[_b] = base_seq[0]
+                    _base_forced_queues[_b] = base_seq[1:]
                     if _think_close_id_single >= 0:
-                        # Single-token case: pass the think-vocab token through.
-                        # Both models advance with the same ID; the base model
-                        # treats it as a (different) special token, which
-                        # skip_special_tokens=True will remove on decode.
-                        output_toks[_b] = _think_close_id_single
-                        inside_think[_b] = False
+                        # Single-token close: feed the token now, queue empty.
+                        think_feed_toks[_b] = _think_close_id_single
+                        _think_forced_queues[_b] = []
                     else:
-                        # Multi-token case (ORZ): base and think share the same
-                        # tokenizer, so force the identical sequence of tokens.
-                        # The first token is emitted now; the rest go in the queue.
-                        queue = list(_base_close_seq)
-                        output_toks[_b] = queue.pop(0)
-                        if queue:
-                            _forced_queues[_b] = queue
-                        else:
-                            inside_think[_b] = False
+                        # Multi-token close: last close-token fed this step,
+                        # all prior close tokens already fed during partial.
+                        think_feed_toks[_b] = think_tok_id
+                        _think_forced_queues[_b] = []
+                    # If base queue exhausted in one step, flip phase now
+                    if not _base_forced_queues[_b]:
+                        inside_think[_b] = False
                     continue
-                # Case (iii): suppress base EOS while inside think
+                if in_partial_window:
+                    # Currently building multi-token close-match.  Feed think
+                    # its OWN argmax to keep the partial alive in its KV.
+                    # Base emits steered argmax as normal (no EOS suppression
+                    # since think isn't predicting EOS — it's predicting a
+                    # close-sequence token).
+                    think_feed_toks[_b] = think_tok_id
+                    continue
+                # Normal reasoning step: suppress base EOS
                 if int(output_toks[_b].item()) == eos_id:
                     output_toks[_b] = think_next_toks[_b]
+                # Feed think model the EMITTED base token (keeps KVs roughly
+                # aligned during reasoning).
+                think_feed_toks[_b] = output_toks[_b]
 
             # ---- 3. Record output ----
             # Pre-compute per-row debug tensors so the Python loop below
@@ -1082,7 +1144,7 @@ def hybrid_generate_batched(
 
             with torch.inference_mode():
                 think_out = thinking_model(
-                    input_ids=output_toks.unsqueeze(1),
+                    input_ids=think_feed_toks.unsqueeze(1),
                     attention_mask=t_mask,
                     position_ids=think_pos.unsqueeze(1),
                     past_key_values=think_kv, use_cache=True)
