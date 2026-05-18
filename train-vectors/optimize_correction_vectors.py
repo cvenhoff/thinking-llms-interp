@@ -142,6 +142,93 @@ ANNOTATION_PATTERN = re.compile(
     r'\["([\d.]+):(\S+?)"\](.*?)\["end-section"\]', re.DOTALL)
 
 
+def _aligned_tokenize_pair(
+    base_tokenizer, base_prompt: str,
+    think_tokenizer, think_prompt: str,
+    thinking: str,
+):
+    """Tokenize ``base_prompt + thinking`` and ``think_prompt + thinking`` once
+    on each side WITH offset-mapping, and find a shared character-boundary
+    anchor inside the thinking text.
+
+    Why this is needed
+    ------------------
+    BPE can merge the last prompt character with the first thinking character
+    differently between the two sides (e.g. ORZ's think prompt ends with
+    ``'>'`` which merges into ``'>To'`` for the full text, while the base
+    prompt ends with ``':'`` which stays as a separate token).  A naive
+    ``offset = len(tok(think_prompt)) - len(tok(base_prompt))`` is therefore
+    off-by-one for many examples and the position-by-position rollout
+    target check ``think_ids[i_t+1] == base_ids[i+1]`` fails everywhere.
+
+    Robust alignment
+    ----------------
+    For each side, take the set of character positions (relative to the
+    start of ``thinking``) at which a token *ends* and that lies entirely
+    past the prompt.  The smallest character position present in BOTH sets
+    is the first place at which the two tokenisations re-synchronise on a
+    shared text boundary.  Because we use the same tokenizer family inside
+    a pair and the remaining text is identical, both sides produce
+    *identical* tokens past that boundary (BPE is deterministic on the
+    remaining suffix).
+
+    Returns
+    -------
+    dict with keys:
+      ``b_ids``, ``b_offsets``        -- base tokenisation of full text
+      ``t_ids``, ``t_offsets``        -- think tokenisation of full text
+      ``b_anchor``, ``t_anchor``      -- first aligned indices (so that
+                                         ``b_ids[b_anchor:]`` and
+                                         ``t_ids[t_anchor:]`` are identical
+                                         token sequences).  -1 if no shared
+                                         boundary was found.
+      ``anchor_c``                    -- the shared character boundary in
+                                         the thinking text, -1 if missing.
+    """
+    base_full = base_prompt + thinking
+    think_full = think_prompt + thinking
+    # ``return_offsets_mapping`` requires a fast tokenizer; we don't fall
+    # back here because all 9 model pairs we use have fast tokenizers.
+    enc_b = base_tokenizer(base_full, return_offsets_mapping=True,
+                           truncation=False)
+    enc_t = think_tokenizer(think_full, return_offsets_mapping=True,
+                            truncation=False)
+    bp = len(base_prompt)
+    tp = len(think_prompt)
+    # ``c`` = end-char-in-thinking; only tokens that lie *entirely* past the
+    # prompt boundary participate (a token that straddles the boundary
+    # cannot serve as an anchor because part of its content is in the
+    # prompt region).
+    b_ends: Dict[int, int] = {}
+    for i, (s, e) in enumerate(enc_b["offset_mapping"]):
+        if s >= bp and e > bp:
+            c = e - bp
+            b_ends.setdefault(c, i)
+    t_ends: Dict[int, int] = {}
+    for i, (s, e) in enumerate(enc_t["offset_mapping"]):
+        if s >= tp and e > tp:
+            c = e - tp
+            t_ends.setdefault(c, i)
+    common = set(b_ends.keys()) & set(t_ends.keys())
+    if not common:
+        b_anchor = t_anchor = anchor_c = -1
+    else:
+        anchor_c = min(common)
+        # The anchor token *ends* at this char boundary; the FIRST aligned
+        # token (start of the shared suffix) is the next one.
+        b_anchor = b_ends[anchor_c] + 1
+        t_anchor = t_ends[anchor_c] + 1
+    return {
+        "b_ids": enc_b["input_ids"],
+        "b_offsets": enc_b["offset_mapping"],
+        "t_ids": enc_t["input_ids"],
+        "t_offsets": enc_t["offset_mapping"],
+        "b_anchor": b_anchor,
+        "t_anchor": t_anchor,
+        "anchor_c": anchor_c,
+    }
+
+
 def _token_category_labels(annotated_thinking: str, full_text: str,
                            tokenizer) -> Dict[int, str]:
     """Return a dict {token_idx_in_full_text: category} covering every
@@ -500,6 +587,7 @@ def collect_disagreements(
 
     n_too_long = n_no_labels = n_no_disagree = n_align_skip = 0
     n_align_partial = 0
+    n_no_anchor = 0
     n_pos_considered = 0
     n_pos_dropped_low_entropy = 0
     entropy_sum = 0.0
@@ -514,20 +602,40 @@ def collect_disagreements(
         if not thinking or not thinking.strip():
             continue
 
-        # --- Base side: _build_base_prompt + rollout (matches hybrid_eval).
+        # --- Build the two prompt strings.
         base_prompt = _build_base_prompt(question)
+        try:
+            think_prompt_text = think_tokenizer.apply_chat_template(
+                [{"role": "user", "content": question}],
+                tokenize=False, add_generation_prompt=True)
+        except Exception:
+            think_prompt_text = base_prompt  # graceful fallback
+
+        # --- Tokenize ONCE with offset-mapping on each side and find the
+        # first shared char-boundary anchor inside the thinking text.  This
+        # is the only correct way to align two tokenisations that may merge
+        # the prompt/rollout boundary differently (e.g. ORZ's ``>`` merges
+        # into ``>To`` while the base ``:`` stays as a separate token).
         base_full_text = base_prompt + thinking
-        enc_b = base_tokenizer(base_full_text, return_tensors="pt",
-                               truncation=False)
-        base_ids = enc_b["input_ids"][0]
+        align = _aligned_tokenize_pair(
+            base_tokenizer, base_prompt,
+            think_tokenizer, think_prompt_text,
+            thinking,
+        )
+        base_ids = torch.tensor(align["b_ids"], dtype=torch.long)
+        think_ids = torch.tensor(align["t_ids"], dtype=torch.long)
         Lb = base_ids.shape[0]
+        Lt = think_ids.shape[0]
         if Lb < 8:
             continue
-        if Lb > max_seq_len:
+        if Lb > max_seq_len or Lt > max_seq_len:
             n_too_long += 1
             continue
-        base_prompt_len = len(
-            base_tokenizer(base_prompt, return_tensors="pt")["input_ids"][0])
+        b_anchor = align["b_anchor"]
+        t_anchor = align["t_anchor"]
+        if b_anchor < 0:
+            n_no_anchor += 1
+            continue
 
         if sae_classifier is not None:
             # Cats come from per-token SAE classification of thinking
@@ -539,25 +647,6 @@ def collect_disagreements(
             if not tok_cat:
                 n_no_labels += 1
                 continue
-
-        # --- Thinking side: chat-templated prompt + same rollout text.
-        try:
-            think_prompt_text = think_tokenizer.apply_chat_template(
-                [{"role": "user", "content": question}],
-                tokenize=False, add_generation_prompt=True)
-        except Exception:
-            think_prompt_text = base_prompt  # graceful fallback
-        think_full_text = think_prompt_text + thinking
-        enc_t = think_tokenizer(think_full_text, return_tensors="pt",
-                                truncation=False)
-        think_ids = enc_t["input_ids"][0]
-        Lt = think_ids.shape[0]
-        if Lt > max_seq_len:
-            n_too_long += 1
-            continue
-        think_prompt_len = len(
-            think_tokenizer(think_prompt_text,
-                            return_tensors="pt")["input_ids"][0])
 
         # --- Base logits (for disagreement detection).  Only needed when
         # the disagreement gate is part of the collection rule.
@@ -612,11 +701,14 @@ def collect_disagreements(
         topk_lp = topk_lp.cpu()
         topk_idx = topk_idx.cpu()
 
-        offset = think_prompt_len - base_prompt_len  # think_pos = base_pos + offset
+        # ``offset`` is exact past the anchor: every base position
+        # ``i >= b_anchor - 1`` predicts a token in the aligned region,
+        # and the corresponding think position is ``i_t = i + offset``.
+        offset = t_anchor - b_anchor
         ex_idx = len(per_example)
         found_any = False
         n_ex_miss = 0
-        for i in range(max(base_prompt_len - 1, 0), Lb - 1):
+        for i in range(max(b_anchor - 1, 0), Lb - 1):
             target = int(base_ids[i + 1].item())
             if sae_cat_per_pos is not None:
                 # Classify the THINKING activation at the position that
@@ -637,10 +729,11 @@ def collect_disagreements(
             if i_t < 0 or i_t + 1 >= Lt:
                 n_ex_miss += 1
                 continue
-            # Boundary tokenisation may merge the last prompt char with
-            # the first rollout char, so verify the rollout token at this
-            # position is identical across tokenisations.  If not, skip;
-            # the training target would otherwise be off-by-one.
+            # Defensive check: the anchor guarantees identical tokens past
+            # the anchor index for both sides (same tokenizer, identical
+            # remaining text, deterministic BPE).  Keep the guard so a
+            # tokenizer surprise degrades gracefully instead of producing
+            # off-by-one training targets.
             if int(think_ids[i_t + 1].item()) != target:
                 n_ex_miss += 1
                 continue
@@ -678,7 +771,7 @@ def collect_disagreements(
             n_align_partial += 1
         if found_any:
             per_example.append({"ids": base_ids.cpu(),
-                                "prompt_len": base_prompt_len})
+                                "prompt_len": int(b_anchor)})
         else:
             if n_ex_miss > 0:
                 n_align_skip += 1
@@ -693,6 +786,7 @@ def collect_disagreements(
     print(f"  responses processed: {len(per_example)} retained, "
           f"{n_too_long} too long, {n_no_labels} without labels, "
           f"{n_no_disagree} without retained positions, "
+          f"{n_no_anchor} without shared char anchor, "
           f"{n_align_skip} fully mis-aligned, "
           f"{n_align_partial} with some skipped positions",
           flush=True)
