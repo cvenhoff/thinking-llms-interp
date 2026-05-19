@@ -332,53 +332,52 @@ class _InjectMultiHook:
                  pos_cats: torch.Tensor,
                  b: Optional[torch.Tensor] = None,
                  bias_frozen: Optional[torch.Tensor] = None,
-                 alpha: Optional[torch.Tensor] = None):
+                 alpha: Optional[torch.Tensor] = None,
+                 beta: Optional[torch.Tensor] = None,
+                 unified_norm: bool = False):
         self.V = V                    # (n_cats, hidden), trainable
         self.pos_bids = pos_bids      # (N,) long
         self.pos_tids = pos_tids      # (N,) long
         self.pos_cats = pos_cats      # (N,) long in [0, n_cats)
         self.b = b                    # (hidden,) or None, trainable
-        # Frozen-bias term that is added at disagreement positions
-        # ALONGSIDE V[cat] (and the trainable b if set).  No grad flows
-        # into bias_frozen.  Used when training V on top of a
-        # previously-trained global bias: the hook applies
-        # ``bias_frozen + V[cat[p]]`` so the optimizer learns the
-        # category-specific RESIDUAL on top of the static bias.
         self.bias_frozen = bias_frozen   # (hidden,) detached or None
-        # Optional per-category bias scale (n_cats,), trainable when
-        # --per_cat_bias_scale is set.  Instead of adding bias_frozen
-        # uniformly, we add alpha[cat] * bias_frozen so each category
-        # can independently dial the frozen-bias contribution up or down
-        # without coupling that to the direction of V[cat].
-        self.alpha = alpha               # (n_cats,) or None, trainable
+        # alpha: per-category bias scale (n_cats,).
+        #   - In per_cat_bias_scale mode: scales the frozen bias per cat.
+        #   - In unified_norm mode: scales the shared direction b per cat.
+        self.alpha = alpha
+        # beta: per-category cat-direction scale (n_cats,), unified_norm only.
+        self.beta = beta
+        # unified_norm mode: steering = alpha[i]*normalize(b) + beta[i]*normalize(V[i])
+        # Both directions are unit-norm; magnitudes live in alpha/beta scalars.
+        self.unified_norm = unified_norm
 
     def __call__(self, _module, _inp, out):
         h = out[0] if isinstance(out, tuple) else out
-        # Build an additive update tensor zero everywhere except at
-        # disagreement positions, where it equals V[cat] (+ b if set,
-        # + alpha[cat]*bias_frozen if set).  Using a zeros_like(h) +
-        # index_copy keeps the op autograd-friendly and avoids any
-        # in-place mutation on `h` itself.
-        # ----- Multi-GPU safety -----
-        # ``device_map="auto"`` may place the steer layer on a different
-        # device than the trainable params (V/b) and the precomputed
-        # index tensors.  Move everything to ``h``'s device so the
-        # in-place index assign and the residual add are well-defined.
-        # Cross-device ``.to`` is differentiable, so gradients still
-        # flow back into V (and b/bias_frozen if trainable).
         h_dev = h.device
         update = torch.zeros_like(h)
         cats = self.pos_cats.to(h_dev)
-        per_pos = self.V.to(h_dev)[cats]                      # (N, hidden) f32
-        if self.b is not None:
-            per_pos = per_pos + self.b.to(h_dev).unsqueeze(0)  # broadcast bias
-        if self.bias_frozen is not None:
-            if self.alpha is not None:
-                # Per-category scale: alpha[cat] * bias_frozen
-                scale = self.alpha.to(h_dev)[cats]             # (N,)
-                per_pos = per_pos + scale.unsqueeze(1) * self.bias_frozen.to(h_dev).unsqueeze(0)
-            else:
-                per_pos = per_pos + self.bias_frozen.to(h_dev).unsqueeze(0)
+
+        if self.unified_norm:
+            # alpha[i] * normalize(b) + beta[i] * normalize(V[i])
+            b_dev = self.b.to(h_dev)
+            b_hat = b_dev / b_dev.norm().clamp_min(1e-8)            # (hidden,)
+            V_dev = self.V.to(h_dev)
+            V_hat = V_dev / V_dev.norm(dim=-1, keepdim=True).clamp_min(1e-8)  # (n_cats, hidden)
+            alpha_pp = self.alpha.to(h_dev)[cats]                   # (N,)
+            beta_pp  = self.beta.to(h_dev)[cats]                    # (N,)
+            per_pos = (alpha_pp.unsqueeze(1) * b_hat.unsqueeze(0)
+                       + beta_pp.unsqueeze(1) * V_hat[cats])        # (N, hidden)
+        else:
+            per_pos = self.V.to(h_dev)[cats]                        # (N, hidden)
+            if self.b is not None:
+                per_pos = per_pos + self.b.to(h_dev).unsqueeze(0)
+            if self.bias_frozen is not None:
+                if self.alpha is not None:
+                    scale = self.alpha.to(h_dev)[cats]              # (N,)
+                    per_pos = per_pos + scale.unsqueeze(1) * self.bias_frozen.to(h_dev).unsqueeze(0)
+                else:
+                    per_pos = per_pos + self.bias_frozen.to(h_dev).unsqueeze(0)
+
         bids = self.pos_bids.to(h_dev)
         tids = self.pos_tids.to(h_dev)
         update[bids, tids, :] = per_pos.to(h.dtype)
@@ -1216,6 +1215,13 @@ def train_vectors_joint(
     init_v_norm: float = 0.0,
     bias_frozen: Optional[torch.Tensor] = None,
     per_cat_bias_scale: bool = False,
+    # Unified-norm training: shared unit-norm bias direction b + per-cat
+    # unit-norm direction V[i], with learnable per-cat scalars alpha[i]
+    # (bias magnitude) and beta[i] (cat magnitude).  Replaces the two-stage
+    # pipeline with a single joint optimisation.
+    unified_norm: bool = False,
+    init_alpha: float = 10.0,   # initial bias scale per category
+    init_beta: float = 1.0,     # initial cat-direction scale per category
     # Crash-resilient checkpointing of the best-holdout snapshot to disk.
     # When provided (and we're on rank 0), every time we improve the
     # holdout KL we additionally write the snapshot to
@@ -1228,8 +1234,18 @@ def train_vectors_joint(
     # only) cadence.  Mid-epoch chunk evals feed the best-holdout
     # snapshot selection too.
     eval_chunks_per_epoch: int = 4,
-) -> Tuple[torch.Tensor, Optional[torch.Tensor], List[dict]]:
+) -> Tuple[torch.Tensor, Optional[torch.Tensor], List[dict], dict]:
     """Train ``n_cats`` category vectors simultaneously in one sweep.
+
+    Returns ``(V, b_or_none, metrics, extras)`` where ``extras`` is a dict
+    that may contain:
+      ``"alpha"``  – (n_cats,) per-category bias scale (per_cat_bias_scale or
+                     unified_norm mode), or None
+      ``"beta"``   – (n_cats,) per-category cat scale (unified_norm only), or None
+    In unified_norm mode ``b`` is the raw shared direction (normalize before use)
+    and ``V[i]`` are the raw per-cat directions (normalize before use).
+    In all other modes ``V`` and ``b`` are the trained vectors directly.
+    
 
     positions_with_cat[k] = (ex_idx, token_pos, cat_idx, topk_lp, topk_idx)
 
@@ -1350,7 +1366,35 @@ def train_vectors_joint(
     if alpha is not None:
         print(f"    [joint] per-category bias scale enabled "
               f"(alpha init=1.0 for all {n_cats} cats)", flush=True)
-    opt_params = [V] + ([b] if b is not None else []) + ([alpha] if alpha is not None else [])
+    beta: Optional[torch.Tensor] = None
+
+    if unified_norm:
+        # Override everything: shared unit-norm b direction + per-cat unit-norm
+        # V directions, with learnable per-cat scalars alpha and beta.
+        # V is already initialised above (random unit-norm via init_v_norm or
+        # zeros); re-init to random unit norm here regardless.
+        gen_u = torch.Generator().manual_seed(int(seed) + 97)
+        V_init_u = torch.randn(n_cats, hidden_size, generator=gen_u,
+                               dtype=torch.float32)
+        V_init_u = V_init_u / V_init_u.norm(dim=-1, keepdim=True).clamp_min(1e-8)
+        V = V_init_u.to(device).detach().clone().requires_grad_(True)
+        # Shared bias direction: random unit vector, different seed from V.
+        gen_b = torch.Generator().manual_seed(int(seed) + 199)
+        b_init_u = torch.randn(hidden_size, generator=gen_b, dtype=torch.float32)
+        b_init_u = b_init_u / b_init_u.norm().clamp_min(1e-8)
+        b = b_init_u.to(device).detach().clone().requires_grad_(True)
+        # Per-category scalars.
+        alpha = torch.full((n_cats,), float(init_alpha),
+                           device=device, dtype=torch.float32,
+                           requires_grad=True)
+        beta  = torch.full((n_cats,), float(init_beta),
+                           device=device, dtype=torch.float32,
+                           requires_grad=True)
+        opt_params = [V, b, alpha, beta]
+        print(f"    [joint] unified-norm: alpha_init={init_alpha:.1f}, "
+              f"beta_init={init_beta:.1f}  ({n_cats} cats)", flush=True)
+    else:
+        opt_params = [V] + ([b] if b is not None else []) + ([alpha] if alpha is not None else [])
     opt = torch.optim.Adam(opt_params, lr=lr, weight_decay=weight_decay)
 
     n_pos_total = sum(len(v) for v in by_example.values())
@@ -1417,6 +1461,7 @@ def train_vectors_joint(
     best_V_cpu: Optional[torch.Tensor] = None
     best_b_cpu: Optional[torch.Tensor] = None
     best_alpha_cpu: Optional[torch.Tensor] = None
+    best_beta_cpu: Optional[torch.Tensor] = None
     best_epoch: int = 0
     # Mid-epoch eval cadence: we run a quick holdout eval ``_ec`` times
     # per epoch so the train/holdout curves are denser than the
@@ -1438,7 +1483,7 @@ def train_vectors_joint(
         printed/recorded train_kl reflects the full DDP shard.  Updates
         ``best_holdout_kl`` and the on-disk best checkpoint.
         """
-        nonlocal best_holdout_kl, best_V_cpu, best_b_cpu, best_alpha_cpu, best_epoch
+        nonlocal best_holdout_kl, best_V_cpu, best_b_cpu, best_alpha_cpu, best_beta_cpu, best_epoch
         if holdout_by_example is None or not holdout_ex_ids_sorted:
             return
         # All-reduce the running train numbers for the print line.
@@ -1474,7 +1519,9 @@ def train_vectors_joint(
                     kl_mode=kl_mode, train_topk=train_topk,
                     b=(b.detach() if b is not None else None),
                     bias_frozen=bias_frozen,
-                    alpha=(alpha.detach() if alpha is not None else None))
+                    alpha=(alpha.detach() if alpha is not None else None),
+                    beta=(beta.detach() if beta is not None else None),
+                    unified_norm=unified_norm)
                 if per_pos_e.numel() == 0:
                     continue
                 pp_e = per_pos_e.detach().double()
@@ -1526,31 +1573,33 @@ def train_vectors_joint(
             best_holdout_kl = float(total_kl)
             best_alpha_cpu = (alpha.detach().float().cpu().clone()
                               if alpha is not None else None)
-            # Fold alpha into V so callers (and eval) need no changes:
-            # effective_V[i] = V[i] + (alpha[i] - 1) * bias_frozen
-            # => effective_V[i] + bias_frozen = V[i] + alpha[i]*bias_frozen
-            if best_alpha_cpu is not None and bias_frozen is not None:
-                V_raw = V.detach().float().cpu()
-                bf_cpu = bias_frozen.float().cpu()
-                best_V_cpu = V_raw + (best_alpha_cpu - 1.0).unsqueeze(1) * bf_cpu.unsqueeze(0)
-            else:
-                best_V_cpu = V.detach().float().cpu().clone()
+            best_beta_cpu  = (beta.detach().float().cpu().clone()
+                              if beta is not None else None)
+            best_V_cpu = V.detach().float().cpu().clone()
             best_b_cpu = (b.detach().float().cpu().clone()
                           if b is not None else None)
             best_epoch = int(epoch_idx + 1)
-            if best_alpha_cpu is not None:
+            _snap_info = (f"ep{epoch_idx+1} chunk {chunk_idx}/{total_chunks}")
+            if best_alpha_cpu is not None and best_beta_cpu is not None:
+                _a, _bta = best_alpha_cpu, best_beta_cpu
+                print(f"    [joint] new best holdout_kl={total_kl:.4f} "
+                      f"at {_snap_info} -> snapshot saved "
+                      f"[alpha {float(_a.min()):.2f}-{float(_a.max()):.2f} "
+                      f"mean={float(_a.mean()):.2f}  "
+                      f"beta {float(_bta.min()):.2f}-{float(_bta.max()):.2f} "
+                      f"mean={float(_bta.mean()):.2f}]",
+                      flush=True)
+            elif best_alpha_cpu is not None:
                 _a = best_alpha_cpu
-                print(f"    [joint] new best holdout_kl="
-                      f"{total_kl:.4f} at ep{epoch_idx+1} "
-                      f"chunk {chunk_idx}/{total_chunks} -> snapshot saved "
+                print(f"    [joint] new best holdout_kl={total_kl:.4f} "
+                      f"at {_snap_info} -> snapshot saved "
                       f"[alpha min={float(_a.min()):.3f} "
                       f"max={float(_a.max()):.3f} "
                       f"mean={float(_a.mean()):.3f}]",
                       flush=True)
             else:
-                print(f"    [joint] new best holdout_kl="
-                      f"{total_kl:.4f} at ep{epoch_idx+1} "
-                      f"chunk {chunk_idx}/{total_chunks} -> snapshot saved",
+                print(f"    [joint] new best holdout_kl={total_kl:.4f} "
+                      f"at {_snap_info} -> snapshot saved",
                       flush=True)
             if (checkpoint_dir is not None
                     and checkpoint_prefix is not None
@@ -1597,12 +1646,8 @@ def train_vectors_joint(
             os.makedirs(checkpoint_dir, exist_ok=True)
             ckpt_path = os.path.join(
                 checkpoint_dir, f"{checkpoint_prefix}_best.pt")
-            _V_save = V.detach().float().cpu()
-            if alpha is not None and bias_frozen is not None:
-                _a_save = alpha.detach().float().cpu()
-                _V_save = _V_save + (_a_save - 1.0).unsqueeze(1) * bias_frozen.float().cpu().unsqueeze(0)
             torch.save({
-                "V": _V_save.clone(),
+                "V": V.detach().float().cpu().clone(),
                 "b": (b.detach().float().cpu().clone()
                       if b is not None else None),
                 "epoch": int(epoch_idx + 1),
@@ -1665,7 +1710,8 @@ def train_vectors_joint(
                 base_model, mb, per_example, by_example,
                 V, steer_layer, pad_token_id,
                 kl_mode=kl_mode, train_topk=train_topk, b=b,
-                bias_frozen=bias_frozen, alpha=alpha)
+                bias_frozen=bias_frozen, alpha=alpha,
+                beta=beta, unified_norm=unified_norm)
             n_pts = int(per_pos.numel())
             if n_pts == 0:
                 pbar.update(1)
@@ -1730,6 +1776,9 @@ def train_vectors_joint(
                 if alpha is not None and alpha.grad is not None:
                     dist.all_reduce(alpha.grad, op=dist.ReduceOp.SUM)
                     alpha.grad.div_(float(dist.get_world_size()))
+                if beta is not None and beta.grad is not None:
+                    dist.all_reduce(beta.grad, op=dist.ReduceOp.SUM)
+                    beta.grad.div_(float(dist.get_world_size()))
             opt.step()
             # Per-cat stats (no grad).
             with torch.no_grad():
@@ -1752,19 +1801,28 @@ def train_vectors_joint(
                 bias_norm = (float(b.detach().norm().item())
                              if b is not None else None)
                 alpha_vals = (alpha.detach().cpu() if alpha is not None else None)
+                beta_vals  = (beta.detach().cpu()  if beta  is not None else None)
             ep_loss_sum += batch_sum
             ep_positions += n_pts
             running = ep_loss_sum / max(ep_positions, 1)
             postfix = {
                 "ep": f"{epoch+1}/{n_epochs}",
                 "kl": f"{running:.4f}",
-                "norms": f"[{norms.mean().item():.1f}]",
             }
-            if bias_norm is not None:
-                postfix["bias"] = f"{bias_norm:.1f}"
-            if alpha_vals is not None:
-                postfix["alpha"] = (f"[{float(alpha_vals.min()):.2f}"
-                                    f"-{float(alpha_vals.max()):.2f}]")
+            if unified_norm:
+                # In unified_norm mode, norms of V and b are ~1 (raw dirs);
+                # the meaningful magnitudes are in alpha and beta.
+                postfix["α"] = (f"[{float(alpha_vals.min()):.1f}"
+                                f"-{float(alpha_vals.max()):.1f}]")
+                postfix["β"] = (f"[{float(beta_vals.min()):.1f}"
+                                f"-{float(beta_vals.max()):.1f}]")
+            else:
+                postfix["norms"] = f"[{norms.mean().item():.1f}]"
+                if bias_norm is not None:
+                    postfix["bias"] = f"{bias_norm:.1f}"
+                if alpha_vals is not None:
+                    postfix["alpha"] = (f"[{float(alpha_vals.min()):.2f}"
+                                        f"-{float(alpha_vals.max()):.2f}]")
             pbar.set_postfix(**postfix)
             pbar.update(1)
             last_loss = running
@@ -1903,19 +1961,18 @@ def train_vectors_joint(
                "avg_kl": float(best_holdout_kl)})
         if metrics_fh is not None:
             metrics_fh.close()
-        # best_V_cpu already has alpha folded in (see best-holdout block)
-        return best_V_cpu, best_b_cpu, metrics_records
+        return (best_V_cpu, best_b_cpu, metrics_records,
+                {"alpha": best_alpha_cpu, "beta": best_beta_cpu})
     if metrics_fh is not None:
         metrics_fh.close()
     b_out = (b.detach().float().cpu() if b is not None else None)
-    V_out = V.detach().float().cpu()
-    if alpha is not None and bias_frozen is not None:
-        a_out = alpha.detach().float().cpu()
-        V_out = V_out + (a_out - 1.0).unsqueeze(1) * bias_frozen.float().cpu().unsqueeze(0)
+    a_out = (alpha.detach().float().cpu() if alpha is not None else None)
+    bt_out = (beta.detach().float().cpu() if beta is not None else None)
+    if a_out is not None:
         print(f"    [joint] final alpha: min={float(a_out.min()):.3f} "
               f"max={float(a_out.max()):.3f} mean={float(a_out.mean()):.3f}",
               flush=True)
-    return V_out, b_out, metrics_records
+    return V.detach().float().cpu(), b_out, metrics_records, {"alpha": a_out, "beta": bt_out}
 
 
 def _compute_batch_kl_loss_joint(
@@ -1932,6 +1989,8 @@ def _compute_batch_kl_loss_joint(
     b: Optional[torch.Tensor] = None,
     bias_frozen: Optional[torch.Tensor] = None,
     alpha: Optional[torch.Tensor] = None,
+    beta: Optional[torch.Tensor] = None,
+    unified_norm: bool = False,
 ) -> Tuple[torch.Tensor, int]:
     """Forward one padded minibatch with V injected per-position by
     category, return (per_position_losses, position_category_indices).
@@ -2010,7 +2069,8 @@ def _compute_batch_kl_loss_joint(
     topk_probs = topk_lp_t.exp()
 
     hook = _InjectMultiHook(V, pos_bids_t, pos_tids_t, pos_cats_t, b=b,
-                            bias_frozen=bias_frozen, alpha=alpha)
+                            bias_frozen=bias_frozen, alpha=alpha,
+                            beta=beta, unified_norm=unified_norm)
     with _inject_at_layer(base_model, steer_layer, hook):
         body_out = base_model.model(
             input_ids=ids_batch, attention_mask=attn, use_cache=False)
@@ -2191,9 +2251,26 @@ def main():
                         "V[i] + alpha[i]*bias, where alpha[i] is init to "
                         "1.0.  Decouples direction (V[i]) from bias "
                         "magnitude (alpha[i]), preventing pressure toward "
-                        "anti-correlated cat directions. The alpha is "
-                        "folded into the saved vectors so hybrid_eval.py "
-                        "needs no changes.")
+                        "anti-correlated cat directions. alpha is saved to "
+                        "bias_alpha.json and applied in hybrid_eval.py.")
+    p.add_argument("--unified_norm", action="store_true",
+                   help="Single-stage unified training: learn a shared "
+                        "unit-norm bias direction b and per-cat unit-norm "
+                        "directions V[i], with per-cat learnable scalars "
+                        "alpha[i] (bias magnitude) and beta[i] (cat "
+                        "magnitude).  Steering for cat i = "
+                        "alpha[i]*normalize(b) + beta[i]*normalize(V[i]). "
+                        "Saves: bias_global.pt (normalize(b)), "
+                        "idx*_linear.pt (beta[i]*normalize(V[i])), "
+                        "bias_alpha.json (alpha values).  No frozen bias or "
+                        "filter_by_bias needed; combines Stage 1+2 in one run.")
+    p.add_argument("--init_alpha", type=float, default=10.0,
+                   help="Initial value for per-category bias scale alpha_i "
+                        "in --unified_norm mode. Should be ~||bias||. "
+                        "Default 10.0.")
+    p.add_argument("--init_beta", type=float, default=1.0,
+                   help="Initial value for per-category cat scale beta_i "
+                        "in --unified_norm mode. Default 1.0.")
     p.add_argument("--n_epochs", type=int, default=5)
     p.add_argument("--example_batch_size", type=int, default=4)
     p.add_argument("--lr", type=float, default=1e-2)
@@ -2920,6 +2997,7 @@ def main():
     V_cat: Optional[torch.Tensor] = None
     b_joint: Optional[torch.Tensor] = None
     cats_metrics: List[dict] = []
+    extras_cat: dict = {}   # alpha, beta from best seed
     layer_map_partial: Dict[str, int] = {}
     model_short = args.base_model.split("/")[-1].lower()
     if args.skip_cats_phase:
@@ -2935,7 +3013,7 @@ def main():
                   flush=True)
         cats_metrics_path = os.path.join(
             args.save_dir, f"training_metrics_cats{_suffix(i)}.jsonl")
-        V_cat_i, b_joint_i, cats_metrics_i = train_vectors_joint(
+        V_cat_i, b_joint_i, cats_metrics_i, extras_cat_i = train_vectors_joint(
             base_model, per_example, joint_records, n_cats,
             steer_layer=steer_layer,
             hidden_size=hidden,
@@ -2958,6 +3036,9 @@ def main():
             per_example_loss=bool(args.per_example_loss),
             per_cat_loss=bool(args.per_cat_loss),
             per_cat_bias_scale=bool(args.per_cat_bias_scale),
+            unified_norm=bool(getattr(args, "unified_norm", False)),
+            init_alpha=float(getattr(args, "init_alpha", 10.0)),
+            init_beta=float(getattr(args, "init_beta", 1.0)),
             cap_resample_each_epoch=bool(args.cap_resample_each_epoch),
             init_v_norm=init_v_norm_value,
             bias_frozen=frozen_bias_cpu,
@@ -2973,6 +3054,7 @@ def main():
             V_cat = V_cat_i
             b_joint = b_joint_i
             cats_metrics = cats_metrics_i
+            extras_cat = extras_cat_i
 
     if n_seeds > 1:
         print("\n  multi-seed summary:", flush=True)
@@ -2998,9 +3080,21 @@ def main():
     # final cats artefacts; the bias phase below only adds the bias
     # files, never re-touches these.
     if not args.skip_cats_phase and _is_rank_zero():
+        alpha_cat  = extras_cat.get("alpha")   # (n_cats,) or None
+        beta_cat   = extras_cat.get("beta")    # (n_cats,) or None
+        _un_mode   = (beta_cat is not None)    # unified_norm was active
+
+        if _un_mode:
+            # Unified-norm: save beta[i]*normalize(V[i]) as cat vector and
+            # normalize(b_joint) as the shared bias direction.
+            b_hat = b_joint / b_joint.norm().clamp_min(1e-8)
         for k in active_keys:
             c = key_to_cat[k]
-            v = V_cat[c]
+            if _un_mode:
+                V_hat_c = V_cat[c] / V_cat[c].norm().clamp_min(1e-8)
+                v = float(beta_cat[c].item()) * V_hat_c
+            else:
+                v = V_cat[c]
             out_path = os.path.join(
                 args.save_dir, f"{model_short}_{k}_linear.pt")
             torch.save({k: v}, out_path)
@@ -3009,18 +3103,54 @@ def main():
                   f"{out_path}", flush=True)
         with open(os.path.join(args.save_dir, "layer_map.json"), "w") as f:
             json.dump(layer_map_partial, f, indent=2)
+
+        if _un_mode:
+            # Save normalized shared direction as bias_global.pt
+            bias_path = os.path.join(args.save_dir,
+                                     f"{model_short}_bias_global.pt")
+            torch.save({"bias": b_hat}, bias_path)
+            with open(os.path.join(args.save_dir, "bias_layer.json"), "w") as f:
+                json.dump({"layer": steer_layer,
+                           "norm": float(b_hat.norm().item())}, f, indent=2)
+            print(f"  [interim] saved shared bias direction "
+                  f"norm={b_hat.norm().item():.3f}  -> {bias_path}", flush=True)
+
+        # Save per-category bias scales (alpha) when present.
+        # hybrid_eval.py loads bias_alpha.json and applies alpha[k]*bias_vec
+        # per category, so cat vectors stay pure direction vectors.
+        if alpha_cat is not None:
+            alpha_dict = {k: float(alpha_cat[key_to_cat[k]].item())
+                          for k in active_keys}
+            alpha_path = os.path.join(args.save_dir, "bias_alpha.json")
+            with open(alpha_path, "w") as f:
+                json.dump(alpha_dict, f, indent=2)
+            print(f"  [interim] saved per-cat bias alphas -> {alpha_path}",
+                  flush=True)
+            _av = list(alpha_dict.values())
+            print(f"  [interim] alpha: "
+                  f"min={min(_av):.3f}  max={max(_av):.3f}  "
+                  f"mean={sum(_av)/len(_av):.3f}", flush=True)
+        if _un_mode and beta_cat is not None:
+            beta_dict = {k: float(beta_cat[key_to_cat[k]].item())
+                         for k in active_keys}
+            _bv = list(beta_dict.values())
+            print(f"  [interim] beta: "
+                  f"min={min(_bv):.3f}  max={max(_bv):.3f}  "
+                  f"mean={sum(_bv)/len(_bv):.3f}", flush=True)
+
         print(f"  [interim] cats vectors safely persisted "
               f"({len(active_keys)} keys + layer_map.json)", flush=True)
     if dist.is_initialized():
         dist.barrier()
 
     # ---- Phase 3b: global bias (single vector on union of all pos) ----
-    # Skipped entirely when --joint_cats_and_bias is used; in that mode
-    # the bias was co-trained with V_cat in Phase 3 above and we just
-    # promote ``b_joint`` into the bias save path below.
+    # Skipped in --joint_cats_and_bias mode (co-trained above) and in
+    # --unified_norm mode (bias direction already saved in Phase 3a.1).
     bias_V = None
     bias_metrics: List[dict] = []
-    if args.joint_cats_and_bias and b_joint is not None:
+    if bool(getattr(args, "unified_norm", False)) and not args.skip_cats_phase:
+        pass  # bias already saved as normalize(b_joint) in Phase 3a.1
+    elif args.joint_cats_and_bias and b_joint is not None:
         bias_V = b_joint.unsqueeze(0)   # match downstream (1, hidden) shape
         print(f"  [joint-cats+bias] bias vector folded out of co-training "
               f"(norm={float(b_joint.norm().item()):.3f})", flush=True)
@@ -3043,7 +3173,7 @@ def main():
               flush=True)
         bias_metrics_path = os.path.join(
             args.save_dir, "training_metrics_bias.jsonl")
-        bias_V, _b_unused, bias_metrics = train_vectors_joint(
+        bias_V, _b_unused, bias_metrics, _extras_bias = train_vectors_joint(
             base_model, per_example, bias_records, n_cats=1,
             steer_layer=steer_layer,
             hidden_size=hidden,
@@ -3071,13 +3201,17 @@ def main():
     # accurate.
     layer_map: Dict[str, int] = dict(layer_map_partial)
     saved_summary: List[dict] = []
+    _un_final = extras_cat.get("beta") is not None
     if not args.skip_cats_phase:
         for k in active_keys:
             c = key_to_cat[k]
-            v = V_cat[c]
+            if _un_final:
+                _bcat = extras_cat["beta"]
+                norm = float(abs(_bcat[c].item()))  # effective cat magnitude = |beta[c]|
+            else:
+                norm = float(V_cat[c].norm().item())
             out_path = os.path.join(
                 args.save_dir, f"{model_short}_{k}_linear.pt")
-            norm = float(v.norm().item())
             saved_summary.append({"key": k, "layer": steer_layer,
                                   "path": out_path, "norm": norm,
                                   "n_positions": len(per_category[k])})

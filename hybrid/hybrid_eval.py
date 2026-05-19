@@ -1727,8 +1727,24 @@ def main():
         hidden = getattr(base_model.config, "hidden_size", 0)
         assert bias_vec.shape[-1] == hidden, (
             f"bias_vec shape {tuple(bias_vec.shape)} incompatible with base model")
+
+        # Load per-category bias scales if present (written by
+        # --per_cat_bias_scale during training).  For each key k the
+        # effective fold is  alpha[k] * bias  instead of bias, so the cat
+        # vector direction is kept clean and only the magnitude is adjusted.
+        bias_alpha: dict = {}
+        alpha_path = os.path.join(args.dom_vectors_dir, "bias_alpha.json")
+        if os.path.exists(alpha_path):
+            with open(alpha_path) as _f:
+                bias_alpha = json.load(_f)
+            _vals = list(bias_alpha.values())
+            print(f"  bias_alpha.json loaded: {len(bias_alpha)} keys  "
+                  f"min={min(_vals):.3f}  max={max(_vals):.3f}  "
+                  f"mean={sum(_vals)/len(_vals):.3f}")
+
         for k in list(steering_vectors.keys()):
-            steering_vectors[k] = steering_vectors[k] + bias_vec
+            scale = float(bias_alpha[k]) if k in bias_alpha else 1.0
+            steering_vectors[k] = steering_vectors[k] + scale * bias_vec
 
         # When running the BIAS-ONLY ablation, we want every key to steer at
         # the bias's own chosen layer, not whatever layer each category was
