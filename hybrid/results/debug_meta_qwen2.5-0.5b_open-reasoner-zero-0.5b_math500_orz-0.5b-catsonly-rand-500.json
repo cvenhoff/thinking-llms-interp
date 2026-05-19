@@ -1,0 +1,116 @@
+{
+  "base_model": "Qwen/Qwen2.5-0.5B",
+  "thinking_model": "Open-Reasoner-Zero/Open-Reasoner-Zero-0.5B",
+  "base_id": "qwen2.5-0.5b",
+  "thinking_id": "open-reasoner-zero-0.5b",
+  "dataset": "math500",
+  "sae_layer": 8,
+  "n_clusters": 10,
+  "sae_path": null,
+  "coef_sweep": [
+    0.1,
+    0.25,
+    0.5,
+    1.0,
+    1.5
+  ],
+  "coef_select": "pg",
+  "kl_topk": 3,
+  "bias_only": false,
+  "bias_vector_path": null,
+  "bias_layer": null,
+  "random_firing": false,
+  "random_guardrail": false,
+  "random_seed": 42,
+  "steer_all_positions": false,
+  "steer_all_positions_full": false,
+  "disable_sae_mean": false,
+  "old_vectors_dir": "../train-vectors/results/vars/correction_vectors_orz-0.5b_catsonly",
+  "old_vectors_layer": 9,
+  "n_latent_descriptions": 10,
+  "layer_map": {
+    "idx0": 9,
+    "idx1": 9,
+    "idx2": 9,
+    "idx3": 9,
+    "idx4": 9,
+    "idx5": 9,
+    "idx6": 9,
+    "idx7": 9,
+    "idx8": 9,
+    "idx9": 9
+  },
+  "steering_vectors": {
+    "idx0": {
+      "shape": [
+        896
+      ],
+      "norm": 7.716637134552002,
+      "layer": 9
+    },
+    "idx1": {
+      "shape": [
+        896
+      ],
+      "norm": 6.7010111808776855,
+      "layer": 9
+    },
+    "idx2": {
+      "shape": [
+        896
+      ],
+      "norm": 4.918585300445557,
+      "layer": 9
+    },
+    "idx3": {
+      "shape": [
+        896
+      ],
+      "norm": 6.585197448730469,
+      "layer": 9
+    },
+    "idx4": {
+      "shape": [
+        896
+      ],
+      "norm": 8.626888275146484,
+      "layer": 9
+    },
+    "idx5": {
+      "shape": [
+        896
+      ],
+      "norm": 4.858128070831299,
+      "layer": 9
+    },
+    "idx6": {
+      "shape": [
+        896
+      ],
+      "norm": 4.726264476776123,
+      "layer": 9
+    },
+    "idx7": {
+      "shape": [
+        896
+      ],
+      "norm": 8.021299362182617,
+      "layer": 9
+    },
+    "idx8": {
+      "shape": [
+        896
+      ],
+      "norm": 4.488661289215088,
+      "layer": 9
+    },
+    "idx9": {
+      "shape": [
+        896
+      ],
+      "norm": 8.630648612976074,
+      "layer": 9
+    }
+  },
+  "suffix": "_orz-0.5b-catsonly-rand-500"
+}

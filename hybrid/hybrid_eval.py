@@ -109,54 +109,24 @@ def parse_args():
                    help="Ablation: replace the thinking-model perplexity "
                         "guardrail with a uniform random choice among the "
                         "coefficient sweep candidates.")
+    p.add_argument("--fixed_coef", type=float, default=None,
+                   help="Apply the steering vector at this fixed coefficient "
+                        "at every disagreement position, with no sweep or "
+                        "selection heuristic.  Overrides --coef_sweep and "
+                        "--coef_select when set.")
     p.add_argument("--coef_sweep", type=str, default="0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0",
                    help="Comma-separated coefficient sweep used by the "
                         "guardrail. Default is the paper's 10-point grid "
-                        "[0.1..1.0]. Collaborator's ablation report used "
-                        "[0.5,0.6,0.7,0.8,0.9,1.0] (floor 0.5) which produces "
-                        "a much stronger bias perturbation.")
+                        "[0.1..1.0]. Ignored when --fixed_coef is set.")
     p.add_argument("--coef_select", type=str, default="pg",
                    choices=["pg", "kl_top3", "kl_topk",
                             "think_top1", "think_top1_match",
-                            "think_top1_match_maxconf"],
-                   help="Coefficient-selection rule used together with "
-                        "--coef_sweep on disagreement positions. "
-                        "'pg' (default, legacy): pick coef whose steered-"
-                        "base argmax token has the highest log-prob under "
-                        "the thinking model's distribution -- the paper's "
-                        "perplexity guardrail. "
-                        "'kl_top3' / 'kl_topk': pick coef that minimises "
-                        "the cross-entropy of the steered-base log-prob "
-                        "over the thinking model's top-K tokens, "
-                        "-sum_k p_t(k) * log p_b(k).  This matches the "
-                        "objective the correction vectors are trained on. "
-                        "K is set by --kl_topk (default 3). "
-                        "'think_top1': oracle/ceiling -- pick coef that "
-                        "MAXIMISES the steered-base log-prob at the "
-                        "thinking model's argmax token T at this position. "
-                        "Tells us how high gap recovery can go if we "
-                        "always pick the coef best aligned with thinking's "
-                        "top-1.  Output token is still the steered-base "
-                        "argmax at the winning coef.  Requires base and "
-                        "thinking tokenizers to share a 1:1 vocabulary; "
-                        "verified at startup. "
-                        "'think_top1_match': stricter ceiling -- among "
-                        "coefs whose steered-base argmax already EQUALS "
-                        "thinking's top-1 token T, pick the smallest one "
-                        "(most conservative); if no coef in the sweep "
-                        "produces a match, leave the row UNSTEERED "
-                        "(output unsteered base argmax, coef=0).  Real "
-                        "upper bound on what the learned vectors can "
-                        "achieve at this position with the given sweep. "
-                        "'think_top1_match_maxconf': low-confound oracle. "
-                        "Like think_top1_match (only consider coefs whose "
-                        "argmax==T), but among those matching coefs pick "
-                        "the one with the HIGHEST log p_steered(T) "
-                        "(margin-tiebreak). Random vectors fail the strict "
-                        "argmax==T condition (~1/V per coef) so they fall "
-                        "through to base unsteered; trained vectors that "
-                        "actually point in T's direction get credit, with "
-                        "highest-confidence coef chosen.")
+                            "think_top1_match_maxconf", "fixed"],
+                   help="Coefficient-selection rule. 'fixed': use --fixed_coef "
+                        "directly, no sweep. 'pg' (default): pick coef whose "
+                        "steered-base argmax has highest log-prob under thinking "
+                        "model. 'kl_top3'/'kl_topk': minimise CE vs thinking "
+                        "top-K. 'think_top1': oracle ceiling.")
     p.add_argument("--kl_topk", type=int, default=3,
                    help="K for --coef_select=kl_topk (and kl_top3 alias).")
     p.add_argument("--steer_all_positions_full", action="store_true",
@@ -933,6 +903,15 @@ def hybrid_generate_batched(
                                 best_lp[better] = c_lp[better]
                                 best_coeff[better] = sc
                                 best_tok[better] = cand[better]
+                    elif coef_select == "fixed":
+                        # Fixed coef: unconditionally commit the result of this
+                        # (only) sweep step for all disagreeing rows.
+                        best_coeff = torch.where(
+                            disagree_mask,
+                            torch.tensor(sc, device=device,
+                                         dtype=best_coeff.dtype).expand(B),
+                            best_coeff)
+                        best_tok = torch.where(disagree_mask, cand, best_tok)
                     else:
                         if coef_select == "pg":
                             c_lp = think_lp[arange_B, cand]
@@ -969,6 +948,8 @@ def hybrid_generate_batched(
                     # at some coef as "steered"; the rest fall through to
                     # the unsteered base argmax.
                     need_steer = matched_row & disagree_mask
+                elif coef_select == "fixed":
+                    need_steer = disagree_mask
                 else:
                     need_steer = disagree_mask
                 output_toks = torch.where(need_steer, best_tok, base_next_toks)
@@ -1944,6 +1925,12 @@ def main():
               f"(tasks {batch_start+1}-{batch_start+B_}/{n_tasks}) ---")
 
         torch.cuda.empty_cache()
+        _coef_sweep = ([args.fixed_coef]
+                       if args.fixed_coef is not None
+                       else [float(x) for x in args.coef_sweep.split(",")])
+        _coef_select = ("fixed"
+                        if args.fixed_coef is not None
+                        else args.coef_select)
         hr = hybrid_generate_batched(
             think_model, base_model, base_tok,
             [t["thinking_prompt"] for t in batch],
@@ -1956,10 +1943,10 @@ def main():
             random_firing=args.random_firing,
             random_guardrail=args.random_guardrail,
             random_seed=args.random_seed,
-            coef_sweep=[float(x) for x in args.coef_sweep.split(",")],
+            coef_sweep=_coef_sweep,
             steer_all_positions=args.steer_all_positions,
             steer_all_positions_full=args.steer_all_positions_full,
-            coef_select=args.coef_select,
+            coef_select=_coef_select,
             kl_topk=args.kl_topk)
 
         judge_items = []

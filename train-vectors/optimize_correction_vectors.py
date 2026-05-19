@@ -415,6 +415,87 @@ def _bias_hook_at_layer(model, layer_idx: int, bias: Optional[torch.Tensor]):
         handle.remove()
 
 
+@torch.no_grad()
+def filter_per_category_by_bias(
+    base_model,
+    per_example: list,
+    per_category: dict,
+    frozen_bias: torch.Tensor,
+    steer_layer: int,
+    pad_token_id: int,
+    batch_size: int = 8,
+) -> dict:
+    """Stage-1.5 filter: keep only disagreement positions that are NOT
+    resolved by the frozen bias alone.
+
+    For each example we run one full forward pass with the bias applied
+    to ALL positions at ``steer_layer`` (matching inference-time
+    behaviour), collect the steered-base argmax at every disagreement
+    position, and drop positions where argmax(base+bias) == think_top1.
+    Category vectors are then trained only on the surviving residual
+    disagreements.
+
+    This avoids the pathology of stage-2a re-collection, where running
+    autoregressive generation under the bias can introduce *new*
+    disagreements caused by the bias itself, leading cat vectors to
+    anti-align with the bias.
+    """
+    device = next(base_model.parameters()).device
+    bias_dev = frozen_bias.to(device, torch.float32)
+
+    # Build: ex_idx -> list of (cat_key, record_idx, pos, topk_idx)
+    ex_to_records: dict = {}
+    for cat_key, records in per_category.items():
+        for ri, rec in enumerate(records):
+            ex_idx, pos, topk_lp, topk_idx = rec[0], rec[1], rec[2], rec[3]
+            ex_to_records.setdefault(ex_idx, []).append(
+                (cat_key, ri, pos, topk_idx))
+
+    # Track which records to keep per category.
+    keep: dict = {k: [False] * len(v) for k, v in per_category.items()}
+
+    ex_indices = sorted(ex_to_records.keys())
+    for batch_start in range(0, len(ex_indices), batch_size):
+        batch_exs = ex_indices[batch_start: batch_start + batch_size]
+        B = len(batch_exs)
+        Lmax = max(per_example[e]["ids"].shape[0] for e in batch_exs)
+        ids_batch = torch.full(
+            (B, Lmax), pad_token_id, device=device, dtype=torch.long)
+        attn = torch.zeros((B, Lmax), device=device, dtype=torch.long)
+        for bi, ex_idx in enumerate(batch_exs):
+            ids = per_example[ex_idx]["ids"]
+            L = ids.shape[0]
+            ids_batch[bi, :L] = ids.to(device)
+            attn[bi, :L] = 1
+
+        # One forward pass with bias applied at every position.
+        hook = _BiasOnlyHook(bias_dev)
+        with _inject_at_layer(base_model, steer_layer, hook):
+            out = base_model.model(
+                input_ids=ids_batch, attention_mask=attn, use_cache=False)
+        hidden_states = out.last_hidden_state  # (B, Lmax, H)
+
+        for bi, ex_idx in enumerate(batch_exs):
+            for cat_key, ri, pos, topk_idx in ex_to_records[ex_idx]:
+                think_top1 = int(topk_idx[0].item())
+                h = hidden_states[bi, pos, :].unsqueeze(0)  # (1, H)
+                logit = base_model.lm_head(h.to(base_model.lm_head.weight.dtype))
+                steered_argmax = int(logit.argmax(dim=-1).item())
+                if steered_argmax != think_top1:
+                    keep[cat_key][ri] = True
+
+    n_before = sum(len(v) for v in per_category.values())
+    filtered: dict = {}
+    for cat_key, records in per_category.items():
+        filtered[cat_key] = [r for r, k in zip(records, keep[cat_key]) if k]
+    n_after = sum(len(v) for v in filtered.values())
+    print(f"[filter_by_bias] {n_before} -> {n_after} positions "
+          f"({n_before - n_after} resolved by bias, "
+          f"{n_after / max(n_before, 1) * 100:.1f}% remain)",
+          flush=True)
+    return filtered
+
+
 def compute_mean_activation_magnitude(
     base_model,
     per_example: List[dict],
@@ -498,6 +579,7 @@ def collect_disagreements(
     sae_classifier=None,
     sae_classify_layer: Optional[int] = None,
     sae_n_clusters: Optional[int] = None,
+    collect_batch_size: int = 8,
 ) -> Tuple[List[dict], Dict[str, List[Tuple[int, int, torch.Tensor, torch.Tensor]]]]:
     """Return ``(per_example, per_category)``.
 
@@ -593,6 +675,185 @@ def collect_disagreements(
     entropy_sum = 0.0
     entropy_n = 0
 
+    # ---- Batched collection ----
+    # Pre-process each example (tokenize + align on CPU), buffer until we
+    # have ``collect_batch_size`` items, then run ONE padded forward
+    # through each of base_model and thinking_model.  GPU utilisation
+    # during collection goes from ~30% (batch=1) to ~90% (batch=8).
+    pad_id = (base_tokenizer.pad_token_id
+              if base_tokenizer.pad_token_id is not None else 0)
+    think_pad_id = (think_tokenizer.pad_token_id
+                    if think_tokenizer.pad_token_id is not None else pad_id)
+    pending: List[dict] = []
+
+    def _flush_pending():
+        nonlocal n_pos_considered, n_pos_dropped_low_entropy, n_align_partial
+        nonlocal n_align_skip, n_no_disagree, entropy_sum, entropy_n
+        if not pending:
+            return
+        B = len(pending)
+        Lb_max = max(it_p["base_ids"].shape[0] for it_p in pending)
+        Lt_max = max(it_p["think_ids"].shape[0] for it_p in pending)
+
+        # Build padded batches.
+        base_ids_pad = torch.full((B, Lb_max), pad_id, dtype=torch.long)
+        base_attn = torch.zeros((B, Lb_max), dtype=torch.long)
+        think_ids_pad = torch.full(
+            (B, Lt_max), think_pad_id, dtype=torch.long)
+        think_attn = torch.zeros((B, Lt_max), dtype=torch.long)
+        for bi, it_p in enumerate(pending):
+            Lb_p = it_p["base_ids"].shape[0]
+            Lt_p = it_p["think_ids"].shape[0]
+            base_ids_pad[bi, :Lb_p] = it_p["base_ids"]
+            base_attn[bi, :Lb_p] = 1
+            think_ids_pad[bi, :Lt_p] = it_p["think_ids"]
+            think_attn[bi, :Lt_p] = 1
+
+        # Base forward (batched).
+        if collection_mode in ("disagreement", "union"):
+            with _bias_hook_at_layer(base_model,
+                                     frozen_bias_layer
+                                     if frozen_bias is not None else 0,
+                                     frozen_bias):
+                out_b = base_model(
+                    input_ids=base_ids_pad.to(base_device),
+                    attention_mask=base_attn.to(base_device),
+                    use_cache=False)
+            pred_b_batch = out_b.logits.argmax(dim=-1).cpu()  # (B, Lb_max)
+            del out_b
+        else:
+            pred_b_batch = None
+
+        # Thinking forward (batched).
+        out_t = thinking_model(
+            input_ids=think_ids_pad.to(think_device),
+            attention_mask=think_attn.to(think_device),
+            use_cache=False)
+        t_logits_batch = out_t.logits  # (B, Lt_max, vocab) bf16
+        del out_t
+
+        # SAE activations captured by the hook on the BATCHED forward
+        # are (B, Lt_max, hidden).
+        sae_acts_batch: Optional[torch.Tensor] = None
+        if sae_classifier is not None:
+            sae_acts_batch = _sae_state.get("acts")
+            if sae_acts_batch is None:
+                raise RuntimeError(
+                    "SAE classify hook did not fire on the thinking model.")
+            _sae_state["acts"] = None
+
+        # Per-example post-processing (CPU, fast).
+        for bi, item in enumerate(pending):
+            base_ids = item["base_ids"]
+            think_ids = item["think_ids"]
+            Lb = base_ids.shape[0]
+            Lt = think_ids.shape[0]
+            b_anchor = item["b_anchor"]
+            t_anchor = item["t_anchor"]
+            tok_cat = item["tok_cat"]
+
+            if pred_b_batch is not None:
+                pred_b = pred_b_batch[bi, :Lb]
+            else:
+                pred_b = None
+            t_logits = t_logits_batch[bi, :Lt].float()  # (Lt, vocab)
+            t_logprobs = torch.log_softmax(t_logits, dim=-1)
+            del t_logits
+
+            if collection_mode in ("entropy", "union"):
+                t_entropy = -(t_logprobs.exp() * t_logprobs).sum(
+                    dim=-1).cpu()
+            else:
+                t_entropy = None
+            topk_lp, topk_idx = t_logprobs.topk(k=topk, dim=-1)
+            del t_logprobs
+            topk_lp = topk_lp.cpu()
+            topk_idx = topk_idx.cpu()
+
+            sae_cat_per_pos: Optional[List[str]] = None
+            if sae_classifier is not None and sae_acts_batch is not None:
+                cat_ids = sae_classifier(sae_acts_batch[bi, :Lt])
+                sae_cat_per_pos = [f"idx{int(c)}"
+                                   for c in cat_ids.tolist()]
+
+            offset = t_anchor - b_anchor
+            ex_idx = len(per_example)
+            found_any = False
+            n_ex_miss = 0
+            for i in range(max(b_anchor - 1, 0), Lb - 1):
+                target = int(base_ids[i + 1].item())
+                if sae_cat_per_pos is not None:
+                    # Classify the THINKING activation at the position
+                    # that produces this base position's prediction
+                    # (i.e. the thinking position aligned with base
+                    # position i).  We do the alignment check below;
+                    # defer the cat lookup until after we know i_t.
+                    cat = None
+                else:
+                    cat = tok_cat.get(i + 1)
+                    if cat is None:
+                        continue
+                n_pos_considered += 1
+                if collection_mode == "disagreement":
+                    if int(pred_b[i].item()) == target:
+                        continue
+                i_t = i + offset
+                if i_t < 0 or i_t + 1 >= Lt:
+                    n_ex_miss += 1
+                    continue
+                # Defensive check: the anchor guarantees identical
+                # tokens past the anchor index for both sides (same
+                # tokenizer, identical remaining text, deterministic
+                # BPE).  Keep the guard so a tokenizer surprise
+                # degrades gracefully instead of producing off-by-one
+                # training targets.
+                if int(think_ids[i_t + 1].item()) != target:
+                    n_ex_miss += 1
+                    continue
+                # Now that i_t is validated, look up the SAE-classified
+                # cat at the THINKING position whose activation drives
+                # this base position's prediction.  This matches eval
+                # semantics: at generation step t the SAE sees the
+                # thinking-model's activation at position t-1.
+                if sae_cat_per_pos is not None:
+                    if i_t < 0 or i_t >= len(sae_cat_per_pos):
+                        continue
+                    cat = sae_cat_per_pos[i_t]
+                if collection_mode == "entropy":
+                    ent = float(t_entropy[i_t].item())
+                    entropy_sum += ent
+                    entropy_n += 1
+                    if ent < entropy_threshold:
+                        n_pos_dropped_low_entropy += 1
+                        continue
+                elif collection_mode == "union":
+                    # Keep position iff base disagrees with target OR
+                    # thinking-model entropy is above threshold.
+                    disag = int(pred_b[i].item()) != target
+                    ent = float(t_entropy[i_t].item())
+                    entropy_sum += ent
+                    entropy_n += 1
+                    if not disag and ent < entropy_threshold:
+                        n_pos_dropped_low_entropy += 1
+                        continue
+                per_category[cat].append(
+                    (ex_idx, i,
+                     topk_lp[i_t].clone(), topk_idx[i_t].clone()))
+                found_any = True
+
+            if n_ex_miss > 0:
+                n_align_partial += 1
+            if found_any:
+                per_example.append({"ids": base_ids.cpu(),
+                                    "prompt_len": int(b_anchor)})
+            else:
+                if n_ex_miss > 0:
+                    n_align_skip += 1
+                else:
+                    n_no_disagree += 1
+        pending.clear()
+
+    # ---- Main loop: CPU pre-processing per response, then batched flush.
     for resp in it_iter:
         ann = resp.get("annotated_thinking")
         if not ann:
@@ -602,20 +863,14 @@ def collect_disagreements(
         if not thinking or not thinking.strip():
             continue
 
-        # --- Build the two prompt strings.
         base_prompt = _build_base_prompt(question)
         try:
             think_prompt_text = think_tokenizer.apply_chat_template(
                 [{"role": "user", "content": question}],
                 tokenize=False, add_generation_prompt=True)
         except Exception:
-            think_prompt_text = base_prompt  # graceful fallback
+            think_prompt_text = base_prompt
 
-        # --- Tokenize ONCE with offset-mapping on each side and find the
-        # first shared char-boundary anchor inside the thinking text.  This
-        # is the only correct way to align two tokenisations that may merge
-        # the prompt/rollout boundary differently (e.g. ORZ's ``>`` merges
-        # into ``>To`` while the base ``:`` stays as a separate token).
         base_full_text = base_prompt + thinking
         align = _aligned_tokenize_pair(
             base_tokenizer, base_prompt,
@@ -638,145 +893,24 @@ def collect_disagreements(
             continue
 
         if sae_classifier is not None:
-            # Cats come from per-token SAE classification of thinking
-            # activations (computed below); skip the (sentence-level)
-            # annotation parser so we don't gate on it.
             tok_cat: Dict[int, str] = {}
         else:
-            tok_cat = _token_category_labels(ann, base_full_text, base_tokenizer)
+            tok_cat = _token_category_labels(
+                ann, base_full_text, base_tokenizer)
             if not tok_cat:
                 n_no_labels += 1
                 continue
 
-        # --- Base logits (for disagreement detection).  Only needed when
-        # the disagreement gate is part of the collection rule.
-        # When ``frozen_bias`` is provided, the base forward is hooked to
-        # add ``bias`` to every residual-stream position at
-        # ``frozen_bias_layer``, so we collect disagreements UNDER a
-        # bias-steered base model -- positions where bias alone is not
-        # enough.
-        if collection_mode in ("disagreement", "union"):
-            ids_gpu_b = base_ids.unsqueeze(0).to(base_device)
-            with _bias_hook_at_layer(base_model,
-                                     frozen_bias_layer
-                                     if frozen_bias is not None else 0,
-                                     frozen_bias):
-                out_b = base_model(ids_gpu_b, use_cache=False)
-            pred_b = out_b.logits[0].argmax(dim=-1).cpu()  # (Lb,)
-            del out_b
-        else:
-            pred_b = None
-
-        # --- Thinking logits on ITS OWN templated sequence (top-K targets).
-        ids_gpu_t = think_ids.unsqueeze(0).to(think_device)
-        out_t = thinking_model(ids_gpu_t, use_cache=False)
-        t_logits = out_t.logits[0]  # (Lt, vocab), bf16
-        del out_t
-
-        # If SAE-based per-position classification is enabled, classify
-        # every thinking position once (vectorised) using the activations
-        # captured via the forward hook above.  This mirrors hybrid_eval's
-        # last-token classification on a per-token basis -- exactly the
-        # signal the steering hook will see at generation time.
-        sae_cat_per_pos: Optional[List[str]] = None
-        if sae_classifier is not None:
-            acts_t = _sae_state.get("acts")
-            if acts_t is None:
-                raise RuntimeError(
-                    "SAE classify hook did not fire on the thinking model.")
-            # acts_t: (1, Lt, hidden)
-            cat_ids = sae_classifier(acts_t[0])  # (Lt,) int
-            sae_cat_per_pos = [f"idx{int(c)}" for c in cat_ids.tolist()]
-            _sae_state["acts"] = None
-        t_logprobs = torch.log_softmax(t_logits.float(), dim=-1)
-        del t_logits
-        # Compute next-token entropy at every thinking position from the
-        # FULL distribution.  -sum_i p_i * log p_i, in nats.
-        if collection_mode in ("entropy", "union"):
-            t_entropy = -(t_logprobs.exp() * t_logprobs).sum(dim=-1).cpu()
-        else:
-            t_entropy = None
-        topk_lp, topk_idx = t_logprobs.topk(k=topk, dim=-1)  # (Lt, K)
-        del t_logprobs
-        topk_lp = topk_lp.cpu()
-        topk_idx = topk_idx.cpu()
-
-        # ``offset`` is exact past the anchor: every base position
-        # ``i >= b_anchor - 1`` predicts a token in the aligned region,
-        # and the corresponding think position is ``i_t = i + offset``.
-        offset = t_anchor - b_anchor
-        ex_idx = len(per_example)
-        found_any = False
-        n_ex_miss = 0
-        for i in range(max(b_anchor - 1, 0), Lb - 1):
-            target = int(base_ids[i + 1].item())
-            if sae_cat_per_pos is not None:
-                # Classify the THINKING activation at the position that
-                # produces this base position's prediction (i.e. the
-                # thinking position aligned with base position i).  We do
-                # the alignment check below; defer the cat lookup until
-                # after we know i_t.
-                cat = None
-            else:
-                cat = tok_cat.get(i + 1)
-                if cat is None:
-                    continue
-            n_pos_considered += 1
-            if collection_mode == "disagreement":
-                if int(pred_b[i].item()) == target:
-                    continue
-            i_t = i + offset
-            if i_t < 0 or i_t + 1 >= Lt:
-                n_ex_miss += 1
-                continue
-            # Defensive check: the anchor guarantees identical tokens past
-            # the anchor index for both sides (same tokenizer, identical
-            # remaining text, deterministic BPE).  Keep the guard so a
-            # tokenizer surprise degrades gracefully instead of producing
-            # off-by-one training targets.
-            if int(think_ids[i_t + 1].item()) != target:
-                n_ex_miss += 1
-                continue
-            # Now that i_t is validated, look up the SAE-classified cat
-            # at the THINKING position whose activation drives this base
-            # position's prediction.  This matches eval semantics: at
-            # generation step t the SAE sees the thinking-model's
-            # activation at position t-1.
-            if sae_cat_per_pos is not None:
-                if i_t < 0 or i_t >= len(sae_cat_per_pos):
-                    continue
-                cat = sae_cat_per_pos[i_t]
-            if collection_mode == "entropy":
-                ent = float(t_entropy[i_t].item())
-                entropy_sum += ent
-                entropy_n += 1
-                if ent < entropy_threshold:
-                    n_pos_dropped_low_entropy += 1
-                    continue
-            elif collection_mode == "union":
-                # Keep position iff base disagrees with target OR
-                # thinking-model entropy is above threshold.
-                disag = int(pred_b[i].item()) != target
-                ent = float(t_entropy[i_t].item())
-                entropy_sum += ent
-                entropy_n += 1
-                if not disag and ent < entropy_threshold:
-                    n_pos_dropped_low_entropy += 1
-                    continue
-            per_category[cat].append(
-                (ex_idx, i, topk_lp[i_t].clone(), topk_idx[i_t].clone()))
-            found_any = True
-
-        if n_ex_miss > 0:
-            n_align_partial += 1
-        if found_any:
-            per_example.append({"ids": base_ids.cpu(),
-                                "prompt_len": int(b_anchor)})
-        else:
-            if n_ex_miss > 0:
-                n_align_skip += 1
-            else:
-                n_no_disagree += 1
+        pending.append({
+            "base_ids": base_ids,
+            "think_ids": think_ids,
+            "b_anchor": int(b_anchor),
+            "t_anchor": int(t_anchor),
+            "tok_cat": tok_cat,
+        })
+        if len(pending) >= max(1, int(collect_batch_size)):
+            _flush_pending()
+    _flush_pending()
 
     it_iter.close() if hasattr(it_iter, "close") else None
     print(f"  collection_mode={collection_mode}"
@@ -1063,11 +1197,9 @@ def train_vectors_joint(
     holdout_positions_with_cat: Optional[List[
         Tuple[int, int, int, torch.Tensor, torch.Tensor]]] = None,
     train_bias: bool = False,
-    max_norm: float = 0.0,
-    cat_max_norm: float = 0.0,
-    orth_cats_to_bias: bool = False,
     select_best_holdout: bool = True,
     per_example_loss: bool = False,
+    per_cat_loss: bool = False,
     cap_resample_each_epoch: bool = False,
     init_v_norm: float = 0.0,
     bias_frozen: Optional[torch.Tensor] = None,
@@ -1338,6 +1470,16 @@ def train_vectors_joint(
               f"chunk {chunk_idx}/{total_chunks}: "
               f"train_kl={train_kl:.4f} (n={tr_cnt})  "
               f"holdout_kl={total_kl:.4f} (n={total_cnt})", flush=True)
+        if _is_rank_zero() and n_cats > 1:
+            _per_cat_str_parts = []
+            for i in range(n_cats):
+                _kname = (cat_key_lookup[i] if cat_key_lookup
+                          and i < len(cat_key_lookup) else f"c{i}")
+                _kv = per_cat_kl_eval[i]
+                _kvs = f"{_kv:.3f}" if _kv is not None else "---"
+                _per_cat_str_parts.append(f"{_kname}={_kvs}")
+            print("      [per-cat holdout_kl] "
+                  + "  ".join(_per_cat_str_parts), flush=True)
         _emit({
             "phase": desc, "event": "chunk_eval",
             "epoch": int(epoch_idx + 1),
@@ -1482,7 +1624,23 @@ def train_vectors_joint(
                 step_in_epoch_local += 1
                 continue
             loss_sum = per_pos.sum()
-            if per_example_loss:
+            if per_cat_loss:
+                # Per-category mean -> mean over present cats. Gives
+                # each category equal gradient weight regardless of how
+                # many positions it has in this batch. Differentiable
+                # via scatter_add into a (n_cats,)-shaped accumulator.
+                cat_loss_sum = torch.zeros(n_cats, device=device,
+                                           dtype=per_pos.dtype)
+                cat_count = torch.zeros(n_cats, device=device,
+                                        dtype=per_pos.dtype)
+                cat_loss_sum.scatter_add_(0, pos_cats_batch, per_pos)
+                cat_count.scatter_add_(
+                    0, pos_cats_batch,
+                    torch.ones_like(per_pos))
+                _mask_c = cat_count > 0
+                cat_mean = cat_loss_sum[_mask_c] / cat_count[_mask_c]
+                loss = cat_mean.mean()
+            elif per_example_loss:
                 # Per-example mean -> mean over examples. Reconstruct
                 # the within-batch example index of each position from
                 # mb's iteration order (matches
@@ -1521,43 +1679,6 @@ def train_vectors_joint(
                     dist.all_reduce(b.grad, op=dist.ReduceOp.SUM)
                     b.grad.div_(float(dist.get_world_size()))
             opt.step()
-            # Post-step constraints on V (and b).
-            with torch.no_grad():
-                # 1) Orthogonalise each category vector to the bias direction.
-                #    This forces cats to capture only the orthogonal residual
-                #    correction that bias cannot provide, preventing them from
-                #    amplifying or cancelling the global bias (which was the
-                #    dominant failure mode: 69% of positions got anti-bias cats).
-                if orth_cats_to_bias and b is not None:
-                    b_hat = b.detach() / (b.detach().norm().clamp_min(1e-9))
-                    proj = (V @ b_hat).unsqueeze(-1)   # [n_cats, 1]
-                    V.sub_(proj * b_hat)
-
-                # 2) Row-wise norm clip on bias.
-                if b is not None and max_norm and max_norm > 0:
-                    bn = b.detach().norm()
-                    if bn > max_norm:
-                        b.mul_(max_norm / bn)
-
-                # 3) Row-wise norm clip on category vectors.
-                #    When orthogonality is enforced AND a static cat_max_norm is
-                #    not set, we cap cats dynamically at the current bias norm so
-                #    that |cat| <= |bias|.  This guarantees the combined vector
-                #    (bias + cat_orth) stays within 45° of the bias direction,
-                #    preserving bias as the dominant steering component.
-                #    If cat_max_norm is explicitly set (> 0), use that instead.
-                if cat_max_norm and cat_max_norm > 0:
-                    _vmax = cat_max_norm
-                elif orth_cats_to_bias and b is not None:
-                    # Dynamic cap: current bias norm (enforces |cat| <= |bias|).
-                    _vmax = float(b.detach().norm().item())
-                else:
-                    _vmax = max_norm
-                if _vmax and _vmax > 0:
-                    row_norms = V.detach().norm(dim=-1, keepdim=True)
-                    scale = torch.clamp(_vmax / row_norms.clamp(min=1e-8),
-                                        max=1.0)
-                    V.mul_(scale)
             # Per-cat stats (no grad).
             with torch.no_grad():
                 pp = per_pos.detach().double()
@@ -1682,6 +1803,18 @@ def train_vectors_joint(
               f"mean_norm = {norms.mean().item():.3f}  "
               f"max_norm = {norms.max().item():.3f}",
               flush=True)
+        if _is_rank_zero() and n_cats > 1:
+            _parts = []
+            for i in range(n_cats):
+                _kname = (cat_key_lookup[i] if cat_key_lookup
+                          and i < len(cat_key_lookup) else f"c{i}")
+                _kv = per_cat_avg_kl[i]
+                _kvs = f"{_kv:.3f}" if _kv is not None else "---"
+                _parts.append(
+                    f"{_kname}={_kvs} (n={int(ep_cat_cnt[i].item())}, "
+                    f"||V||={float(norms[i].item()):.2f})")
+            print("      [per-cat train_kl] " + "  ".join(_parts),
+                  flush=True)
         _emit({
             "phase": desc, "event": "epoch_end",
             "epoch": int(epoch + 1),
@@ -1968,41 +2101,39 @@ def main():
     p.add_argument("--max_positions_per_example", type=int, default=64,
                    help="Cap disagreement positions per example per "
                         "category, to avoid one response dominating")
+    p.add_argument("--collect_batch_size", type=int, default=8,
+                   help="Batch size for collection forwards (base + "
+                        "thinking model padded together). Higher = "
+                        "better GPU utilisation, more memory. Default 8.")
+    p.add_argument("--max_positions_per_cat", type=int, default=10000,
+                   help="Global cap on disagreement positions per "
+                        "category. After collection (and after the "
+                        "stage-1.5 bias filter if enabled), each "
+                        "category is randomly subsampled to at most "
+                        "this many positions before training. Use 0 "
+                        "to disable. Default 10000.")
+    p.add_argument("--per_cat_loss", action="store_true",
+                   help="Aggregate loss as mean-over-cats of "
+                        "mean-within-cat instead of mean-over-positions. "
+                        "Gives every category equal gradient weight "
+                        "regardless of size. Recommended when the "
+                        "per-category disagreement distribution is "
+                        "imbalanced.")
     p.add_argument("--n_epochs", type=int, default=5)
     p.add_argument("--example_batch_size", type=int, default=4)
     p.add_argument("--lr", type=float, default=1e-2)
     p.add_argument("--weight_decay", type=float, default=0.0)
-    p.add_argument("--max_norm", type=float, default=-1.0,
-                   help="Per-step row-wise norm clip on V (and b if "
-                        "trained).  Negative (default) = AUTO: cap "
-                        "every vector at "
-                        "norm_cap_frac * mean_residual_norm at the "
-                        "steer layer (probed at startup).  0 disables "
-                        "the cap.  Positive = explicit cap value.")
-    p.add_argument("--norm_cap_frac", type=float, default=0.5,
-                   help="When --max_norm < 0, cap each vector (bias "
-                        "AND every category vector) at "
-                        "norm_cap_frac * mean_residual_norm.  Default "
-                        "0.5 keeps every learned vector at most half "
-                        "the typical activation magnitude.")
-    p.add_argument("--norm_cap_probe_examples", type=int, default=32,
-                   help="Examples used to probe the mean residual-"
-                        "stream norm at the steer layer for the auto "
-                        "norm cap (--max_norm < 0).")
-    p.add_argument("--cat_max_norm", type=float, default=0.0,
-                   help="Separate per-step row-wise norm cap applied to "
-                        "CATEGORY vectors only (bias uses --max_norm). "
-                        "0 (default) = no separate cat cap; cats share "
-                        "--max_norm with the bias vector. "
-                        "Positive = explicit cap value.")
     p.add_argument("--orth_cats_to_bias", action="store_true",
-                   help="After each optimiser step, project every category "
-                        "vector to be orthogonal to the current bias vector. "
-                        "This prevents cats from amplifying or cancelling the "
-                        "global bias (both were observed in practice, with "
-                        "69%% of training positions receiving anti-bias cats). "
-                        "Cats then capture ONLY the rotational residual that "
-                        "the scalar-scaled bias cannot provide.")
+                   help="(Deprecated, ignored.)")
+    p.add_argument("--filter_by_bias", action="store_true",
+                   help="Stage-1.5 filter: after loading disagreements "
+                        "(--load_collected), apply the frozen bias to every "
+                        "disagreement position and DROP positions where "
+                        "base+bias argmax now matches the thinking-model "
+                        "argmax (i.e. the bias already resolves the "
+                        "disagreement).  Only the residual disagreements "
+                        "survive to train category vectors.  Requires "
+                        "--load_collected and --frozen_bias_path.")
     p.add_argument("--no_select_best_holdout", action="store_true",
                    help="Disable best-holdout-KL snapshot selection. "
                         "By default we save the V from the epoch that "
@@ -2371,7 +2502,8 @@ def main():
                                    else args.steer_layer),
                 sae_classifier=sae_classifier_fn,
                 sae_classify_layer=args.sae_classify_layer,
-                sae_n_clusters=args.sae_n_clusters)
+                sae_n_clusters=args.sae_n_clusters,
+                collect_batch_size=args.collect_batch_size)
             probe_total = sum(len(v) for v in per_category.values())
             probe_idx_cats = [k for k in per_category.keys()
                               if k.startswith("idx") and k[3:].isdigit()]
@@ -2416,7 +2548,8 @@ def main():
                                        else args.steer_layer),
                     sae_classifier=sae_classifier_fn,
                     sae_classify_layer=args.sae_classify_layer,
-                    sae_n_clusters=args.sae_n_clusters)
+                    sae_n_clusters=args.sae_n_clusters,
+                    collect_batch_size=args.collect_batch_size)
                 # Merge pe_more/pc_more into per_example/per_category,
                 # offsetting example indices.
                 offset = len(per_example)
@@ -2444,7 +2577,8 @@ def main():
                                    else args.steer_layer),
                 sae_classifier=sae_classifier_fn,
                 sae_classify_layer=args.sae_classify_layer,
-                sae_n_clusters=args.sae_n_clusters)
+                sae_n_clusters=args.sae_n_clusters,
+                collect_batch_size=args.collect_batch_size)
 
         # Persist and exit if this is the collect-only phase -- the caller
         # will re-run the script with --load_collected on a fresh process.
@@ -2529,6 +2663,46 @@ def main():
 
     # Ignore any pre-existing "_global" entry from a previous partial run.
     per_category.pop("_global", None)
+
+    # ---- Phase 2.8: stage-1.5 filter (optional) ----
+    # Drop disagreement positions already resolved by the frozen bias so
+    # that cat vectors train only on the *residual* disagreements.
+    if getattr(args, "filter_by_bias", False):
+        assert args.load_collected, "--filter_by_bias requires --load_collected"
+        assert frozen_bias_cpu is not None, \
+            "--filter_by_bias requires --frozen_bias_path"
+        print("\n[Phase 2.8] Stage-1.5 bias filter: dropping positions "
+              "already resolved by frozen bias...", flush=True)
+        per_category = filter_per_category_by_bias(
+            base_model, per_example, per_category,
+            frozen_bias=frozen_bias_cpu,
+            steer_layer=steer_layer,
+            pad_token_id=base_tokenizer.pad_token_id,
+        )
+
+    # ---- Phase 2.9: per-category global cap ----
+    # Optionally subsample each category down to at most
+    # ``max_positions_per_cat`` positions to balance category sizes and
+    # speed up training.  Applied AFTER any Stage-1.5 bias filter so the
+    # cap operates on residual disagreements.  Uses a deterministic
+    # per-category seed so the same cap is applied across runs.
+    _cap_cat = int(getattr(args, "max_positions_per_cat", 0) or 0)
+    if _cap_cat > 0:
+        print(f"\n[Phase 2.9] Per-category global cap: at most "
+              f"{_cap_cat} positions per category...", flush=True)
+        n_before_cap = sum(len(v) for v in per_category.values())
+        for cat_key in list(per_category.keys()):
+            recs = per_category[cat_key]
+            if len(recs) > _cap_cat:
+                rng_cap = random.Random(f"cap-{args.seed}-{cat_key}")
+                per_category[cat_key] = rng_cap.sample(recs, _cap_cat)
+        n_after_cap = sum(len(v) for v in per_category.values())
+        print(f"  [cap] {n_before_cap} -> {n_after_cap} positions "
+              f"({n_before_cap - n_after_cap} dropped)", flush=True)
+        for cat_key in sorted(per_category.keys(),
+                              key=lambda k: -len(per_category[k])):
+            print(f"    [capped] {cat_key}: "
+                  f"{len(per_category[cat_key])} positions", flush=True)
 
     # ---- Phase 3: JOINT training ----
     # Training cost: n_epochs * (n_train_examples / batch) forward+backward
@@ -2631,57 +2805,7 @@ def main():
               f"{init_v_norm_value:.4f} -> using as init magnitude",
               flush=True)
 
-    # ---- Auto norm cap (run unless explicitly disabled).
-    # When --max_norm < 0 we probe the mean residual-stream L2 norm at
-    # the steer layer and cap EVERY trained vector (bias AND each
-    # category vector) at norm_cap_frac * mean.  This prevents any
-    # single vector from blowing past the typical activation magnitude
-    # while still letting the optimiser route signal across categories.
-    # Re-use the init probe result if we already computed it.
-    if args.max_norm < 0:
-        if args.norm_cap_frac <= 0:
-            print("\n[Phase 2.6] norm_cap_frac <= 0 -> norm cap "
-                  "DISABLED (max_norm=0)", flush=True)
-            args.max_norm = 0.0
-        else:
-            if init_v_norm_value > 0:
-                mean_norm_for_cap = init_v_norm_value
-                print("\n[Phase 2.6] Reusing init-probe mean norm = "
-                      f"{mean_norm_for_cap:.4f} for auto norm cap",
-                      flush=True)
-            else:
-                print("\n[Phase 2.6] Probing mean residual-stream norm "
-                      f"at layer {steer_layer} over "
-                      f"{args.norm_cap_probe_examples} examples for "
-                      "auto norm cap...", flush=True)
-                mean_norm_for_cap = compute_mean_activation_magnitude(
-                    base_model, per_example, steer_layer,
-                    base_tokenizer.pad_token_id,
-                    n_examples=args.norm_cap_probe_examples,
-                    seed=args.seed)
-            args.max_norm = float(mean_norm_for_cap * args.norm_cap_frac)
-            print(f"  mean_norm at layer {steer_layer} = "
-                  f"{mean_norm_for_cap:.4f}; auto-cap each vector at "
-                  f"{args.max_norm:.4f}  "
-                  f"(= {args.norm_cap_frac:g} * mean)", flush=True)
-    elif args.max_norm == 0:
-        print("\n[Phase 2.6] max_norm = 0 -> norm cap DISABLED",
-              flush=True)
-    else:
-        print(f"\n[Phase 2.6] using explicit max_norm = {args.max_norm:g}",
-              flush=True)
-
-    if args.cat_max_norm > 0:
-        print(f"[Phase 2.6] cat_max_norm = {args.cat_max_norm:g} "
-              "(separate cap for category vectors)", flush=True)
-    else:
-        print("[Phase 2.6] cat_max_norm = 0 -> cats share --max_norm cap "
-              f"({args.max_norm:.4f})", flush=True)
-
-    if args.orth_cats_to_bias:
-        print("[Phase 2.6] --orth_cats_to_bias ON: cat vectors will be "
-              "projected orthogonal to bias after every optimiser step.",
-              flush=True)
+    print("\n[Phase 2.6] norm cap DISABLED (removed)", flush=True)
 
     if args.skip_cats_phase:
         print("\n[Phase 3a] SKIPPED (--skip_cats_phase): no per-category "
@@ -2755,11 +2879,9 @@ def main():
             holdout_positions_with_cat=(holdout_records if holdout_records
                                         else None),
             train_bias=bool(args.joint_cats_and_bias),
-            max_norm=float(args.max_norm),
-            cat_max_norm=float(args.cat_max_norm),
-            orth_cats_to_bias=bool(args.orth_cats_to_bias),
             select_best_holdout=(not args.no_select_best_holdout),
             per_example_loss=bool(args.per_example_loss),
+            per_cat_loss=bool(args.per_cat_loss),
             cap_resample_each_epoch=bool(args.cap_resample_each_epoch),
             init_v_norm=init_v_norm_value,
             bias_frozen=frozen_bias_cpu,
@@ -2863,7 +2985,6 @@ def main():
             train_topk=min(args.train_topk, args.topk),
             holdout_positions_with_cat=(bias_holdout_records
                                         if bias_holdout_records else None),
-            max_norm=float(args.max_norm),
             checkpoint_dir=args.save_dir,
             checkpoint_prefix=f"{model_short}_bias",
             eval_chunks_per_epoch=int(args.eval_chunks_per_epoch))
