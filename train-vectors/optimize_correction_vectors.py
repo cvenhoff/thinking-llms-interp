@@ -331,7 +331,8 @@ class _InjectMultiHook:
                  pos_bids: torch.Tensor, pos_tids: torch.Tensor,
                  pos_cats: torch.Tensor,
                  b: Optional[torch.Tensor] = None,
-                 bias_frozen: Optional[torch.Tensor] = None):
+                 bias_frozen: Optional[torch.Tensor] = None,
+                 alpha: Optional[torch.Tensor] = None):
         self.V = V                    # (n_cats, hidden), trainable
         self.pos_bids = pos_bids      # (N,) long
         self.pos_tids = pos_tids      # (N,) long
@@ -344,14 +345,20 @@ class _InjectMultiHook:
         # ``bias_frozen + V[cat[p]]`` so the optimizer learns the
         # category-specific RESIDUAL on top of the static bias.
         self.bias_frozen = bias_frozen   # (hidden,) detached or None
+        # Optional per-category bias scale (n_cats,), trainable when
+        # --per_cat_bias_scale is set.  Instead of adding bias_frozen
+        # uniformly, we add alpha[cat] * bias_frozen so each category
+        # can independently dial the frozen-bias contribution up or down
+        # without coupling that to the direction of V[cat].
+        self.alpha = alpha               # (n_cats,) or None, trainable
 
     def __call__(self, _module, _inp, out):
         h = out[0] if isinstance(out, tuple) else out
         # Build an additive update tensor zero everywhere except at
         # disagreement positions, where it equals V[cat] (+ b if set,
-        # + bias_frozen if set).  Using a zeros_like(h) + index_copy
-        # keeps the op autograd-friendly and avoids any in-place
-        # mutation on `h` itself.
+        # + alpha[cat]*bias_frozen if set).  Using a zeros_like(h) +
+        # index_copy keeps the op autograd-friendly and avoids any
+        # in-place mutation on `h` itself.
         # ----- Multi-GPU safety -----
         # ``device_map="auto"`` may place the steer layer on a different
         # device than the trainable params (V/b) and the precomputed
@@ -366,7 +373,12 @@ class _InjectMultiHook:
         if self.b is not None:
             per_pos = per_pos + self.b.to(h_dev).unsqueeze(0)  # broadcast bias
         if self.bias_frozen is not None:
-            per_pos = per_pos + self.bias_frozen.to(h_dev).unsqueeze(0)
+            if self.alpha is not None:
+                # Per-category scale: alpha[cat] * bias_frozen
+                scale = self.alpha.to(h_dev)[cats]             # (N,)
+                per_pos = per_pos + scale.unsqueeze(1) * self.bias_frozen.to(h_dev).unsqueeze(0)
+            else:
+                per_pos = per_pos + self.bias_frozen.to(h_dev).unsqueeze(0)
         bids = self.pos_bids.to(h_dev)
         tids = self.pos_tids.to(h_dev)
         update[bids, tids, :] = per_pos.to(h.dtype)
@@ -1203,6 +1215,7 @@ def train_vectors_joint(
     cap_resample_each_epoch: bool = False,
     init_v_norm: float = 0.0,
     bias_frozen: Optional[torch.Tensor] = None,
+    per_cat_bias_scale: bool = False,
     # Crash-resilient checkpointing of the best-holdout snapshot to disk.
     # When provided (and we're on rank 0), every time we improve the
     # holdout KL we additionally write the snapshot to
@@ -1327,7 +1340,17 @@ def train_vectors_joint(
     b = (torch.zeros(hidden_size, device=device, dtype=torch.float32,
                      requires_grad=True)
          if train_bias else None)
-    opt_params = [V] + ([b] if b is not None else [])
+    # Per-category bias scale: alpha[i] multiplies the frozen bias for
+    # category i.  Init to 1.0 (= original uniform-bias behaviour).
+    # Only created when --per_cat_bias_scale is on AND a frozen bias
+    # exists to scale.
+    alpha = (torch.ones(n_cats, device=device, dtype=torch.float32,
+                        requires_grad=True)
+             if (per_cat_bias_scale and bias_frozen is not None) else None)
+    if alpha is not None:
+        print(f"    [joint] per-category bias scale enabled "
+              f"(alpha init=1.0 for all {n_cats} cats)", flush=True)
+    opt_params = [V] + ([b] if b is not None else []) + ([alpha] if alpha is not None else [])
     opt = torch.optim.Adam(opt_params, lr=lr, weight_decay=weight_decay)
 
     n_pos_total = sum(len(v) for v in by_example.values())
@@ -1393,6 +1416,7 @@ def train_vectors_joint(
     best_holdout_kl = float("inf")
     best_V_cpu: Optional[torch.Tensor] = None
     best_b_cpu: Optional[torch.Tensor] = None
+    best_alpha_cpu: Optional[torch.Tensor] = None
     best_epoch: int = 0
     # Mid-epoch eval cadence: we run a quick holdout eval ``_ec`` times
     # per epoch so the train/holdout curves are denser than the
@@ -1414,7 +1438,7 @@ def train_vectors_joint(
         printed/recorded train_kl reflects the full DDP shard.  Updates
         ``best_holdout_kl`` and the on-disk best checkpoint.
         """
-        nonlocal best_holdout_kl, best_V_cpu, best_b_cpu, best_epoch
+        nonlocal best_holdout_kl, best_V_cpu, best_b_cpu, best_alpha_cpu, best_epoch
         if holdout_by_example is None or not holdout_ex_ids_sorted:
             return
         # All-reduce the running train numbers for the print line.
@@ -1449,7 +1473,8 @@ def train_vectors_joint(
                     V.detach(), steer_layer, pad_token_id,
                     kl_mode=kl_mode, train_topk=train_topk,
                     b=(b.detach() if b is not None else None),
-                    bias_frozen=bias_frozen)
+                    bias_frozen=bias_frozen,
+                    alpha=(alpha.detach() if alpha is not None else None))
                 if per_pos_e.numel() == 0:
                     continue
                 pp_e = per_pos_e.detach().double()
@@ -1499,14 +1524,34 @@ def train_vectors_joint(
         if (select_best_holdout and total_cnt > 0
                 and total_kl < best_holdout_kl):
             best_holdout_kl = float(total_kl)
-            best_V_cpu = V.detach().float().cpu().clone()
+            best_alpha_cpu = (alpha.detach().float().cpu().clone()
+                              if alpha is not None else None)
+            # Fold alpha into V so callers (and eval) need no changes:
+            # effective_V[i] = V[i] + (alpha[i] - 1) * bias_frozen
+            # => effective_V[i] + bias_frozen = V[i] + alpha[i]*bias_frozen
+            if best_alpha_cpu is not None and bias_frozen is not None:
+                V_raw = V.detach().float().cpu()
+                bf_cpu = bias_frozen.float().cpu()
+                best_V_cpu = V_raw + (best_alpha_cpu - 1.0).unsqueeze(1) * bf_cpu.unsqueeze(0)
+            else:
+                best_V_cpu = V.detach().float().cpu().clone()
             best_b_cpu = (b.detach().float().cpu().clone()
                           if b is not None else None)
             best_epoch = int(epoch_idx + 1)
-            print(f"    [joint] new best holdout_kl="
-                  f"{total_kl:.4f} at ep{epoch_idx+1} "
-                  f"chunk {chunk_idx}/{total_chunks} -> snapshot saved",
-                  flush=True)
+            if best_alpha_cpu is not None:
+                _a = best_alpha_cpu
+                print(f"    [joint] new best holdout_kl="
+                      f"{total_kl:.4f} at ep{epoch_idx+1} "
+                      f"chunk {chunk_idx}/{total_chunks} -> snapshot saved "
+                      f"[alpha min={float(_a.min()):.3f} "
+                      f"max={float(_a.max()):.3f} "
+                      f"mean={float(_a.mean()):.3f}]",
+                      flush=True)
+            else:
+                print(f"    [joint] new best holdout_kl="
+                      f"{total_kl:.4f} at ep{epoch_idx+1} "
+                      f"chunk {chunk_idx}/{total_chunks} -> snapshot saved",
+                      flush=True)
             if (checkpoint_dir is not None
                     and checkpoint_prefix is not None
                     and _is_rank_zero()):
@@ -1552,8 +1597,12 @@ def train_vectors_joint(
             os.makedirs(checkpoint_dir, exist_ok=True)
             ckpt_path = os.path.join(
                 checkpoint_dir, f"{checkpoint_prefix}_best.pt")
+            _V_save = V.detach().float().cpu()
+            if alpha is not None and bias_frozen is not None:
+                _a_save = alpha.detach().float().cpu()
+                _V_save = _V_save + (_a_save - 1.0).unsqueeze(1) * bias_frozen.float().cpu().unsqueeze(0)
             torch.save({
-                "V": V.detach().float().cpu().clone(),
+                "V": _V_save.clone(),
                 "b": (b.detach().float().cpu().clone()
                       if b is not None else None),
                 "epoch": int(epoch_idx + 1),
@@ -1616,7 +1665,7 @@ def train_vectors_joint(
                 base_model, mb, per_example, by_example,
                 V, steer_layer, pad_token_id,
                 kl_mode=kl_mode, train_topk=train_topk, b=b,
-                bias_frozen=bias_frozen)
+                bias_frozen=bias_frozen, alpha=alpha)
             n_pts = int(per_pos.numel())
             if n_pts == 0:
                 pbar.update(1)
@@ -1678,6 +1727,9 @@ def train_vectors_joint(
                 if b is not None and b.grad is not None:
                     dist.all_reduce(b.grad, op=dist.ReduceOp.SUM)
                     b.grad.div_(float(dist.get_world_size()))
+                if alpha is not None and alpha.grad is not None:
+                    dist.all_reduce(alpha.grad, op=dist.ReduceOp.SUM)
+                    alpha.grad.div_(float(dist.get_world_size()))
             opt.step()
             # Per-cat stats (no grad).
             with torch.no_grad():
@@ -1699,6 +1751,7 @@ def train_vectors_joint(
                 norms = V.detach().norm(dim=-1)
                 bias_norm = (float(b.detach().norm().item())
                              if b is not None else None)
+                alpha_vals = (alpha.detach().cpu() if alpha is not None else None)
             ep_loss_sum += batch_sum
             ep_positions += n_pts
             running = ep_loss_sum / max(ep_positions, 1)
@@ -1709,6 +1762,9 @@ def train_vectors_joint(
             }
             if bias_norm is not None:
                 postfix["bias"] = f"{bias_norm:.1f}"
+            if alpha_vals is not None:
+                postfix["alpha"] = (f"[{float(alpha_vals.min()):.2f}"
+                                    f"-{float(alpha_vals.max()):.2f}]")
             pbar.set_postfix(**postfix)
             pbar.update(1)
             last_loss = running
@@ -1847,11 +1903,19 @@ def train_vectors_joint(
                "avg_kl": float(best_holdout_kl)})
         if metrics_fh is not None:
             metrics_fh.close()
+        # best_V_cpu already has alpha folded in (see best-holdout block)
         return best_V_cpu, best_b_cpu, metrics_records
     if metrics_fh is not None:
         metrics_fh.close()
     b_out = (b.detach().float().cpu() if b is not None else None)
-    return V.detach().float().cpu(), b_out, metrics_records
+    V_out = V.detach().float().cpu()
+    if alpha is not None and bias_frozen is not None:
+        a_out = alpha.detach().float().cpu()
+        V_out = V_out + (a_out - 1.0).unsqueeze(1) * bias_frozen.float().cpu().unsqueeze(0)
+        print(f"    [joint] final alpha: min={float(a_out.min()):.3f} "
+              f"max={float(a_out.max()):.3f} mean={float(a_out.mean()):.3f}",
+              flush=True)
+    return V_out, b_out, metrics_records
 
 
 def _compute_batch_kl_loss_joint(
@@ -1867,6 +1931,7 @@ def _compute_batch_kl_loss_joint(
     train_topk: int = 3,
     b: Optional[torch.Tensor] = None,
     bias_frozen: Optional[torch.Tensor] = None,
+    alpha: Optional[torch.Tensor] = None,
 ) -> Tuple[torch.Tensor, int]:
     """Forward one padded minibatch with V injected per-position by
     category, return (per_position_losses, position_category_indices).
@@ -1945,7 +2010,7 @@ def _compute_batch_kl_loss_joint(
     topk_probs = topk_lp_t.exp()
 
     hook = _InjectMultiHook(V, pos_bids_t, pos_tids_t, pos_cats_t, b=b,
-                            bias_frozen=bias_frozen)
+                            bias_frozen=bias_frozen, alpha=alpha)
     with _inject_at_layer(base_model, steer_layer, hook):
         body_out = base_model.model(
             input_ids=ids_batch, attention_mask=attn, use_cache=False)
@@ -2119,6 +2184,16 @@ def main():
                         "regardless of size. Recommended when the "
                         "per-category disagreement distribution is "
                         "imbalanced.")
+    p.add_argument("--per_cat_bias_scale", action="store_true",
+                   help="Learn a per-category scalar that multiplies the "
+                        "frozen bias vector (requires --frozen_bias_path). "
+                        "Effective steering for cat i becomes "
+                        "V[i] + alpha[i]*bias, where alpha[i] is init to "
+                        "1.0.  Decouples direction (V[i]) from bias "
+                        "magnitude (alpha[i]), preventing pressure toward "
+                        "anti-correlated cat directions. The alpha is "
+                        "folded into the saved vectors so hybrid_eval.py "
+                        "needs no changes.")
     p.add_argument("--n_epochs", type=int, default=5)
     p.add_argument("--example_batch_size", type=int, default=4)
     p.add_argument("--lr", type=float, default=1e-2)
@@ -2882,6 +2957,7 @@ def main():
             select_best_holdout=(not args.no_select_best_holdout),
             per_example_loss=bool(args.per_example_loss),
             per_cat_loss=bool(args.per_cat_loss),
+            per_cat_bias_scale=bool(args.per_cat_bias_scale),
             cap_resample_each_epoch=bool(args.cap_resample_each_epoch),
             init_v_norm=init_v_norm_value,
             bias_frozen=frozen_bias_cpu,
