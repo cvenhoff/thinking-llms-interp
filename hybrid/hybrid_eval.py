@@ -92,6 +92,12 @@ def parse_args():
                    help="Path to a .pt bias vector (a dict {'bias': tensor} or raw "
                         "tensor) to add on top of the per-category steering vector, "
                         "matching the OLD/paper pipeline's global bias term.")
+    p.add_argument("--bias_always_on", action="store_true",
+                       help="Apply the bias vector at EVERY token position "
+                            "(not just disagreements) via a separate always-on "
+                            "hook.  Cat vectors still fire only on disagreement. "
+                            "Requires --bias_vector_path.  When set, the bias is "
+                            "NOT folded into the cat vectors.")
     p.add_argument("--bias_only", action="store_true",
                    help="Ablation: zero out every per-category steering vector "
                         "AFTER loading, so only the --bias_vector_path remains. "
@@ -385,6 +391,8 @@ def hybrid_generate_batched(
     coef_sweep=None, steer_all_positions=False,
     steer_all_positions_full=False,
     coef_select="pg", kl_topk=3,
+    always_on_bias_vec=None,
+    always_on_bias_layer=None,
 ):
     """Batched KV-cached hybrid generation (paper recipe).
 
@@ -449,6 +457,28 @@ def hybrid_generate_batched(
     # semantics. When False (default), only the last position is shifted.
     steer_s = {"vecs": None, "layer_masks": {}, "coef": 1.0,
                "all_positions": False}
+    # ---- always-on bias hook (fires at every position, every step) ----
+    _bias_handles = []
+    if always_on_bias_vec is not None and always_on_bias_layer is not None:
+        _bv = always_on_bias_vec.to(device=device)
+        def _bias_hook(mod, inp, out):
+            h = out[0] if isinstance(out, tuple) else out
+            # Only fire on single-token decode steps (h.shape[1]==1).
+            # Skip multi-token prefill forwards — the bias was trained on
+            # reasoning positions only (after the prompt), so applying it
+            # to prompt tokens during prefill would be out-of-distribution.
+            if h.shape[1] != 1:
+                return out
+            _bv_dev = _bv.to(h.device, dtype=h.dtype)
+            h = h.clone()
+            h[:, -1, :] = h[:, -1, :] + _bv_dev
+            return (h,) + out[1:] if isinstance(out, tuple) else h
+        _bias_handles.append(
+            base_model.model.layers[always_on_bias_layer].register_forward_hook(
+                _bias_hook))
+        print(f"  [bias_always_on] hook installed at layer {always_on_bias_layer} "
+              f"(norm={always_on_bias_vec.float().norm().item():.2f})", flush=True)
+
     steer_handles = []
     for li in all_steer_layers:
         def _mk(layer_i):
@@ -1229,6 +1259,8 @@ def hybrid_generate_batched(
         handle_sae.remove()
         for h in steer_handles:
             h.remove()
+        for h in _bias_handles:
+            h.remove()
         if pbar:
             pbar.close()
         gc.collect()
@@ -1713,6 +1745,9 @@ def main():
     # the category vector and the bias at the same positions with the same
     # coefficient, folding bias into each category vector at load time is
     # mathematically equivalent and keeps the hot loop untouched.
+    _always_on_bias_vec: "Optional[torch.Tensor]" = None
+    _always_on_bias_layer: "Optional[int]" = None
+
     if args.bias_vector_path:
         print(f"Loading bias vector from {args.bias_vector_path}...")
         bias_obj = torch.load(args.bias_vector_path, map_location="cpu",
@@ -1742,9 +1777,29 @@ def main():
                   f"min={min(_vals):.3f}  max={max(_vals):.3f}  "
                   f"mean={sum(_vals)/len(_vals):.3f}")
 
-        for k in list(steering_vectors.keys()):
-            scale = float(bias_alpha[k]) if k in bias_alpha else 1.0
-            steering_vectors[k] = steering_vectors[k] + scale * bias_vec
+        if getattr(args, "bias_always_on", False):
+            # Always-on mode: bias is applied via a separate hook at every
+            # position. Do NOT fold it into cat vectors — they stay pure.
+            # Resolve the bias layer: bias_layer.json sibling > --bias_layer > steer layer.
+            _aon_layer = args.bias_layer
+            if _aon_layer is None:
+                _sib = os.path.join(os.path.dirname(args.bias_vector_path),
+                                    "bias_layer.json")
+                if os.path.exists(_sib):
+                    with open(_sib) as _f:
+                        _aon_layer = int(json.load(_f)["layer"])
+            if _aon_layer is None:
+                _aon_layer = args.old_vectors_layer
+            _always_on_bias_vec = bias_vec
+            _always_on_bias_layer = _aon_layer
+            print(f"  [bias_always_on] will apply bias at layer {_aon_layer} "
+                  "at every position; NOT folded into cat vectors.")
+        else:
+            _always_on_bias_vec = None
+            _always_on_bias_layer = None
+            for k in list(steering_vectors.keys()):
+                scale = float(bias_alpha[k]) if k in bias_alpha else 1.0
+                steering_vectors[k] = steering_vectors[k] + scale * bias_vec
 
         # When running the BIAS-ONLY ablation, we want every key to steer at
         # the bias's own chosen layer, not whatever layer each category was
@@ -1963,7 +2018,13 @@ def main():
             steer_all_positions=args.steer_all_positions,
             steer_all_positions_full=args.steer_all_positions_full,
             coef_select=_coef_select,
-            kl_topk=args.kl_topk)
+            kl_topk=args.kl_topk,
+            always_on_bias_vec=(_always_on_bias_vec
+                                if getattr(args, "bias_always_on", False)
+                                else None),
+            always_on_bias_layer=(_always_on_bias_layer
+                                  if getattr(args, "bias_always_on", False)
+                                  else None))
 
         judge_items = []
         batch_meta = []

@@ -3,7 +3,12 @@ dotenv.load_dotenv("../.env")
 
 import gc
 import torch
-from nnsight import LanguageModel
+# Lazy import: nnsight monkey-patches torch.Tensor.backward at import time,
+# which adds ~4 s/step overhead to any training loop. Only import it when
+# load_model_nnsight() is actually called, not at module load time.
+def _get_LanguageModel():
+    from nnsight import LanguageModel  # noqa: PLC0415
+    return LanguageModel
 import time
 import anthropic
 from openai import OpenAI
@@ -562,6 +567,7 @@ def load_model(device="auto", load_in_8bit=False, model_name="deepseek-ai/DeepSe
         load_in_8bit (bool): If True, load the model in 8-bit mode
         model_name (str): Name/path of the model to load
     """
+    LanguageModel = _get_LanguageModel()
     model = LanguageModel(model_name, dispatch=True, load_in_8bit=load_in_8bit, device_map=device, dtype=torch.bfloat16)
     
     model.generation_config.temperature=None

@@ -8,8 +8,6 @@ import torch
 from torch.optim.lr_scheduler import LambdaLR
 from tqdm import tqdm
 
-torch.autograd.set_detect_anomaly(True)
-
 # =============================================================
 # 1.  Context‑manager helpers
 # =============================================================
@@ -46,29 +44,42 @@ def make_batch_linear_hook(
     def hook_fn(_module, args):
         (x,) = args
         assert x.dim() == 3, "Expected hidden states of shape (batch, seq, d_model)"
-        d_model = x.shape[-1]
+        B, T, d_model = x.shape
 
         v_local = vector.to(x)
         assert v_local.dim() == 1 and v_local.shape[0] == d_model, "vector must be 1-D of length d_model"
 
-        stat_vecs_on_device = [sv.to(x.device) for sv in static_vectors]
+        stat_vecs_on_device = [sv.to(x) for sv in static_vectors]
         for sv in stat_vecs_on_device:
             assert sv.dim() == 1 and sv.shape[0] == d_model, "static vector must be 1-D of length d_model"
 
-        x_new = x.clone()
-        for row, sl in enumerate(slices):
-            seg = x[row, sl]
-            if projection_clamp:
-                coef = (seg @ v_local) / (v_local.norm() ** 2)
-                y = seg - coef.unsqueeze(-1) * v_local + v_local
-            else:
-                y = seg + v_local
-            if stat_vecs_on_device:
-                for sv in stat_vecs_on_device:
-                    y = y + sv
-            x_new[row, sl] = y
+        # Build additive delta using a no-grad position mask so the backward
+        # graph stays simple: d_model stays clean, no clone + in-place indexing.
+        total_vec = v_local
+        for sv in stat_vecs_on_device:
+            total_vec = total_vec + sv  # (d_model,) — still differentiable w.r.t. vector
 
-        return (x_new,)
+        if projection_clamp:
+            # Projection-clamp needs per-row segment info; fall back to clone path.
+            x_new = x.detach().clone().requires_grad_(False)
+            for row, sl in enumerate(slices):
+                seg = x[row, sl]
+                coef = (seg @ v_local) / (v_local.norm() ** 2 + 1e-12)
+                y = seg - coef.unsqueeze(-1) * v_local + total_vec
+                x_new = x_new.clone()
+                x_new[row, sl] = y
+            return (x_new,)
+
+        # Efficient path: build binary position mask (no grad) and add delta.
+        with torch.no_grad():
+            pos_mask = torch.zeros(B, T, 1, device=x.device, dtype=x.dtype)
+            for row, sl in enumerate(slices):
+                start = sl.start if sl.start is not None else 0
+                stop  = sl.stop  if sl.stop  is not None else T
+                pos_mask[row, start:stop, 0] = 1.0
+
+        # x + pos_mask * total_vec: differentiable w.r.t. total_vec -> vector
+        return (x + pos_mask * total_vec,)
 
     return hook_fn
 
