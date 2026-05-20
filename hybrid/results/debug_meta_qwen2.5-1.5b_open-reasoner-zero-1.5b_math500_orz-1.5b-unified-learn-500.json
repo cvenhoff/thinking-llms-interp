@@ -21,16 +21,16 @@
   ],
   "coef_select": "pg",
   "kl_topk": 3,
-  "bias_only": true,
-  "bias_vector_path": "../train-vectors/results/vars/correction_vectors_orz-1.5b_s15_stage1/qwen2.5-1.5b_bias_global.pt",
-  "bias_layer": 14,
+  "bias_only": false,
+  "bias_vector_path": "../train-vectors/results/vars/correction_vectors_orz-1.5b_unified/qwen2.5-1.5b_bias_global.pt",
+  "bias_layer": null,
   "random_firing": false,
   "random_guardrail": false,
   "random_seed": 0,
   "steer_all_positions": false,
   "steer_all_positions_full": false,
   "disable_sae_mean": false,
-  "old_vectors_dir": "../train-vectors/results/vars/correction_vectors_orz-1.5b_s15_stage2_alphascale",
+  "old_vectors_dir": "../train-vectors/results/vars/correction_vectors_orz-1.5b_unified",
   "old_vectors_layer": 14,
   "n_latent_descriptions": 10,
   "layer_map": {
@@ -50,72 +50,72 @@
       "shape": [
         1536
       ],
-      "norm": 8.104239463806152,
+      "norm": 10.056203842163086,
       "layer": 14
     },
     "idx1": {
       "shape": [
         1536
       ],
-      "norm": 10.191940307617188,
+      "norm": 12.178611755371094,
       "layer": 14
     },
     "idx2": {
       "shape": [
         1536
       ],
-      "norm": 7.297652721405029,
+      "norm": 9.714089393615723,
       "layer": 14
     },
     "idx3": {
       "shape": [
         1536
       ],
-      "norm": 10.026863098144531,
+      "norm": 11.857717514038086,
       "layer": 14
     },
     "idx4": {
       "shape": [
         1536
       ],
-      "norm": 8.269706726074219,
+      "norm": 9.283607482910156,
       "layer": 14
     },
     "idx5": {
       "shape": [
         1536
       ],
-      "norm": 7.733348846435547,
+      "norm": 10.730420112609863,
       "layer": 14
     },
     "idx6": {
       "shape": [
         1536
       ],
-      "norm": 7.222682476043701,
+      "norm": 11.092916488647461,
       "layer": 14
     },
     "idx7": {
       "shape": [
         1536
       ],
-      "norm": 10.756767272949219,
+      "norm": 9.24721908569336,
       "layer": 14
     },
     "idx8": {
       "shape": [
         1536
       ],
-      "norm": 12.383452415466309,
+      "norm": 14.116499900817871,
       "layer": 14
     },
     "idx9": {
       "shape": [
         1536
       ],
-      "norm": 17.97096061706543,
+      "norm": 16.51301383972168,
       "layer": 14
     }
   },
-  "suffix": "_orz-1.5b-alpha-biasonly-500"
+  "suffix": "_orz-1.5b-unified-learn-500"
 }
