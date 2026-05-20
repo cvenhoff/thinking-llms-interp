@@ -31,7 +31,7 @@ if [[ "$MODEL_SIZE" == "1.5b" ]]; then
     SAE_LAYER=8
     N_CLUSTERS=5
     OLD_VECTORS_LAYER=10
-    VECTORS_DIR="train-vectors/results/vars/optimized_vectors"
+    VECTORS_DIR="train-vectors/results/vars/optimized_vectors_legacy_ce"
     BIAS_PATH="${VECTORS_DIR}/qwen2.5-1.5b_bias_linear.pt"
 elif [[ "$MODEL_SIZE" == "0.5b" ]]; then
     BASE_MODEL="Qwen/Qwen2.5-0.5B"
@@ -39,7 +39,7 @@ elif [[ "$MODEL_SIZE" == "0.5b" ]]; then
     SAE_LAYER=8
     N_CLUSTERS=10
     OLD_VECTORS_LAYER=9
-    VECTORS_DIR="train-vectors/results/vars/optimized_vectors"
+    VECTORS_DIR="train-vectors/results/vars/optimized_vectors_legacy_ce"
     BIAS_PATH="${VECTORS_DIR}/qwen2.5-0.5b_bias_linear.pt"
 else
     echo "ERROR: MODEL_SIZE must be 1.5b or 0.5b"

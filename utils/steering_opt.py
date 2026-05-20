@@ -84,6 +84,184 @@ def make_batch_linear_hook(
     return hook_fn
 
 
+def make_multi_vector_hook(
+    vectors: List[torch.Tensor],
+    row_to_vec: List[int],
+    slices: List[slice],
+    static_vectors: list,
+):
+    """Routing hook: applies a different vector to each batch row.
+
+    vectors      – list of N trainable (d_model,) tensors, one per category
+    row_to_vec   – length-B list mapping each batch row to its vector index
+    slices       – length-B token-range slices (one per row)
+    static_vectors – list of (d_model,) tensors added to every row (no grad)
+
+    Gradient for vectors[k] accumulates from all rows i where row_to_vec[i]==k,
+    which is mathematically equivalent to training each vector in isolation.
+    """
+
+    def hook_fn(_module, args):
+        (x,) = args
+        B, T, d_model = x.shape
+
+        # Build per-row delta (B, d_model) — differentiable w.r.t. each vector
+        stacked = torch.stack([vectors[k].to(x) for k in row_to_vec], dim=0)  # (B, d_model)
+
+        if static_vectors:
+            with torch.no_grad():
+                static_sum = sum(sv.to(x) for sv in static_vectors)  # (d_model,)
+            stacked = stacked + static_sum  # broadcast: (B, d_model)
+
+        # Position mask (no grad): (B, T, 1)
+        with torch.no_grad():
+            pos_mask = torch.zeros(B, T, 1, device=x.device, dtype=x.dtype)
+            for row, sl in enumerate(slices):
+                start = sl.start if sl.start is not None else 0
+                stop  = sl.stop  if sl.stop  is not None else T
+                pos_mask[row, start:stop, 0] = 1.0
+
+        return (x + pos_mask * stacked.unsqueeze(1),)
+
+    return hook_fn
+
+
+def optimize_multi_vector_simple(
+    model,
+    tokenizer,
+    per_cat_examples: List[Tuple[List[str], List[str]]],
+    layer: int,
+    *,
+    lr: float = 0.01,
+    max_iters: int = 50,
+    optim_minibatch_size: int = 8,
+    warmup_steps: int = 0,
+    min_lr: float = 0.0,
+    coldness: float = 0.7,
+    grad_clip: Optional[float] = None,
+    starting_norm: float = 1.0,
+    static_vectors: Optional[List[torch.Tensor]] = None,
+    steering_token_window: Optional[int] = None,
+    cat_names: Optional[List[str]] = None,
+):
+    """Train N category vectors simultaneously in one forward/backward loop.
+
+    per_cat_examples – list of (prompts, targets) tuples, one per category.
+                       Each category may have a different number of examples.
+    Returns a list of trained (d_model,) tensors in the same order as
+    per_cat_examples.
+
+    Gradient routing guarantee: vector[k] accumulates gradients only from
+    rows whose example belongs to category k, which is mathematically
+    equivalent to training each vector in its own isolated loop.
+    """
+    n_cats = len(per_cat_examples)
+    assert n_cats >= 1, "Need at least one category"
+    cat_names = cat_names or [str(k) for k in range(n_cats)]
+    device = next(model.parameters()).device
+    static_vectors_local = [sv.to(device).detach() for sv in (static_vectors or [])]
+
+    # Initialise one vector per category
+    d_model = model.config.hidden_size
+    vectors = []
+    for _ in range(n_cats):
+        v = torch.randn(d_model, device=device, dtype=torch.float32)
+        v = starting_norm * v / v.norm()
+        v.requires_grad_(True)
+        vectors.append(v)
+
+    # Tokenise all examples up front
+    all_prompt_tokens, all_target_tokens = [], []
+    all_prompt_lens, all_target_lens = [], []
+    # cat_of[i] maps flat example index → category index
+    cat_of: List[int] = []
+    for k, (prompts, targets) in enumerate(per_cat_examples):
+        pt, pl = _tok_batch(tokenizer, prompts)
+        tt, tl = _tok_batch(tokenizer, targets)
+        all_prompt_tokens.extend(pt)
+        all_target_tokens.extend(tt)
+        all_prompt_lens.extend(pl)
+        all_target_lens.extend(tl)
+        cat_of.extend([k] * len(prompts))
+
+    N = len(cat_of)
+    assert N > 0, "No examples provided"
+
+    # Optimiser (one Adam for all vectors)
+    optim = torch.optim.Adam(vectors, lr=lr)
+    num_batches_per_epoch = max(1, N // optim_minibatch_size)
+    total_steps = max_iters * num_batches_per_epoch
+    sched = (
+        get_cosine_schedule_with_warmup(optim, warmup_steps, total_steps, min_lr)
+        if total_steps else None
+    )
+
+    best_loss = float("inf")
+    best_vectors = [v.detach().clone() for v in vectors]
+    loss_hist: List[float] = []
+
+    total_pbar = tqdm(total=total_steps, desc="multi-vec total", leave=True)
+
+    for epoch in range(max_iters):
+        idxs = list(range(N))
+        random.shuffle(idxs)
+        running_loss, n_batches = 0.0, 0
+
+        for bs in range(0, N, optim_minibatch_size):
+            batch_flat = idxs[bs: bs + optim_minibatch_size]
+            if not batch_flat:
+                continue
+
+            # row_to_vec: which category/vector for each row in the batch
+            row_to_vec = [cat_of[i] for i in batch_flat]
+
+            # Build padded batch (reuse existing helper with flat indices)
+            input_ids, attn_mask, steering_slices = _build_right_padded_batch(
+                tokenizer,
+                all_prompt_tokens,
+                all_target_tokens,
+                batch_flat,
+                all_prompt_lens,
+                all_target_lens,
+                steering_token_window,
+                device,
+            )
+
+            hook = make_multi_vector_hook(vectors, row_to_vec, steering_slices, static_vectors_local)
+
+            with hf_hooks_contextmanager(model, [(layer, hook)]):
+                out = model(input_ids=input_ids, attention_mask=attn_mask)
+                logits = out.logits * coldness
+
+            ce, _ = _compute_target_cross_entropy(logits, input_ids, steering_slices)
+            ce.backward()
+
+            if grad_clip is not None:
+                torch.nn.utils.clip_grad_norm_(vectors, grad_clip)
+
+            optim.step()
+            optim.zero_grad()
+            if sched is not None:
+                sched.step()
+
+            running_loss += ce.item()
+            n_batches += 1
+            total_pbar.update(1)
+
+        epoch_loss = running_loss / max(n_batches, 1)
+        loss_hist.append(epoch_loss)
+        if epoch_loss < best_loss:
+            best_loss = epoch_loss
+            best_vectors = [v.detach().clone() for v in vectors]
+        total_pbar.set_postfix(loss=f"{epoch_loss:.4f}")
+
+    total_pbar.close()
+    norms = [v.norm().item() for v in best_vectors]
+    print(f"Multi-vector training done. Best loss={best_loss:.4f}. "
+          f"Norms: {', '.join(f'{cat_names[k]}={norms[k]:.3f}' for k in range(n_cats))}")
+    return best_vectors, {"final_loss": best_loss, "loss_history": loss_hist}
+
+
 def make_batch_adaptive_linear_hook(
     vector: torch.Tensor,
     W1: torch.Tensor,

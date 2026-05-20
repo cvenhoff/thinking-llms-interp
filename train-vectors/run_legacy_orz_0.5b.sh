@@ -46,23 +46,20 @@ python optimize_steering_vectors.py \
 echo ""
 echo "Bias training complete. File: ${SAVE_DIR}/qwen2.5-0.5b_bias_linear.pt"
 
-# Phase 2: Category vectors (activation + perplexity selection, bias pre-applied)
-for CLUSTER in $(seq 0 $((N_CATS - 1))); do
-    echo ""
-    echo "=== Phase 2: Cat idx${CLUSTER} ==="
-    python optimize_steering_vectors.py \
-        --model "$MODEL" \
-        --max_iters "$MAX_ITERS" \
-        --n_training_examples "$N_TRAIN" \
-        --n_eval_examples "$N_EVAL" \
-        --optim_minibatch_size "$MINI_BS" \
-        --layer "$LAYER" \
-        --steering_vector_idx "$CLUSTER" \
-        --lr "$LR" \
-        --use_activation_perplexity_selection \
-        --save_path "$SAVE_DIR"
-    echo "Cat idx${CLUSTER} done: ${SAVE_DIR}/qwen2.5-0.5b_idx${CLUSTER}_linear.pt"
-done
+# Phase 2: All category vectors trained simultaneously (N_CATS x faster than sequential)
+echo ""
+echo "=== Phase 2: All ${N_CATS} cat vectors (multi-vector parallel) ==="
+python optimize_cat_vectors_multi.py \
+    --model "$MODEL" \
+    --max_iters "$MAX_ITERS" \
+    --n_training_examples "$N_TRAIN" \
+    --n_eval_examples "$N_EVAL" \
+    --optim_minibatch_size "$MINI_BS" \
+    --layer "$LAYER" \
+    --lr "$LR" \
+    --use_activation_perplexity_selection \
+    --save_path "$SAVE_DIR"
+echo "All ${N_CATS} cat vectors done"
 
 # Write layer_map.json so hybrid_eval.py picks up the right layer
 echo ""
