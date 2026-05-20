@@ -63,7 +63,7 @@ echo "======================================"
   echo "[GPU0] 1.5B cats done" | tee -a "$LOG_DIR/gpu0.log"
 
   python write_layer_map.py --save_dir "$SAVE_DIR" --layer "$LAYER" --n_cats 5 \
-      >> "$LOG_DIR/gpu0.log" 2>&1
+      --model_short "qwen2.5-1.5b" >> "$LOG_DIR/gpu0.log" 2>&1
   echo "[GPU0] === 1.5B TRAINING COMPLETE ===" | tee -a "$LOG_DIR/gpu0.log"
   touch "$LOG_DIR/1.5b_training_done"
 ) &
@@ -100,7 +100,7 @@ GPU0_PID=$!
   echo "[GPU1] 0.5B cats done" | tee -a "$LOG_DIR/gpu1.log"
 
   python write_layer_map.py --save_dir "$SAVE_DIR" --layer "$LAYER" --n_cats 10 \
-      >> "$LOG_DIR/gpu1.log" 2>&1
+      --model_short "qwen2.5-0.5b" >> "$LOG_DIR/gpu1.log" 2>&1
   echo "[GPU1] === 0.5B TRAINING COMPLETE ===" | tee -a "$LOG_DIR/gpu1.log"
   touch "$LOG_DIR/0.5b_training_done"
 ) &
@@ -130,14 +130,14 @@ cd "$SCRIPT_DIR"
 
 (
   source .venv/bin/activate
-  CUDA_VISIBLE_DEVICES=0 MODEL_SIZE=1.5b bash run_legacy_eval.sh 2>&1 \
+  CUDA_VISIBLE_DEVICES=0 MODEL_SIZE=1.5b BATCH_SIZE=500 bash run_legacy_eval.sh 2>&1 \
     | tee "$LOG_DIR/eval_1.5b.log"
 ) &
 EVAL0_PID=$!
 
 (
   source .venv/bin/activate
-  CUDA_VISIBLE_DEVICES=1 MODEL_SIZE=0.5b bash run_legacy_eval.sh 2>&1 \
+  CUDA_VISIBLE_DEVICES=1 MODEL_SIZE=0.5b BATCH_SIZE=500 bash run_legacy_eval.sh 2>&1 \
     | tee "$LOG_DIR/eval_0.5b.log"
 ) &
 EVAL1_PID=$!

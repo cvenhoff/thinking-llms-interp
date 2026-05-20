@@ -633,10 +633,10 @@ def collect_disagreements(
     think_tokenizer = thinking_tokenizer if thinking_tokenizer is not None \
         else base_tokenizer
 
-    if collection_mode not in ("disagreement", "entropy", "union"):
+    if collection_mode not in ("disagreement", "entropy", "union", "all"):
         raise ValueError(
-            f"collection_mode must be 'disagreement', 'entropy' or "
-            f"'union', got {collection_mode!r}")
+            f"collection_mode must be 'disagreement', 'entropy', 'union' "
+            f"or 'all', got {collection_mode!r}")
 
     base_device = next(base_model.parameters()).device
     think_device = next(thinking_model.parameters()).device
@@ -673,6 +673,8 @@ def collect_disagreements(
         desc = "Collecting disagreements"
     elif collection_mode == "entropy":
         desc = f"Collecting hi-entropy positions (>= {entropy_threshold})"
+    elif collection_mode == "all":
+        desc = "Collecting all reasoning positions (full-seq)"
     else:
         desc = (f"Collecting union(disagree, entropy >= "
                 f"{entropy_threshold}) positions")
@@ -721,6 +723,8 @@ def collect_disagreements(
             think_attn[bi, :Lt_p] = 1
 
         # Base forward (batched).
+        # 'all' mode does not need the base-model forward — we keep all
+        # positions regardless of whether base agrees with the target.
         if collection_mode in ("disagreement", "union"):
             with _bias_hook_at_layer(base_model,
                                      frozen_bias_layer
@@ -793,7 +797,11 @@ def collect_disagreements(
             n_ex_miss = 0
             for i in range(max(b_anchor - 1, 0), Lb - 1):
                 target = int(base_ids[i + 1].item())
-                if sae_cat_per_pos is not None:
+                if collection_mode == "all":
+                    # Full-seq mode: include every reasoning position.
+                    # Category is SAE-derived if available, else "_global".
+                    cat = None  # resolved after i_t alignment below
+                elif sae_cat_per_pos is not None:
                     # Classify the THINKING activation at the position
                     # that produces this base position's prediction
                     # (i.e. the thinking position aligned with base
@@ -826,7 +834,17 @@ def collect_disagreements(
                 # this base position's prediction.  This matches eval
                 # semantics: at generation step t the SAE sees the
                 # thinking-model's activation at position t-1.
-                if sae_cat_per_pos is not None:
+                if collection_mode == "all":
+                    # Full-seq: use SAE if available, else a single
+                    # global bucket that the bias trainer will merge.
+                    if sae_cat_per_pos is not None:
+                        if i_t < 0 or i_t >= len(sae_cat_per_pos):
+                            cat = "_global"
+                        else:
+                            cat = sae_cat_per_pos[i_t]
+                    else:
+                        cat = "_global"
+                elif sae_cat_per_pos is not None:
                     if i_t < 0 or i_t >= len(sae_cat_per_pos):
                         continue
                     cat = sae_cat_per_pos[i_t]
@@ -2157,6 +2175,12 @@ def main():
                         "<model>_bias_global.pt + bias_layer.json.  This "
                         "is intended as an ablation baseline -- 'one "
                         "direction for everything'.")
+    p.add_argument("--full_seq_bias", action="store_true",
+                   help="When set together with --train_global_bias "
+                        "--skip_cats_phase, collect ALL reasoning-token "
+                        "positions (not just disagreements) and train the "
+                        "bias on the full next-token KL loss.  Uses "
+                        "collection_mode='all' automatically.")
     p.add_argument("--joint_cats_and_bias", action="store_true",
                    help="JOINT cats+bias training: at every disagreement "
                         "position apply  V[cat[p]] + b  in a single "
@@ -2372,7 +2396,7 @@ def main():
                         "to train ONLY the global bias vector "
                         "(stage 1 of the bias-first pipeline).")
     p.add_argument("--collection_mode", type=str, default="disagreement",
-                   choices=["disagreement", "entropy", "union"],
+                   choices=["disagreement", "entropy", "union", "all"],
                    help="Position-selection rule during phase 1. "
                         "'disagreement' (default): include only positions "
                         "where the base model's argmax differs from the "
@@ -2715,13 +2739,19 @@ def main():
                   f"{final_total} total positions "
                   f"across {len(per_category)} categories", flush=True)
         else:
+            # --full_seq_bias overrides collection_mode to 'all' so that
+            # every reasoning token position is kept (not just disagreements).
+            _collect_mode = (
+                "all"
+                if getattr(args, "full_seq_bias", False)
+                else args.collection_mode)
             per_example, per_category = collect_disagreements(
                 base_model, thinking_model, base_tokenizer, merged,
                 max_seq_len=args.max_seq_len,
                 max_examples=args.n_responses,
                 topk=args.topk,
                 thinking_tokenizer=thinking_tokenizer,
-                collection_mode=args.collection_mode,
+                collection_mode=_collect_mode,
                 entropy_threshold=args.entropy_threshold,
                 frozen_bias=frozen_bias_cpu,
                 frozen_bias_layer=(args.frozen_bias_layer
@@ -3161,7 +3191,13 @@ def main():
             Tuple[int, int, int, torch.Tensor, torch.Tensor]] = []
         bias_holdout_records: List[
             Tuple[int, int, int, torch.Tensor, torch.Tensor]] = []
-        for k in active_keys:
+        # When --full_seq_bias, the collector used mode='all' which puts
+        # everything into '_global' (or SAE cats).  Use ALL per_category
+        # keys so the bias trains on the full sequence signal.
+        _bias_keys = (list(per_category.keys())
+                      if getattr(args, "full_seq_bias", False)
+                      else active_keys)
+        for k in _bias_keys:
             for ex_idx, pos, tlp, tix in per_category[k]:
                 rec = (ex_idx, pos, 0, tlp, tix)
                 if ex_idx in holdout_ex:

@@ -1673,7 +1673,10 @@ def main():
         # trainer in train-vectors/optimize_correction_vectors.py.  If
         # present, it overrides --old_vectors_layer on a per-key basis.
         per_key_layers = {}
-        lm_path = os.path.join(args.old_vectors_dir, "layer_map.json")
+        # Prefer model-specific file to avoid conflicts when models share a save dir
+        lm_path_specific = os.path.join(args.old_vectors_dir, f"layer_map_{dom_model_short}.json")
+        lm_path_generic  = os.path.join(args.old_vectors_dir, "layer_map.json")
+        lm_path = lm_path_specific if os.path.exists(lm_path_specific) else lm_path_generic
         if os.path.exists(lm_path):
             with open(lm_path) as f:
                 per_key_layers = {k: int(v) for k, v in json.load(f).items()}
