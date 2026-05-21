@@ -391,10 +391,22 @@ def load_dom_vectors(dom_dir, model_short, descriptions):
 # ---------------------------------------------------------------------------
 
 def _truncate_kv(kv, n=1):
-    """Remove the last *n* positions from a DynamicCache in-place."""
+    """Remove the last *n* positions from a DynamicCache in-place.
+
+    Some transformers versions return the legacy `tuple-of-tuples` cache
+    format from the first forward.  Detect that and slice manually so the
+    caller doesn't have to special-case it.
+    """
     if n <= 0:
-        return
-    kv.crop(-n)
+        return kv
+    if hasattr(kv, "crop"):
+        kv.crop(-n)
+        return kv
+    # Legacy tuple format: tuple(layer)( (K, V) ) with K,V shaped
+    # [B, n_heads, seq, head_dim].  Slice off the last n positions.
+    return tuple(
+        (k[..., :-n, :], v[..., :-n, :]) for (k, v) in kv
+    )
 
 
 def hybrid_generate_batched(
@@ -975,7 +987,7 @@ def hybrid_generate_batched(
                         #     tokens (would be OOD w.r.t. the bias which
                         #     was trained on reasoning positions only).
                         N_eff = max(1, min(int(token_window), int(n_gen) + 1))
-                        _truncate_kv(base_kv, n=N_eff)
+                        base_kv = _truncate_kv(base_kv, n=N_eff)
                         last_N_ids = base_ids_full[:, -N_eff:]
                         pos_ids = (
                             torch.arange(N_eff, device=device).view(1, -1)
@@ -997,7 +1009,7 @@ def hybrid_generate_batched(
                         cand = torch.argmax(last_logits, dim=-1)
                         del out
                     else:
-                        _truncate_kv(base_kv)
+                        base_kv = _truncate_kv(base_kv)
                         with torch.inference_mode():
                             out = base_model(
                                 input_ids=prev_base_input.unsqueeze(1),
@@ -1129,7 +1141,7 @@ def hybrid_generate_batched(
                             [steer_s["assigns"][b] == li for b in range(B)],
                             dtype=torch.bool, device=device) & disagree_mask
                     steer_s["coef"] = best_coeff  # per-row winner
-                    _truncate_kv(base_kv)
+                    base_kv = _truncate_kv(base_kv)
                     with torch.inference_mode():
                         commit = base_model(
                             input_ids=prev_base_input.unsqueeze(1),
@@ -1147,7 +1159,7 @@ def hybrid_generate_batched(
                     # (cleared layer_masks => hook is a no-op).
                     _clear_steering()
                     N_eff = max(1, min(int(token_window), int(n_gen) + 1))
-                    _truncate_kv(base_kv, n=N_eff)
+                    base_kv = _truncate_kv(base_kv, n=N_eff)
                     last_N_ids = base_ids_full[:, -N_eff:]
                     pos_ids = (
                         torch.arange(N_eff, device=device).view(1, -1)
@@ -1165,7 +1177,7 @@ def hybrid_generate_batched(
                     # steering should act as a per-step logit nudge only,
                     # matching the old non-KV pipeline's semantics.
                     _clear_steering()
-                    _truncate_kv(base_kv)
+                    base_kv = _truncate_kv(base_kv)
                     with torch.inference_mode():
                         revert = base_model(
                             input_ids=prev_base_input.unsqueeze(1),
