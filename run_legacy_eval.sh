@@ -24,14 +24,23 @@
 # ============================================================
 set -e
 
-MODEL_SIZE=${MODEL_SIZE:-1.5b}
-FIXED_COEF=${FIXED_COEF:-1.0}
+MODEL_SIZE=${MODEL_SIZE:-1.5b}   # 0.5b | 1.5b | 7b
+FIXED_COEF=${FIXED_COEF:-}       # empty = adaptive perplexity guardrail; set to e.g. 0.5 for fixed
+COEF_SWEEP=${COEF_SWEEP:-}       # override candidate set e.g. "0.1,0.5,1.0"; empty = default in hybrid_eval.py
+PG_BIAS_CAT_SWEEP=${PG_BIAS_CAT_SWEEP:-0}  # 1 -> cartesian (bias_coef,cat_coef) PG
+PG_BIAS_COEFS=${PG_BIAS_COEFS:-0.0,0.5,1.0}
+PG_CAT_COEFS=${PG_CAT_COEFS:-0.0,0.5,1.0}
+TOKEN_WINDOW=${TOKEN_WINDOW:-0}  # 0 = legacy; >0 = static last-N window (forces full-seq forward)
 DATASET=${DATASET:-math500}
 N_TASKS=${N_TASKS:-0}    # 0 = all
 BATCH_SIZE=${BATCH_SIZE:-500}            # thinking/base pre-gen batch
 HYBRID_BATCH=${HYBRID_BATCH:-$BATCH_SIZE}  # hybrid gen batch (lower for large models)
 MAX_NEW_TOKENS=${MAX_NEW_TOKENS:-2000}
 MAX_THINKING_TOKENS=${MAX_THINKING_TOKENS:-2000}
+# STEER_MODE: steer_all_positions (O(1), KV-cache, all positions),
+#             steer_all_positions_full (O(N²), all positions),
+#             last_token (legacy --token_windows -1: steer only last position; no flag passed)
+STEER_MODE=${STEER_MODE:-steer_all_positions_full}
 RESULTS_SUFFIX=${RESULTS_SUFFIX:-legacy_ce}
 EVAL_TYPE=${EVAL_TYPE:-full}  # full | bias_only | rand_cats
 
@@ -52,9 +61,23 @@ elif [[ "$MODEL_SIZE" == "0.5b" ]]; then
     OLD_VECTORS_LAYER=9
     VECTORS_DIR="train-vectors/results/vars/optimized_vectors_legacy_ce"
     BIAS_PATH="${VECTORS_DIR}/qwen2.5-0.5b_bias_linear.pt"
+elif [[ "$MODEL_SIZE" == "7b" ]]; then
+    BASE_MODEL="Qwen/Qwen2.5-7B"
+    THINK_MODEL="Open-Reasoner-Zero/Open-Reasoner-Zero-7B"
+    SAE_LAYER=20
+    N_CLUSTERS=10
+    OLD_VECTORS_LAYER=16
+    VECTORS_DIR="train-vectors/results/vars/optimized_vectors_legacy_ce"
+    BIAS_PATH="${VECTORS_DIR}/qwen2.5-7b_bias_linear.pt"
 else
-    echo "ERROR: MODEL_SIZE must be 1.5b or 0.5b"
+    echo "ERROR: MODEL_SIZE must be 1.5b, 0.5b, or 7b"
     exit 1
+fi
+
+# Allow env override of vectors dir (e.g. to use paper-main vectors)
+if [[ -n "$VECTORS_DIR_OVERRIDE" ]]; then
+    VECTORS_DIR="$VECTORS_DIR_OVERRIDE"
+    BIAS_PATH="${VECTORS_DIR}/qwen2.5-${MODEL_SIZE}_bias_linear.pt"
 fi
 
 # ---- Ablation flags ----
@@ -95,7 +118,7 @@ echo "======================================"
 echo " Hybrid eval: ORZ-${MODEL_SIZE}  type=${EVAL_TYPE}"
 echo "   coef=${FIXED_COEF}  dataset=${DATASET}"
 echo "   max_tokens=${MAX_NEW_TOKENS}  hybrid_batch=${HYBRID_BATCH}"
-echo "   steer_all_positions_full (window=0)"
+echo "   STEER_MODE=${STEER_MODE}"
 echo "   No guardrail. Disagreement gate."
 echo "======================================"
 
@@ -115,16 +138,19 @@ python hybrid_eval.py \
     --old_vectors_dir "../${VECTORS_DIR}" \
     --old_vectors_layer "$OLD_VECTORS_LAYER" \
     --bias_vector_path "../${BIAS_PATH}" \
-    --fixed_coef "$FIXED_COEF" \
-    --coef_select fixed \
-    --steer_all_positions_full \
+    ${FIXED_COEF:+--fixed_coef "$FIXED_COEF"} \
+    ${FIXED_COEF:+--coef_select fixed} \
+    ${COEF_SWEEP:+--coef_sweep "$COEF_SWEEP"} \
+    $([ "$PG_BIAS_CAT_SWEEP" = "1" ] && echo "--pg_bias_cat_sweep --pg_bias_coefs $PG_BIAS_COEFS --pg_cat_coefs $PG_CAT_COEFS") \
+    $([ "$TOKEN_WINDOW" != "0" ] && echo "--token_window $TOKEN_WINDOW") \
+    $([ "$STEER_MODE" != "last_token" ] && echo "--${STEER_MODE}") \
     --max_new_tokens "$MAX_NEW_TOKENS" \
     --max_thinking_tokens "$MAX_THINKING_TOKENS" \
-    --results_suffix "${RESULTS_SUFFIX}_coef${FIXED_COEF}${SUFFIX_TAG}" \
+    --results_suffix "${RESULTS_SUFFIX}${FIXED_COEF:+_coef${FIXED_COEF}}${SUFFIX_TAG}" \
     $EXTRA_FLAGS \
     "$@"
 
 echo ""
 echo "======================================"
-echo " Eval DONE: ORZ-${MODEL_SIZE}  type=${EVAL_TYPE}  coef=${FIXED_COEF}"
+echo " Eval DONE: ORZ-${MODEL_SIZE}  type=${EVAL_TYPE}  coef=${FIXED_COEF:-adaptive}"
 echo "======================================"

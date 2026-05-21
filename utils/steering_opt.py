@@ -524,7 +524,7 @@ def _build_right_padded_batch(
 
 def _compute_target_cross_entropy(logits: torch.Tensor, input_ids: torch.Tensor, steering_slices: List[slice]):
     shift_logits = logits[:, :-1].contiguous()
-    shift_labels = input_ids[:, 1:].contiguous()
+    shift_labels = input_ids[:, 1:].contiguous().to(logits.device)
     target_mask = torch.zeros_like(shift_labels, dtype=torch.bool)
     for row, sl in enumerate(steering_slices):
         tgt_start = sl.start - 1

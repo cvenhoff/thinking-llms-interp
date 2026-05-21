@@ -135,6 +135,24 @@ def parse_args():
                         "top-K. 'think_top1': oracle ceiling.")
     p.add_argument("--kl_topk", type=int, default=3,
                    help="K for --coef_select=kl_topk (and kl_top3 alias).")
+    p.add_argument("--pg_bias_cat_sweep", action="store_true", default=False,
+                   help="Sweep the cartesian product of (bias_coef, cat_coef) "
+                        "per disagreement step and pick the (b,c) pair with "
+                        "highest thinking-model log-prob at the base steered "
+                        "argmax. Disables the legacy load-time bias-into-cat "
+                        "folding so bias and cat have independent coefficients. "
+                        "Overrides --coef_select / --fixed_coef / --coef_sweep.")
+    p.add_argument("--pg_bias_coefs", type=str, default="0.0,0.5,1.0",
+                   help="Bias coefficient candidates for --pg_bias_cat_sweep.")
+    p.add_argument("--pg_cat_coefs", type=str, default="0.0,0.5,1.0",
+                   help="Cat coefficient candidates for --pg_bias_cat_sweep.")
+    p.add_argument("--token_window", type=int, default=0,
+                   help="When > 0, force full-sequence forward (no KV cache) "
+                        "during the coefficient sweep and apply the shift "
+                        "c*(bias+cat) only to the LAST `token_window` positions "
+                        "of layer `steering_layer`. Matches paper's "
+                        "`--token_windows -N` semantics (positive integer here). "
+                        "0 means 'use the legacy --steer_all_positions* flags'.")
     p.add_argument("--steer_all_positions_full", action="store_true",
                    help="Faithful reproduction of hybrid_token.py semantics: "
                         "during the coefficient sweep, drop the base-model KV "
@@ -393,6 +411,11 @@ def hybrid_generate_batched(
     coef_select="pg", kl_topk=3,
     always_on_bias_vec=None,
     always_on_bias_layer=None,
+    pg_bias_cat_sweep=False,
+    pg_bias_vec=None,
+    pg_bias_coefs=(0.0, 0.5, 1.0),
+    pg_cat_coefs=(0.0, 0.5, 1.0),
+    token_window=0,
 ):
     """Batched KV-cached hybrid generation (paper recipe).
 
@@ -437,6 +460,9 @@ def hybrid_generate_batched(
     token_infos = [[] for _ in range(B)] if collect_details else None
     steer_sels = [[] for _ in range(B)]
     coeff_sels = [[] for _ in range(B)]
+    # Parallel per-step bias-coef history (only meaningful when
+    # pg_bias_cat_sweep=True; otherwise zeros are recorded).
+    bcoef_sels = [[] for _ in range(B)]
     finished = torch.zeros(B, dtype=torch.bool, device=device)
 
     # ---- hooks: thinking model SAE layer ----
@@ -456,7 +482,29 @@ def hybrid_generate_batched(
     # output, matching hybrid_token.py's `token_windows=0` (all-positions)
     # semantics. When False (default), only the last position is shifted.
     steer_s = {"vecs": None, "layer_masks": {}, "coef": 1.0,
-               "all_positions": False}
+               "all_positions": False,
+               # When > 0 and all_positions is True, shift is restricted
+               # to the LAST `window_size` positions (matches paper's
+               # --token_windows -N). 0 means "all" when all_positions=True.
+               "window_size": int(token_window) if token_window > 0 else 0,
+               # Independent bias term, used by --pg_bias_cat_sweep. When
+               # bias_vec is None the hook behaves exactly as before.
+               "bias_vec": None, "bias_coef": 0.0}
+    # Dynamic window flag: when token_window > 0 AND we're NOT in the
+    # legacy full-seq mode, use a KV-cache path that truncates the cache
+    # by N=token_window, re-runs the last N tokens with the steering
+    # hook applying the shift to all of them, then reads the last logit.
+    # This costs O(N) per candidate forward instead of O(seq_len).
+    _kv_window_mode = bool(token_window and int(token_window) > 0
+                           and not steer_all_positions_full)
+    if _kv_window_mode:
+        # The hook needs all_positions=True (we'll set the toggle
+        # explicitly around each multi-token candidate forward) and
+        # window_size is implicitly the input length, so we leave the
+        # legacy window_size=0 in steer_s and rely on h.shape[1] alone.
+        pass
+    if pg_bias_cat_sweep and pg_bias_vec is not None:
+        steer_s["bias_vec"] = pg_bias_vec.to(device=device, dtype=dtype)
     # ---- always-on bias hook (fires at every position, every step) ----
     _bias_handles = []
     if always_on_bias_vec is not None and always_on_bias_layer is not None:
@@ -512,11 +560,38 @@ def hybrid_generate_batched(
                              * v[mask].unsqueeze(1))
                 else:
                     delta = (coef * v[mask]).unsqueeze(1)
+                # Optional independent bias term (only used by
+                # --pg_bias_cat_sweep; otherwise bias_vec is None or
+                # bias_coef==0 and this branch is a no-op).
+                _bias_v = steer_s.get("bias_vec")
+                _bias_c = steer_s.get("bias_coef", 0.0)
+                if _bias_v is not None and (
+                        isinstance(_bias_c, torch.Tensor)
+                        or float(_bias_c) != 0.0):
+                    if _bias_v.device != h_dev:
+                        _bias_v = _bias_v.to(h_dev, dtype=h.dtype)
+                    bv = _bias_v.view(1, 1, -1)
+                    if isinstance(_bias_c, torch.Tensor):
+                        if _bias_c.device != h_dev:
+                            _bias_c = _bias_c.to(h_dev)
+                        delta = delta + (_bias_c[mask].view(-1, 1, 1) * bv)
+                    else:
+                        delta = delta + (float(_bias_c) * bv)
                 if h.shape[1] > 1 and steer_s["all_positions"]:
-                    # Full-seq forward with all-positions steering
-                    # (matches hybrid_token.py's token_windows=0):
-                    # add the per-row shift to EVERY position.
-                    h[mask, :, :] = h[mask, :, :] + delta
+                    ws = int(steer_s.get("window_size", 0) or 0)
+                    if ws > 0:
+                        # Static last-N window (paper's --token_windows -N):
+                        # clip the shift to the last ws positions of the
+                        # full-sequence forward.
+                        n_pos = h.shape[1]
+                        if ws >= n_pos:
+                            h[mask, :, :] = h[mask, :, :] + delta
+                        else:
+                            h[mask, -ws:, :] = h[mask, -ws:, :] + delta
+                    else:
+                        # Full-seq forward with all-positions steering
+                        # (matches hybrid_token.py's token_windows=0).
+                        h[mask, :, :] = h[mask, :, :] + delta
                 elif h.shape[1] > 1:
                     # Match OLD `--token_windows -1`: only steer the
                     # last position of a full-seq forward.
@@ -785,6 +860,9 @@ def hybrid_generate_batched(
                            | finished | _is_tag | _is_forced | _not_inside)
 
             best_coeff = torch.zeros(B, device=device)
+            # Parallel best-bias-coef tracker (only meaningful under
+            # pg_bias_cat_sweep; otherwise stays 0 everywhere).
+            best_bcoef = torch.zeros(B, device=device)
             did_steer = torch.zeros(B, dtype=torch.bool, device=device)
             output_toks = base_next_toks
 
@@ -846,11 +924,27 @@ def hybrid_generate_batched(
                 # produces an argmax==thinking top-1, so iterate sorted.
                 # For think_top1_match_maxconf we iterate the full sweep
                 # and pick the matching coef with highest log p(T).
-                _sweep_iter = (sorted(_SWEEP)
-                               if coef_select == "think_top1_match"
-                               else _SWEEP)
-                for sc in _sweep_iter:
-                    steer_s["coef"] = sc
+                if coef_select == "pg_bias_cat":
+                    # Cartesian product (bias_coef, cat_coef). Both are
+                    # passed through steer_s; the hook adds
+                    # bias_coef * bias_vec  +  cat_coef * cat_vec
+                    # at the disagreement-step positions.
+                    _sweep_iter = [(float(b), float(c))
+                                   for b in pg_bias_coefs
+                                   for c in pg_cat_coefs]
+                else:
+                    _sweep_iter = (sorted(_SWEEP)
+                                   if coef_select == "think_top1_match"
+                                   else _SWEEP)
+                for _sw in _sweep_iter:
+                    if coef_select == "pg_bias_cat":
+                        _bc, sc = _sw  # (bias_coef, cat_coef)
+                        steer_s["bias_coef"] = _bc
+                        steer_s["coef"] = sc
+                    else:
+                        _bc = 0.0
+                        sc = _sw
+                        steer_s["coef"] = sc
                     for li in all_steer_layers:
                         steer_s["layer_masks"][li] = torch.tensor(
                             [steer_s["assigns"][b] == li for b in range(B)],
@@ -871,6 +965,34 @@ def hybrid_generate_batched(
                                 use_cache=False,
                                 logits_to_keep=1)
                         steer_s["all_positions"] = False
+                        last_logits = out.logits[:, -1, :]
+                        cand = torch.argmax(last_logits, dim=-1)
+                        del out
+                    elif _kv_window_mode:
+                        # Dynamic last-N window with KV-cache reuse.
+                        #   - N_eff = min(token_window, current generation
+                        #     length).  We never reach back into prompt
+                        #     tokens (would be OOD w.r.t. the bias which
+                        #     was trained on reasoning positions only).
+                        N_eff = max(1, min(int(token_window), int(n_gen) + 1))
+                        _truncate_kv(base_kv, n=N_eff)
+                        last_N_ids = base_ids_full[:, -N_eff:]
+                        pos_ids = (
+                            torch.arange(N_eff, device=device).view(1, -1)
+                            + (base_pos - N_eff).view(-1, 1))
+                        # Multi-token forward: ask the hook to shift ALL
+                        # of these N positions (= the last N of the full
+                        # sequence after re-extending the cache).
+                        steer_s["all_positions"] = True
+                        with torch.inference_mode():
+                            out = base_model(
+                                input_ids=last_N_ids,
+                                attention_mask=b_mask,
+                                position_ids=pos_ids,
+                                past_key_values=base_kv,
+                                use_cache=True)
+                        steer_s["all_positions"] = False
+                        base_kv = out.past_key_values
                         last_logits = out.logits[:, -1, :]
                         cand = torch.argmax(last_logits, dim=-1)
                         del out
@@ -943,7 +1065,7 @@ def hybrid_generate_batched(
                             best_coeff)
                         best_tok = torch.where(disagree_mask, cand, best_tok)
                     else:
-                        if coef_select == "pg":
+                        if coef_select in ("pg", "pg_bias_cat"):
                             c_lp = think_lp[arange_B, cand]
                         elif coef_select == "think_top1":
                             # Oracle / ceiling: pick coef that maximises
@@ -970,6 +1092,8 @@ def hybrid_generate_batched(
                         if better.any():
                             best_lp[better] = c_lp[better]
                             best_coeff[better] = sc
+                            if coef_select == "pg_bias_cat":
+                                best_bcoef[better] = _bc
                             best_tok[better] = cand[better]
 
                 if coef_select in ("think_top1_match",
@@ -1015,6 +1139,27 @@ def hybrid_generate_batched(
                     base_kv = commit.past_key_values
                     del commit
                     steer_s["coef"] = 1.0  # reset
+                elif _kv_window_mode:
+                    # Revert the K/V at the last N positions to unsteered:
+                    # the last candidate forward left those layers' K/V
+                    # with that candidate's shift baked in.  Truncate by
+                    # N and re-forward those N tokens with no hook
+                    # (cleared layer_masks => hook is a no-op).
+                    _clear_steering()
+                    N_eff = max(1, min(int(token_window), int(n_gen) + 1))
+                    _truncate_kv(base_kv, n=N_eff)
+                    last_N_ids = base_ids_full[:, -N_eff:]
+                    pos_ids = (
+                        torch.arange(N_eff, device=device).view(1, -1)
+                        + (base_pos - N_eff).view(-1, 1))
+                    with torch.inference_mode():
+                        revert = base_model(
+                            input_ids=last_N_ids,
+                            attention_mask=b_mask,
+                            position_ids=pos_ids,
+                            past_key_values=base_kv, use_cache=True)
+                    base_kv = revert.past_key_values
+                    del revert
                 else:
                     # Revert the K/V at prev_base_input to unsteered —
                     # steering should act as a per-step logit nudge only,
@@ -1173,6 +1318,7 @@ def hybrid_generate_batched(
             ).detach().cpu().tolist()
             did_steer_row = did_steer.detach().cpu().tolist()
             best_coeff_row = best_coeff.detach().cpu().tolist()
+            best_bcoef_row = best_bcoef.detach().cpu().tolist()
             assigns_snapshot = list(steer_s.get("assigns", [default_layer] * B))
 
             for b in range(B):
@@ -1184,6 +1330,8 @@ def hybrid_generate_batched(
                 steer_sels[b].append(sel)
                 cc = round(best_coeff_row[b], 1) if did_steer_row[b] else 0.0
                 coeff_sels[b].append(cc)
+                bc = round(best_bcoef_row[b], 1) if did_steer_row[b] else 0.0
+                bcoef_sels[b].append(bc)
                 if token_infos is not None:
                     k = lat_keys[b]
                     v_norm = vec_norms.get(k, 0.0)
@@ -1275,6 +1423,15 @@ def hybrid_generate_batched(
             if c > 0:
                 k = str(round(c, 1))
                 cc_hist[k] = cc_hist.get(k, 0) + 1
+        # Joint (bias_coef, cat_coef) histogram for --pg_bias_cat_sweep
+        # (recorded only at "steered" positions; (0.0, 0.0) is included
+        # so the user can see how often PG picked the no-steer option).
+        bc_hist: Dict[str, int] = {}
+        for bcv, cv, sel in zip(bcoef_sels[b], coeff_sels[b], steer_sels[b]):
+            if sel != "steered":
+                continue
+            key = f"{round(bcv, 1)}|{round(cv, 1)}"
+            bc_hist[key] = bc_hist.get(key, 0) + 1
         # Richer per-example debug aggregates (derived from token_infos).
         infos_b = token_infos[b] if token_infos else []
         n_dis = sum(1 for ti in infos_b if ti.get("disagreed"))
@@ -1309,6 +1466,7 @@ def hybrid_generate_batched(
                 "n_total": n_tot,
                 "frac_steered": round(n_st / max(n_tot, 1), 4),
                 "coeff_distribution": cc_hist,
+                "bias_cat_coeff_distribution": bc_hist,
                 # --- new debug aggregates ---
                 "n_disagree": n_dis,
                 "n_no_vector": n_no_vec,
@@ -1797,6 +1955,18 @@ def main():
             _always_on_bias_layer = _aon_layer
             print(f"  [bias_always_on] will apply bias at layer {_aon_layer} "
                   "at every position; NOT folded into cat vectors.")
+        elif getattr(args, "pg_bias_cat_sweep", False):
+            # Cartesian-PG mode: bias and cat are applied via the SAME
+            # steering hook but with INDEPENDENT coefficients. We pass
+            # the raw (unscaled) bias_vec to the decoder and do NOT fold
+            # it into the cat vectors. bias_alpha (per-cat bias scaling)
+            # is intentionally ignored in this mode — the whole point is
+            # to let the PG choose the bias magnitude freely.
+            _always_on_bias_vec = None
+            _always_on_bias_layer = None
+            print(f"  [pg_bias_cat_sweep] bias is NOT folded into cat "
+                  f"vectors; (b,c) ∈ pg_bias_coefs × pg_cat_coefs is "
+                  f"swept per disagreement step.")
         else:
             _always_on_bias_vec = None
             _always_on_bias_layer = None
@@ -2002,9 +2172,16 @@ def main():
         _coef_sweep = ([args.fixed_coef]
                        if args.fixed_coef is not None
                        else [float(x) for x in args.coef_sweep.split(",")])
-        _coef_select = ("fixed"
-                        if args.fixed_coef is not None
-                        else args.coef_select)
+        if getattr(args, "pg_bias_cat_sweep", False):
+            _coef_select = "pg_bias_cat"
+            _pg_bias_coefs = tuple(float(x) for x in args.pg_bias_coefs.split(","))
+            _pg_cat_coefs = tuple(float(x) for x in args.pg_cat_coefs.split(","))
+        else:
+            _coef_select = ("fixed"
+                            if args.fixed_coef is not None
+                            else args.coef_select)
+            _pg_bias_coefs = (0.0, 0.5, 1.0)
+            _pg_cat_coefs = (0.0, 0.5, 1.0)
         hr = hybrid_generate_batched(
             think_model, base_model, base_tok,
             [t["thinking_prompt"] for t in batch],
@@ -2027,7 +2204,14 @@ def main():
                                 else None),
             always_on_bias_layer=(_always_on_bias_layer
                                   if getattr(args, "bias_always_on", False)
-                                  else None))
+                                  else None),
+            pg_bias_cat_sweep=getattr(args, "pg_bias_cat_sweep", False),
+            pg_bias_vec=(locals().get("bias_vec")
+                         if getattr(args, "pg_bias_cat_sweep", False)
+                         else None),
+            pg_bias_coefs=_pg_bias_coefs,
+            pg_cat_coefs=_pg_cat_coefs,
+            token_window=int(getattr(args, "token_window", 0)))
 
         judge_items = []
         batch_meta = []
