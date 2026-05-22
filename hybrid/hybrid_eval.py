@@ -409,6 +409,56 @@ def _truncate_kv(kv, n=1):
     )
 
 
+def _snapshot_last_n(kv, n):
+    """Clone the K and V tensors at positions [-n:] for every layer.
+
+    Returns (snap_keys, snap_vals) where each is a list of [B, H, n, D]
+    tensors (one per layer).  Used to make the multi-token KV-window
+    sweep round-trip-safe: we mutate the cache during the sweep, then
+    write the originals back so the cache is byte-identical to its
+    pre-sweep (incrementally-built) state.
+    """
+    if n <= 0:
+        return [], []
+    if hasattr(kv, "key_cache"):
+        ks = [k[..., -n:, :].clone() for k in kv.key_cache]
+        vs = [v[..., -n:, :].clone() for v in kv.value_cache]
+    else:
+        ks = [k[..., -n:, :].clone() for (k, _) in kv]
+        vs = [v[..., -n:, :].clone() for (_, v) in kv]
+    return ks, vs
+
+
+def _restore_last_n(kv, snap_ks, snap_vs):
+    """Write `snap_ks` / `snap_vs` back into the cache at positions [-n:].
+
+    Assumes the cache currently has length >= snap_ks[0].shape[-2].  In
+    practice the cache will be at its original (pre-sweep) length, since
+    each candidate forward truncates by N and re-rolls N tokens, leaving
+    the cache at the same length.
+
+    Wrapped in `torch.inference_mode()` because the cache tensors are
+    typically themselves inference tensors (created inside the model
+    forward's inference_mode context), so in-place mutation must happen
+    inside an inference context.
+    """
+    if not snap_ks:
+        return kv
+    n = snap_ks[0].shape[-2]
+    with torch.inference_mode():
+        if hasattr(kv, "key_cache"):
+            for li in range(len(kv.key_cache)):
+                kv.key_cache[li][..., -n:, :].copy_(snap_ks[li])
+                kv.value_cache[li][..., -n:, :].copy_(snap_vs[li])
+            return kv
+        # Legacy tuple-of-tuples cache (immutable tuple, but inner
+        # tensors are mutable).
+        for li, (k, v) in enumerate(kv):
+            k[..., -n:, :].copy_(snap_ks[li])
+            v[..., -n:, :].copy_(snap_vs[li])
+    return kv
+
+
 def hybrid_generate_batched(
     thinking_model, base_model, base_tokenizer,
     thinking_prompts, base_prompts, max_new_tokens,
@@ -940,14 +990,35 @@ def hybrid_generate_batched(
                     # Cartesian product (bias_coef, cat_coef). Both are
                     # passed through steer_s; the hook adds
                     # bias_coef * bias_vec  +  cat_coef * cat_vec
-                    # at the disagreement-step positions.
-                    _sweep_iter = [(float(b), float(c))
-                                   for b in pg_bias_coefs
-                                   for c in pg_cat_coefs]
+                    # at the disagreement-step positions.  Sort so that
+                    # (0, 0) comes first; this lets `last_logits` for the
+                    # no-shift candidate be the 1-token base logits and
+                    # avoids running a useless forward.
+                    _sweep_iter = sorted(
+                        [(float(b), float(c))
+                         for b in pg_bias_coefs
+                         for c in pg_cat_coefs],
+                        key=lambda bc: (bc[0] + bc[1], bc[0], bc[1]))
                 else:
                     _sweep_iter = (sorted(_SWEEP)
                                    if coef_select == "think_top1_match"
                                    else _SWEEP)
+                # Track whether any candidate forward actually touched
+                # base_kv (so we know whether the post-sweep restore is
+                # needed).  Stays False when only the no-shift candidate
+                # ran via the short-circuit below.
+                _kv_dirty = False
+                # Snapshot the last N positions of base_kv before any
+                # shifted candidate runs.  After the sweep we copy these
+                # back, giving a cache state that's byte-identical to
+                # the pristine incrementally-built cache (no extra drift
+                # from an unsteered re-roll).  Only relevant in
+                # _kv_window_mode.
+                _kv_snap_ks, _kv_snap_vs = [], []
+                if _kv_window_mode:
+                    _N_snap = max(1, min(int(token_window), int(n_gen) + 1))
+                    _kv_snap_ks, _kv_snap_vs = _snapshot_last_n(
+                        base_kv, _N_snap)
                 for _sw in _sweep_iter:
                     if coef_select == "pg_bias_cat":
                         _bc, sc = _sw  # (bias_coef, cat_coef)
@@ -986,28 +1057,55 @@ def hybrid_generate_batched(
                         #     length).  We never reach back into prompt
                         #     tokens (would be OOD w.r.t. the bias which
                         #     was trained on reasoning positions only).
-                        N_eff = max(1, min(int(token_window), int(n_gen) + 1))
-                        base_kv = _truncate_kv(base_kv, n=N_eff)
-                        last_N_ids = base_ids_full[:, -N_eff:]
-                        pos_ids = (
-                            torch.arange(N_eff, device=device).view(1, -1)
-                            + (base_pos - N_eff).view(-1, 1))
-                        # Multi-token forward: ask the hook to shift ALL
-                        # of these N positions (= the last N of the full
-                        # sequence after re-extending the cache).
-                        steer_s["all_positions"] = True
-                        with torch.inference_mode():
-                            out = base_model(
-                                input_ids=last_N_ids,
-                                attention_mask=b_mask,
-                                position_ids=pos_ids,
-                                past_key_values=base_kv,
-                                use_cache=True)
-                        steer_s["all_positions"] = False
-                        base_kv = out.past_key_values
-                        last_logits = out.logits[:, -1, :]
-                        cand = torch.argmax(last_logits, dim=-1)
-                        del out
+                        #
+                        # IMPORTANT: when this candidate is the "no-shift"
+                        # one (bias_coef == cat_coef == 0), we MUST short-
+                        # circuit to the 1-token base decode logits
+                        # (`base_logits` / `base_next_toks`) rather than
+                        # re-rolling the last N tokens.  Otherwise tiny
+                        # bf16/matmul nondeterminism between the
+                        # incrementally-built KV cache (built by repeated
+                        # 1-token forwards) and the multi-token re-roll
+                        # over the same positions can flip the argmax,
+                        # turning real "no-shift wins" decisions into
+                        # spurious "shift needed" picks downstream.  This
+                        # drift is mild for SDPA but enormous for eager
+                        # attention on Qwen2.5-1.5B (cache K/V can drift
+                        # by O(1) per position after ~60 steps), and is
+                        # what was producing the eager runs' negative gap
+                        # recovery.  Skipping the forward also saves us
+                        # one model call per disagreement step.
+                        _is_no_shift = (
+                            coef_select == "pg_bias_cat"
+                            and float(_bc) == 0.0 and float(sc) == 0.0)
+                        if _is_no_shift:
+                            last_logits = base_logits
+                            cand = base_next_toks
+                        else:
+                            N_eff = max(1, min(int(token_window), int(n_gen) + 1))
+                            base_kv = _truncate_kv(base_kv, n=N_eff)
+                            last_N_ids = base_ids_full[:, -N_eff:]
+                            pos_ids = (
+                                torch.arange(N_eff, device=device).view(1, -1)
+                                + (base_pos - N_eff).view(-1, 1))
+                            # Multi-token forward: ask the hook to shift
+                            # ALL of these N positions (= the last N of
+                            # the full sequence after re-extending the
+                            # cache).
+                            steer_s["all_positions"] = True
+                            with torch.inference_mode():
+                                out = base_model(
+                                    input_ids=last_N_ids,
+                                    attention_mask=b_mask,
+                                    position_ids=pos_ids,
+                                    past_key_values=base_kv,
+                                    use_cache=True)
+                            steer_s["all_positions"] = False
+                            base_kv = out.past_key_values
+                            last_logits = out.logits[:, -1, :]
+                            cand = torch.argmax(last_logits, dim=-1)
+                            _kv_dirty = True
+                            del out
                     else:
                         base_kv = _truncate_kv(base_kv)
                         with torch.inference_mode():
@@ -1152,26 +1250,18 @@ def hybrid_generate_batched(
                     del commit
                     steer_s["coef"] = 1.0  # reset
                 elif _kv_window_mode:
-                    # Revert the K/V at the last N positions to unsteered:
-                    # the last candidate forward left those layers' K/V
-                    # with that candidate's shift baked in.  Truncate by
-                    # N and re-forward those N tokens with no hook
-                    # (cleared layer_masks => hook is a no-op).
+                    # Restore K/V at positions [-N:] to the snapshot we
+                    # took before the sweep.  This gives back the
+                    # pristine, incrementally-built cache state — bit-
+                    # identical to "no sweep ever happened", so the next
+                    # 1-token decode produces the same logits it would
+                    # without our steering machinery.  This replaces the
+                    # old "re-roll unsteered" path, which was itself
+                    # introducing batched-vs-incremental drift into the
+                    # cache at every disagreement step.
                     _clear_steering()
-                    N_eff = max(1, min(int(token_window), int(n_gen) + 1))
-                    base_kv = _truncate_kv(base_kv, n=N_eff)
-                    last_N_ids = base_ids_full[:, -N_eff:]
-                    pos_ids = (
-                        torch.arange(N_eff, device=device).view(1, -1)
-                        + (base_pos - N_eff).view(-1, 1))
-                    with torch.inference_mode():
-                        revert = base_model(
-                            input_ids=last_N_ids,
-                            attention_mask=b_mask,
-                            position_ids=pos_ids,
-                            past_key_values=base_kv, use_cache=True)
-                    base_kv = revert.past_key_values
-                    del revert
+                    if _kv_dirty:
+                        _restore_last_n(base_kv, _kv_snap_ks, _kv_snap_vs)
                 else:
                     # Revert the K/V at prev_base_input to unsteered —
                     # steering should act as a per-step logit nudge only,
@@ -1743,7 +1833,7 @@ def main():
         think_tok.pad_token = think_tok.eos_token
     think_model = AutoModelForCausalLM.from_pretrained(
         args.thinking_model, torch_dtype=torch.bfloat16, device_map="auto",
-        attn_implementation="sdpa")
+        attn_implementation=os.environ.get("ATTN_IMPL", "sdpa"))
     think_model.eval()
 
     print(f"Loading base model {args.base_model}...")
@@ -1752,7 +1842,7 @@ def main():
         base_tok.pad_token = base_tok.eos_token
     base_model = AutoModelForCausalLM.from_pretrained(
         args.base_model, torch_dtype=torch.bfloat16, device_map="auto",
-        attn_implementation="sdpa")
+        attn_implementation=os.environ.get("ATTN_IMPL", "sdpa"))
     base_model.eval()
 
     # ---- Tokenizer alignment check ----
