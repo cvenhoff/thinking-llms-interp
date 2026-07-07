@@ -2896,21 +2896,6 @@ def main():
                    help="If set, save V + MLP state at the end of every "
                         "epoch under {save_dir}/epoch_checkpoints/ so we "
                         "can experiment with intermediate vectors.")
-    p.add_argument("--eval_percat_only", action="store_true",
-                   help="Skip training: load the saved V (per-cat linear "
-                        "files) + CatCoefMLP from --save_dir and recompute "
-                        "per-category holdout CE on trainmix_holdout, "
-                        "math500_oos, gsm8k_oos (same sets used during "
-                        "training logging). Writes --eval_percat_out.")
-    p.add_argument("--eval_percat_out", type=str, default="per_cat_ce_eval.json",
-                   help="Filename (under --save_dir) for the eval_percat_only "
-                        "JSON dump.")
-    p.add_argument("--eval_percat_holdouts", type=str,
-                   default="trainmix_holdout,math500_oos,gsm8k_oos",
-                   help="Comma-separated holdout sets to evaluate in "
-                        "--eval_percat_only mode. For cheap vector SELECTION "
-                        "pass 'trainmix_holdout' only (avoids touching the "
-                        "math500/gsm8k eval sets).")
     p.add_argument("--disagree_cache", type=str, default=None,
                    help="Path to cached disagreement data (.pt).  If "
                         "provided and exists, skip Phase A and load from "
@@ -3565,60 +3550,6 @@ def main():
             print(f"  [ablation] loaded reference norms from "
                   f"{args.init_cats_from_dir}: "
                   f"{[f'{n:.3f}' for n in init_cat_norms]}", flush=True)
-
-        if args.eval_percat_only:
-            from coef_mlp import CatCoefMLP
-            device = next(base_model.parameters()).device
-            # Rebuild V from the saved per-cat linear files (cat order via
-            # key_to_cat so it matches the saved MLP / training).
-            V_eval = torch.zeros((n_cats, hidden), dtype=torch.float32)
-            for k in full_cat_keys:
-                ci = key_to_cat[k]
-                vp = os.path.join(args.save_dir, f"{model_short}_{k}_linear.pt")
-                dd = torch.load(vp, map_location="cpu", weights_only=False)
-                if isinstance(dd, dict):
-                    vec = dd.get(k, next(iter(dd.values())))
-                else:
-                    vec = dd
-                V_eval[ci] = vec.float().view(-1)
-            V_eval = V_eval.to(device)
-            mlp_eval = CatCoefMLP(d_in=hidden, n_cats=n_cats,
-                                  d_hidden=args.mlp_hidden_dim,
-                                  per_cat=args.mlp_per_cat).to(device).float()
-            sd = torch.load(os.path.join(args.save_dir, "cat_coef_mlp.pt"),
-                            map_location="cpu", weights_only=False)
-            mlp_eval.load_state_dict(sd)
-            mlp_eval.eval()
-            out = {"per_cat_keys": full_cat_keys, "n_cats": n_cats,
-                   "steer_layer": args.steer_layer,
-                   "sae_layer": args.sae_layer,
-                   "sae_n_clusters": args.sae_n_clusters,
-                   "holdouts": {}}
-            _req_holdouts = [h.strip() for h in
-                             args.eval_percat_holdouts.split(",") if h.strip()]
-            for hkey in _req_holdouts:
-                recs_h = holdout_cat_records.get(hkey)
-                if not recs_h:
-                    out["holdouts"][hkey] = None
-                    continue
-                with torch.no_grad():
-                    sw, cb, pcce, pcn, sacc, pcacc = _holdout_eval_cats_mlp_full(
-                        base_model, holdout_per_example[hkey], recs_h,
-                        V_eval, mlp_eval, n_cats=n_cats,
-                        steer_layer=args.steer_layer,
-                        pad_token_id=base_tokenizer.pad_token_id,
-                        batch_size=args.train_batch_size, distributed=False)
-                out["holdouts"][hkey] = {
-                    "sample_weighted_ce": sw, "cat_balanced_ce": cb,
-                    "per_cat_ce": pcce, "per_cat_n": pcn,
-                    "steer_top1_acc": sacc, "steer_top1_acc_per_cat": pcacc}
-                print(f"  [eval_percat] {hkey}: sw={sw:.4f} cb={cb:.4f} "
-                      f"steer_top1_acc={sacc*100:.2f}%", flush=True)
-            outp = os.path.join(args.save_dir, args.eval_percat_out)
-            with open(outp, "w") as f:
-                json.dump(out, f, indent=2)
-            print(f"[eval_percat_only] wrote {outp}", flush=True)
-            return
 
         V_cpu, mlp_out, cats_metrics = train_cats_mlp_coef(
             base_model, per_example, cat_records, n_cats,

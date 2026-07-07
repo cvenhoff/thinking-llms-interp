@@ -1,172 +1,96 @@
 # Base Models Know How to Reason, Thinking Models Learn When
 
-Code for the paper [Base Models Know How to Reason, Thinking Models Learn When](https://arxiv.org/abs/2510.07364).
+Code for the paper [Base Models Know How to Reason, Thinking Models Learn When](https://arxiv.org/abs/2510.07364) (ICML 2026).
 
 **Website:** [thinking-llms-interp.com](https://thinking-llms-interp.com/)
 
-This branch contains the **category-vector hybrid-steering** pipeline: we discover
-per-model reasoning taxonomies with SAEs, train a small MLP that predicts *which*
-taxonomy direction to apply *where*, and build "hybrid" models (a base model plus
-the learned category-steering vectors) that we evaluate against the corresponding
-thinking model. Everything needed to reproduce the paper's figures and tables lives
-here; the canonical pipeline is in [`mlp_pipeline/canonical/`](mlp_pipeline/canonical).
+This branch reproduces the **category-vector hybrid-steering** results: we discover
+per-model reasoning taxonomies with SAEs, train a small MLP that decides which
+taxonomy direction to steer with and where, and build hybrid models (a base model
+plus the learned steering) that we compare against the matching thinking model.
 
 ## Setup
 
-### Requirements
-
-- Python 3.10+
-- `uv` installed (`pip install uv` or see the [uv docs](https://docs.astral.sh/uv/getting-started/installation/))
-- A SLURM cluster with GPUs (the large models need 2× 80 GB GPUs). The `.sh`
-  drivers submit `srun` jobs; the underlying `python` entry points also run
-  stand-alone if you prefer to schedule them yourself.
-
-### Install
+Requires Python 3.10+, [`uv`](https://docs.astral.sh/uv/), and GPUs (the 32B pairs
+need 2×80 GB).
 
 ```bash
 git clone https://github.com/cvenhoff/cot-interp.git
 cd cot-interp
-uv sync
+uv sync                                       # installs everything into .venv
+cp .env_exports.sh.example .env_exports.sh    # then edit paths (HF cache, etc.)
+echo "ANTHROPIC_API_KEY=sk-..." > .env        # LLM judge credentials
 ```
 
-Copy your API credentials for the LLM judge into a local `.env` (git-ignored):
-
-```bash
-echo "ANTHROPIC_API_KEY=sk-..." > .env
-```
+The rollout scripts activate `.venv_vllm` if you keep vLLM in a separate
+environment, and otherwise fall back to `.venv`.
 
 ## Repository layout
 
 | Path | Purpose |
 |------|---------|
-| `generate-responses/` | Generate + annotate thinking-model responses (SAE inputs). |
-| `train-saes/`         | Train SAEs and build the per-model reasoning **taxonomies**. |
-| `train-vectors/`      | Category-vector **training engine** (`optimize_correction_vectors.py`, `coef_mlp.py`). |
-| `vllm-serve/`         | vLLM rollout generation (`generate_rollouts.py`). |
-| `hybrid/`             | Hybrid-model **evaluation engine** (`hybrid_eval.py`). |
-| `utils/`              | Shared library (SAE loading, clustering, steering helpers). |
-| `mlp_pipeline/canonical/` | **All canonical run scripts** (training → selection → eval → figures). |
-| `data/`               | Training mix + held-out evaluation sets (`training_mix_v1`, `hendrycks_holdout_eval`, `trainmix_holdout_eval`). |
+| `configs.sh`          | The nine model pairs and their SAE/steering settings (one source of truth). |
+| `generate-responses/` | Generate and annotate thinking-model responses (SAE inputs). |
+| `train-saes/`         | Train SAEs and build the reasoning taxonomies. |
+| `vllm-serve/`         | Rollout generation (`gen_think.sh`, `gen_base.sh`, `gen_hendrycks.sh`, `run_rollouts.sh`). |
+| `train-vectors/`      | Category-vector training (`train_vectors.sh`, `run.sh`). |
+| `hybrid/`             | Best-of-3 selection and hybrid evaluation (`select_best_of_3.sh`, `eval_*.sh`, `run.sh`, `run_ablations.sh`). |
+| `figures/`            | Scripts that render every paper figure and table into `figures/figs/`. |
+| `data/`               | Training mix and held-out evaluation sets. |
 
-The nine canonical model pairs (base ← thinking) and their SAE settings are defined
-in `mlp_pipeline/canonical/train_qa_instr_hsweep.sh`:
-`orz-0.5b, orz-1.5b, orz-7b, orz-32b, r1-14b, r1-32b, qwq-32b, r1-llama8b, r1-math1.5b`.
-The steering MLP uses `MLP_HIDDEN=512` throughout.
+The nine pairs are `orz-0.5b, orz-1.5b, orz-7b, orz-32b, r1-14b, r1-32b, qwq-32b,
+r1-llama8b, r1-math1.5b`.
 
 ## Reproducing the paper
 
-The pipeline runs in the following stages. Each driver is **idempotent and
-self-healing** — re-running skips already-completed work — so the whole pipeline
-can be resumed after interruptions and will converge to the artifacts below.
-
-### 1. Thinking-model responses (SAE inputs)
-
-```bash
-cd generate-responses && uv run ./run.sh          # generate responses
-uv run ./run_annotation.sh                         # annotate traces with a taxonomy
-```
-
-### 2. SAE taxonomies
+Each stage has one entry-point `run.sh` that takes an optional config name (default:
+all nine). Every step is idempotent: it skips work whose output already exists, so
+runs can be resumed. The base prompt is deliberately minimal
+(`Answer the following question:\nQ: {q}\nA:`) so any reasoning behaviour comes from
+the steering vectors, not the prompt.
 
 ```bash
-cd train-saes && uv run ./run.sh
+# 1. Thinking-model responses and taxonomies
+cd generate-responses && uv run ./run.sh && uv run ./run_annotation.sh && cd ..
+cd train-saes && uv run ./run.sh && cd ..
+
+# 2. Rollouts (base + thinking, all datasets)          -> hybrid/results/response_cache_*
+bash vllm-serve/run_rollouts.sh
+
+# 3. Train the best-of-3 vector sets (seeds 42/43/44)  -> mlp_vectors_qa_instr_h512*
+bash train-vectors/run.sh
+
+# 4. Select best-of-3 + evaluate the hybrid models     -> mlp_eval_qa_instr_holdoutsel_h512
+#    (MATH500, GSM8K, and the Hendrycks-MATH holdout)
+bash hybrid/run.sh
+
+# 5. Negative-control ablations (orz-1.5b, orz-32b)    -> mlp_eval_qa_instr_holdoutsel_ablations
+bash hybrid/run_ablations.sh
+
+# 6. Render all figures and tables                     -> figures/figs
+bash figures/run.sh
 ```
 
-Collects activations, trains SAEs across layers/cluster-sizes for each model,
-generates cluster titles/descriptions, evaluates the candidate taxonomies, and
-plots the taxonomy grid.
+Selection promotes, per pair, the vector set with the highest gap recovered on the
+holdout mix into `mlp_vectors_qa_instr_holdoutsel_h512/<cfg>/` (recorded in
+`.selected_from`); every downstream eval reads those vectors.
 
-### 3. Rollouts for vector training + evaluation
-
-From the repo root:
-
-```bash
-bash mlp_pipeline/canonical/gen_think_final_final.sh    # thinking rollouts (math500, gsm8k)
-bash mlp_pipeline/canonical/gen_base_qa_instr.sh        # base rollouts (qa_instr prompt)
-bash mlp_pipeline/canonical/gen_base_holdoutmix.sh      # base rollouts for the holdout-mix selection set
-bash mlp_pipeline/canonical/gen_hendrycks_holdout.sh    # base + thinking rollouts for the Hendrycks-MATH holdout
-```
-
-The base prompt is deliberately minimal — `Answer the following question:\nQ: {q}\nA:`
-(`--base_prompt_style qa_instr`) — so that any reasoning behaviour is induced by the
-steering vectors rather than seeded by the prompt.
-
-### 4. Train category vectors (best-of-3)
-
-```bash
-# run1 (the reference set) for each config -> mlp_vectors_qa_instr_h512/<cfg>
-for cfg in orz-0.5b orz-1.5b orz-7b orz-32b r1-14b r1-32b qwq-32b r1-llama8b r1-math1.5b; do
-    CONFIG=$cfg MLP_HIDDEN=512 bash mlp_pipeline/canonical/train_qa_instr_hsweep.sh
-done
-
-# run2 + run3 for every config -> mlp_vectors_qa_instr_h512_bo3/<cfg>/run{2,3}
-bash mlp_pipeline/canonical/orchestrate_bo3_train.sh
-```
-
-### 5. Select best-of-3 + out-of-sample hybrid eval
-
-```bash
-bash mlp_pipeline/canonical/holdout_chains_launch.sh
-```
-
-For each config this builds a hybrid model from each of the three vector sets,
-measures gap-recovered on the **holdout mix** (a gold-answer subset of the
-training-mix validation split, never used for gradient updates), promotes the
-**highest holdout-mix gap-recovered** set into
-`mlp_vectors_qa_instr_holdoutsel_h512/<cfg>` (recorded in `.selected_from`), and
-then evaluates it on GSM8K and MATH500 into `mlp_eval_qa_instr_holdoutsel_h512/`.
-
-### 6. Hendrycks-MATH holdout eval
-
-```bash
-bash mlp_pipeline/canonical/hendrycks_launch.sh
-```
-
-Evaluates the selected vectors on the 1k Hendrycks-MATH holdout (disjoint from the
-training mix and from MATH500) into `mlp_eval_hendrycks_holdout_qa_instr_holdoutsel_h512/`.
-
-### 7. Negative-control ablations
-
-```bash
-bash mlp_pipeline/canonical/launch_holdoutsel_ablations.sh
-```
-
-Runs the four ablations (`randcat`, `randV`, `mlponly`, `randpos`) on the two
-size-spanning configs (`orz-1.5b`, `orz-32b`) into
-`mlp_eval_qa_instr_holdoutsel_ablations/`.
-
-### 8. Figures and tables
-
-```bash
-cd mlp_pipeline/canonical
-uv run python render_result_tables.py               # Tables 1-3 -> figs/
-uv run python plot_ablation_bars.py                 # ablation bar plot -> figs/
-uv run python render_loss_curves_qa_instr_h512.py   # vector-loss curves
-uv run python make_hybrid_example_figure_orz32b.py  # qualitative hybrid rollout
-```
-
-Rendered PDFs/PNGs are written to `mlp_pipeline/canonical/figs/` (committed).
+To run a single pair through a stage, pass its name, e.g. `bash hybrid/run.sh orz-32b`.
 
 ## Artifacts
 
-Large, regenerable artifacts are git-ignored (see `.gitignore`): trained vector
-checkpoints (`mlp_vectors_*`), hybrid-eval outputs (`mlp_eval_*`), cached rollouts
-(`*/results/`), SAE activations (`train-saes/results/`), and cluster logs. They are
-all reproduced by the stages above. The committed artifacts are the dataset
-definitions (`data/`) and the final rendered figures/tables (`mlp_pipeline/canonical/figs/`).
+Large regenerable artifacts are git-ignored: vector checkpoints (`mlp_vectors_*`),
+eval outputs (`mlp_eval_*`), cached rollouts (`*/results/`), and SAE activations.
+They are all produced by the stages above. The committed artifacts are the dataset
+definitions in `data/` and the rendered figures/tables in `figures/figs/`.
 
 ## Citation
 
-If you find this work useful, please cite:
-
 ```bibtex
-@misc{venhoff2025basemodelsknowreason,
-      title={Base Models Know How to Reason, Thinking Models Learn When},
-      author={Constantin Venhoff and Iván Arcuschin and Philip Torr and Arthur Conmy and Neel Nanda},
-      year={2025},
-      eprint={2510.07364},
-      archivePrefix={arXiv},
-      primaryClass={cs.AI},
-      url={https://arxiv.org/abs/2510.07364},
+@inproceedings{venhoff2026basemodels,
+  title={Base Models Know How to Reason, Thinking Models Learn When},
+  author={Venhoff, Constantin and Arcuschin, Iv{\'a}n and Torr, Philip and Conmy, Arthur and Nanda, Neel},
+  booktitle={International Conference on Machine Learning (ICML)},
+  year={2026},
 }
 ```
