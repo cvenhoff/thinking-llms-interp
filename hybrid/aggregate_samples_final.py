@@ -24,7 +24,9 @@ values across all available (sample, rep) pairs and report the *mean*
 
 Gap-recovered is computed once on the role means:
   gap = |thinking_mean - base_mean|
-  rec = max(0, (hybrid_mean - min(thinking_mean, base_mean)) / gap)
+  rec = (hybrid_mean - min(thinking_mean, base_mean)) / gap
+Negative recovery (hybrid below the base) is reported as-is; it is not
+floored to zero, mirroring that recovery above 100% is left uncapped.
 """
 
 from __future__ import annotations
@@ -159,7 +161,7 @@ def aggregate(eval_dir: str, base_id: str, dataset: str,
     if t_mu is not None and b_mu is not None and h_mu is not None:
         gap = abs(t_mu - b_mu)
         if gap > 0:
-            rec = max(0.0, (h_mu - min(t_mu, b_mu)) / gap * 100.0)
+            rec = (h_mu - min(t_mu, b_mu)) / gap * 100.0
         else:
             rec = None
         out["headline"] = {

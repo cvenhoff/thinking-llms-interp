@@ -4339,7 +4339,7 @@ def main():
             ch = prev_counts["hybrid"] + results["hybrid_correct"]
             tp, bp, hp = ct/done*100, cb/done*100, ch/done*100
             gap = abs(tp - bp)
-            gs = f"  Gap: {max(0,(hp-min(tp,bp))/gap*100):.1f}%" if gap > 0 else ""
+            gs = f"  Gap: {(hp-min(tp,bp))/gap*100:.1f}%" if gap > 0 else ""
             print(f"  [{done}] T={ct}/{done}({tp:.1f}%) B={cb}/{done}({bp:.1f}%) "
                   f"H={ch}/{done}({hp:.1f}%){gs}")
 
@@ -4357,7 +4357,7 @@ def main():
     gap = abs(ct/total - cb/total) * 100
     if gap > 0:
         rec = (ch/total*100 - min(ct/total, cb/total)*100) / gap
-        print(f"Gap recovered: {max(0, rec)*100:.1f}%")
+        print(f"Gap recovered: {rec*100:.1f}%")
 
     # Per-rep accuracy mean / std (judge-noise quantification).
     def _combine_per_rep(prev, cur):
@@ -4395,7 +4395,7 @@ def main():
         h_per = rep_summary["hybrid"]["per_rep_pct"]
         gap0 = abs(t_mean - b_mean)
         if gap0 > 0:
-            recs = [max(0.0, (h - min(t_mean, b_mean)) / gap0 * 100)
+            recs = [(h - min(t_mean, b_mean)) / gap0 * 100
                     for h in h_per]
             mu_r = _stats.mean(recs)
             sd_r = (_stats.stdev(recs) if len(recs) > 1 else 0.0)
