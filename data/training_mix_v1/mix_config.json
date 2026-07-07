@@ -1,0 +1,23 @@
+{
+  "seed": 42,
+  "total_train": 9794,
+  "total_val": 995,
+  "sources": {
+    "hendrycks_math": {
+      "train": 5000,
+      "val": 500
+    },
+    "natural_reasoning": {
+      "train": 3500,
+      "val": 350
+    },
+    "scibench": {
+      "train": 622,
+      "val": 70
+    },
+    "theoremqa": {
+      "train": 672,
+      "val": 75
+    }
+  }
+}

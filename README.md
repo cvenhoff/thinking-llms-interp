@@ -4,12 +4,22 @@ Code for the paper [Base Models Know How to Reason, Thinking Models Learn When](
 
 **Website:** [thinking-llms-interp.com](https://thinking-llms-interp.com/)
 
+This branch contains the **category-vector hybrid-steering** pipeline: we discover
+per-model reasoning taxonomies with SAEs, train a small MLP that predicts *which*
+taxonomy direction to apply *where*, and build "hybrid" models (a base model plus
+the learned category-steering vectors) that we evaluate against the corresponding
+thinking model. Everything needed to reproduce the paper's figures and tables lives
+here; the canonical pipeline is in [`mlp_pipeline/canonical/`](mlp_pipeline/canonical).
+
 ## Setup
 
 ### Requirements
 
 - Python 3.10+
 - `uv` installed (`pip install uv` or see the [uv docs](https://docs.astral.sh/uv/getting-started/installation/))
+- A SLURM cluster with GPUs (the large models need 2× 80 GB GPUs). The `.sh`
+  drivers submit `srun` jobs; the underlying `python` entry points also run
+  stand-alone if you prefer to schedule them yourself.
 
 ### Install
 
@@ -19,79 +29,131 @@ cd cot-interp
 uv sync
 ```
 
-## Generating thinking model responses
-
-To generate responses from thinking models on MMLU-Pro:
+Copy your API credentials for the LLM judge into a local `.env` (git-ignored):
 
 ```bash
-cd generate-responses
-uv run ./run.sh
+echo "ANTHROPIC_API_KEY=sk-..." > .env
 ```
 
-This will generate responses from multiple thinking models (DeepSeek-R1 variants and QwQ) with their reasoning traces.
+## Repository layout
 
-## Training taxonomy
+| Path | Purpose |
+|------|---------|
+| `generate-responses/` | Generate + annotate thinking-model responses (SAE inputs). |
+| `train-saes/`         | Train SAEs and build the per-model reasoning **taxonomies**. |
+| `train-vectors/`      | Category-vector **training engine** (`optimize_correction_vectors.py`, `coef_mlp.py`). |
+| `vllm-serve/`         | vLLM rollout generation (`generate_rollouts.py`). |
+| `hybrid/`             | Hybrid-model **evaluation engine** (`hybrid_eval.py`). |
+| `utils/`              | Shared library (SAE loading, clustering, steering helpers). |
+| `mlp_pipeline/canonical/` | **All canonical run scripts** (training → selection → eval → figures). |
+| `data/`               | Training mix + held-out evaluation sets (`training_mix_v1`, `hendrycks_holdout_eval`, `trainmix_holdout_eval`). |
 
-To train and evaluate taxonomies:
+The nine canonical model pairs (base ← thinking) and their SAE settings are defined
+in `mlp_pipeline/canonical/train_qa_instr_hsweep.sh`:
+`orz-0.5b, orz-1.5b, orz-7b, orz-32b, r1-14b, r1-32b, qwq-32b, r1-llama8b, r1-math1.5b`.
+The steering MLP uses `MLP_HIDDEN=512` throughout.
+
+## Reproducing the paper
+
+The pipeline runs in the following stages. Each driver is **idempotent and
+self-healing** — re-running skips already-completed work — so the whole pipeline
+can be resumed after interruptions and will converge to the artifacts below.
+
+### 1. Thinking-model responses (SAE inputs)
 
 ```bash
-cd train-saes
-uv run ./run.sh
+cd generate-responses && uv run ./run.sh          # generate responses
+uv run ./run_annotation.sh                         # annotate traces with a taxonomy
 ```
 
-This will:
-- Collect activations for each of the selected layers for each model
-- Train all the Sparse Autoencoders (SAEs) for different cluster sizes, for each selected layer on each model
-- Generate titles and descriptions for each cluster in the trained SAEs (5 repetitions by default)
-- Evaluate all the candidate taxonomies (using the 5 default repetitions if available)
-- Plot results
-
-## Annotating thinking traces
-
-To annotate thinking traces using a given taxonomy (specific layer and cluster size):
+### 2. SAE taxonomies
 
 ```bash
-cd generate-responses
-uv run ./run_annotation.sh
+cd train-saes && uv run ./run.sh
 ```
 
-This will annotate the thinking traces for each model using the selected taxonomy.
+Collects activations, trains SAEs across layers/cluster-sizes for each model,
+generates cluster titles/descriptions, evaluates the candidate taxonomies, and
+plots the taxonomy grid.
 
-## Training steering vectors
+### 3. Rollouts for vector training + evaluation
 
-To train steering vectors for the models used in the paper:
+From the repo root:
 
 ```bash
-cd train-vectors
-
-# For each model, run the corresponding script:
-uv run ./run_qwen_1.5b.sh
-uv run ./run_llama_8b.sh
-uv run ./run_qwen_14b.sh
-uv run ./run_qwen_32b_linear_on_deepseek.sh
-uv run ./run_qwen_32b_linear_on_qwq.sh
+bash mlp_pipeline/canonical/gen_think_final_final.sh    # thinking rollouts (math500, gsm8k)
+bash mlp_pipeline/canonical/gen_base_qa_instr.sh        # base rollouts (qa_instr prompt)
+bash mlp_pipeline/canonical/gen_base_holdoutmix.sh      # base rollouts for the holdout-mix selection set
+bash mlp_pipeline/canonical/gen_hendrycks_holdout.sh    # base + thinking rollouts for the Hendrycks-MATH holdout
 ```
 
-## Running hybrid model
+The base prompt is deliberately minimal — `Answer the following question:\nQ: {q}\nA:`
+(`--base_prompt_style qa_instr`) — so that any reasoning behaviour is induced by the
+steering vectors rather than seeded by the prompt.
 
-To run hybrid model experiments:
+### 4. Train category vectors (best-of-3)
 
 ```bash
-cd hybrid
+# run1 (the reference set) for each config -> mlp_vectors_qa_instr_h512/<cfg>
+for cfg in orz-0.5b orz-1.5b orz-7b orz-32b r1-14b r1-32b qwq-32b r1-llama8b r1-math1.5b; do
+    CONFIG=$cfg MLP_HIDDEN=512 bash mlp_pipeline/canonical/train_qa_instr_hsweep.sh
+done
 
-# Run experiments for different models:
-uv run ./run_qwen_1.5b.sh
-uv run ./run_qwen_math_1.5b.sh
-uv run ./run_llama_8b.sh
-uv run ./run_qwen_14b.sh
-uv run ./run_qwen_32b_on_deepseek.sh
-uv run ./run_qwen_32b_on_qwq.sh
-
-# Additional ablation experiments:
-uv run ./run_qwen_32b_only_bias.sh
-uv run ./run_qwen_32b_random_firing.sh
-uv run ./run_qwen_32b_random_vectors.sh
+# run2 + run3 for every config -> mlp_vectors_qa_instr_h512_bo3/<cfg>/run{2,3}
+bash mlp_pipeline/canonical/orchestrate_bo3_train.sh
 ```
+
+### 5. Select best-of-3 + out-of-sample hybrid eval
+
+```bash
+bash mlp_pipeline/canonical/holdout_chains_launch.sh
+```
+
+For each config this builds a hybrid model from each of the three vector sets,
+measures gap-recovered on the **holdout mix** (a gold-answer subset of the
+training-mix validation split, never used for gradient updates), promotes the
+**highest holdout-mix gap-recovered** set into
+`mlp_vectors_qa_instr_holdoutsel_h512/<cfg>` (recorded in `.selected_from`), and
+then evaluates it on GSM8K and MATH500 into `mlp_eval_qa_instr_holdoutsel_h512/`.
+
+### 6. Hendrycks-MATH holdout eval
+
+```bash
+bash mlp_pipeline/canonical/hendrycks_launch.sh
+```
+
+Evaluates the selected vectors on the 1k Hendrycks-MATH holdout (disjoint from the
+training mix and from MATH500) into `mlp_eval_hendrycks_holdout_qa_instr_holdoutsel_h512/`.
+
+### 7. Negative-control ablations
+
+```bash
+bash mlp_pipeline/canonical/launch_holdoutsel_ablations.sh
+```
+
+Runs the four ablations (`randcat`, `randV`, `mlponly`, `randpos`) on the two
+size-spanning configs (`orz-1.5b`, `orz-32b`) into
+`mlp_eval_qa_instr_holdoutsel_ablations/`.
+
+### 8. Figures and tables
+
+```bash
+cd mlp_pipeline/canonical
+uv run python render_result_tables.py               # Tables 1-3 -> figs/
+uv run python plot_ablation_bars.py                 # ablation bar plot -> figs/
+uv run python render_loss_curves_qa_instr_h512.py   # vector-loss curves
+uv run python make_hybrid_example_figure_orz32b.py  # qualitative hybrid rollout
+```
+
+Rendered PDFs/PNGs are written to `mlp_pipeline/canonical/figs/` (committed).
+
+## Artifacts
+
+Large, regenerable artifacts are git-ignored (see `.gitignore`): trained vector
+checkpoints (`mlp_vectors_*`), hybrid-eval outputs (`mlp_eval_*`), cached rollouts
+(`*/results/`), SAE activations (`train-saes/results/`), and cluster logs. They are
+all reproduced by the stages above. The committed artifacts are the dataset
+definitions (`data/`) and the final rendered figures/tables (`mlp_pipeline/canonical/figs/`).
 
 ## Citation
 

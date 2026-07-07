@@ -20,7 +20,7 @@ import time
 import random
 import argparse
 import math
-from typing import Optional
+from typing import Optional, Dict, Tuple, List
 from collections import Counter
 
 import matplotlib
@@ -34,6 +34,26 @@ except Exception:
 
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
+
+# Patch transformers.modeling_utils.load_state_dict to handle .safetensors
+# files whose metadata is None (some community model exports, e.g. ORZ-32B,
+# omit the "format" key).  Default to {"format": "pt"} so the loader accepts
+# the file instead of raising AttributeError on metadata.get("format").
+try:
+    import transformers.modeling_utils as _tm_modutils
+    from safetensors import safe_open as _safe_open
+    from safetensors.torch import load_file as _safe_load_file
+    _orig_load_state_dict = _tm_modutils.load_state_dict
+    def _patched_load_state_dict(checkpoint_file, *args, **kwargs):
+        if str(checkpoint_file).endswith(".safetensors"):
+            with _safe_open(checkpoint_file, framework="pt") as f:
+                md = f.metadata()
+            if md is None or md.get("format") not in ["pt", "tf", "flax", "mlx"]:
+                return _safe_load_file(checkpoint_file)
+        return _orig_load_state_dict(checkpoint_file, *args, **kwargs)
+    _tm_modutils.load_state_dict = _patched_load_state_dict
+except Exception as _e:
+    print(f"[warn] could not patch transformers.load_state_dict: {_e}")
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from utils.sae import load_sae
@@ -54,7 +74,21 @@ def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--dataset", type=str, default="math500",
                    choices=["gsm8k", "math500", "aime24", "aime25", "mbpp",
-                            "livecodebench", "medqa", "gpqa", "legalbench"])
+                            "livecodebench", "medqa", "gpqa", "legalbench",
+                            "natreason", "holdoutmix", "hendrycks_holdout"])
+    p.add_argument("--natreason_file", type=str, default=None,
+                   help="Path to the natural_reasoning eval jsonl (fields: "
+                        "question, reference_answer). Required when "
+                        "--dataset natreason.")
+    p.add_argument("--holdoutmix_file", type=str, default=None,
+                   help="Path to the trainmix VAL-holdout eval jsonl (fields: "
+                        "question, reference_answer). Required when "
+                        "--dataset holdoutmix. Used as a cheap in-distribution "
+                        "vector-SELECTION signal (real gap recovery).")
+    p.add_argument("--hendrycks_holdout_file", type=str, default=None,
+                   help="Path to the hendrycks-MATH holdout eval jsonl (fields: "
+                        "question, reference_answer), disjoint from train/val "
+                        "and math500. Required when --dataset hendrycks_holdout.")
     p.add_argument("--thinking_model", type=str, default="Qwen/QwQ-32B")
     p.add_argument("--base_model", type=str, default="Qwen/Qwen2.5-32B")
     p.add_argument("--sae_layer", type=int, default=27)
@@ -65,7 +99,43 @@ def parse_args():
     p.add_argument("--max_new_tokens", type=int, default=5000)
     p.add_argument("--max_thinking_tokens", type=int, default=5000)
     p.add_argument("--eval_start_idx", type=int, default=0)
+    p.add_argument("--eval_indices", type=str, default="",
+                   help="Optional comma/space-separated dataset indices to "
+                        "evaluate exactly, in the provided order. Overrides "
+                        "--eval_start_idx/--n_tasks for task selection.")
     p.add_argument("--temperature", type=float, default=0.0)
+    p.add_argument("--decode_temperature", type=float, default=0.0,
+                   help="Per-step sampling temperature for the hybrid "
+                        "decode loop. T=0 preserves historical pure-argmax "
+                        "behaviour. For T>0, base/think candidate tokens "
+                        "used by the disagreement gate are sampled from "
+                        "softmax(logits/T), and emitted base/steered tokens "
+                        "are sampled from their corresponding distributions.")
+    p.add_argument("--decode_seed", type=int, default=0,
+                   help="RNG seed for --decode_temperature sampling. "
+                        "Different values produce different samples "
+                        "from the same prompt.")
+    p.add_argument("--skip_hybrid", action="store_true",
+                   help="Skip Phase 3 (hybrid generation + judging) and "
+                        "only generate + judge the standalone base and "
+                        "thinking rollouts.  Writes a rolling file with "
+                        "answers/judges/eos/n_tokens for {thinking, base} "
+                        "only.  Useful for quick base-vs-think accuracy "
+                        "comparisons across prompt styles without paying "
+                        "for the dual-model hybrid decode.")
+    p.add_argument("--cold_start_n_tokens", type=int, default=0,
+                   help="If >0, inject the first N tokens of the THINKING "
+                        "model's rollout (decoded to text) as a fixed "
+                        "prefix into BOTH the standalone base response and "
+                        "the hybrid (base+think) prefill, then continue "
+                        "with normal base / hybrid rollout from that "
+                        "shared starting point.  Bypasses base response "
+                        "cache (--no_response_cache for base only) because "
+                        "the prompt now varies per task.  Hybrid's "
+                        "thinking-side prefill is also extended with the "
+                        "same text via thinking_continuation_text so the "
+                        "think model sees the prefix as 'already produced' "
+                        "and parallel-decode resumes cleanly.")
     p.add_argument("--dom_vectors_dir", type=str, required=True)
     p.add_argument("--dom_vectors_model_short", type=str, default=None)
     p.add_argument("--old_vectors_dir", type=str, default=None,
@@ -111,6 +181,55 @@ def parse_args():
                    help="Ablation: at each decode step, ignore the SAE argmax "
                         "and pick a uniform-random category key per batch row "
                         "(simulates random latent firing).")
+    p.add_argument("--random_firing_exclude_top_k_keys", type=int, default=0,
+                   help="When --random_firing is set: exclude the top-K SAE "
+                        "activated category keys (per row, ordered by latent "
+                        "activation) from the random-pick pool. 0 disables "
+                        "(uniform across all keys, the default). 3 means "
+                        "pick uniformly from keys that are NOT among the top-3 "
+                        "SAE-activated keys at the current disagreement "
+                        "position.")
+    p.add_argument("--pure_steer_base_eos", action="store_true",
+                   help="Cleanest hybrid mode: DISABLES </think> close detection "
+                        "AND base-EOS suppression. The hybrid just keeps the "
+                        "disagreement->SAE->MLP+cat steering protocol running "
+                        "every token, and terminates only when the BASE model "
+                        "naturally emits EOS. Avoids premature transitions "
+                        "triggered by thinking-model quirks (e.g. tool-use cues "
+                        "like ```python in ORZ-32B). NOTE: 'Final answer:' is "
+                        "never injected in this mode -- the row is purely "
+                        "base-driven, steered at every disagreement.")
+    p.add_argument("--continuation_mode", action="store_true",
+                   help="Phase-2 4096-extension: load existing pure-mode rolling "
+                        "rows from --continuation_source_rolling (a glob or "
+                        "comma-list of JSONL files), restrict tasks to rows "
+                        "where eos.hybrid==False, and continue the hybrid loop "
+                        "for --max_new_tokens additional tokens with both KV "
+                        "caches prefilled from the cached think/hybrid text.")
+    p.add_argument("--continuation_source_rolling", type=str, default="",
+                   help="Comma-separated paths or glob to source rolling JSONL "
+                        "files used as continuation seeds (e.g. the two pure_h* "
+                        "rolling files for this pair).  REQUIRED with "
+                        "--continuation_mode.")
+    p.add_argument("--firing_replace_with_min_cosine", action="store_true",
+                   help="Ablation: at each disagreement position, replace the "
+                        "SAE-selected category with the category whose steering "
+                        "vector has MINIMUM cosine similarity to the SAE-top-1 "
+                        "vector. The MLP coefficient + V for that anti-cat is "
+                        "then used. Deterministic (no randomness). Independent "
+                        "of --random_firing.")
+    p.add_argument("--random_steer_prob", type=float, default=0.0,
+                   help="Ablation: REPLACE the disagreement-position gate with "
+                        "a per-step Bernoulli(p) draw. At every decoding step, "
+                        "each batch row is treated as 'eligible for steering' "
+                        "with probability p REGARDLESS of whether think and "
+                        "base actually disagree. All other gates (finished / "
+                        "forced-queue / answer-phase / warmup) still suppress "
+                        "steering. p should match the empirical fraction of "
+                        "positions steered by the full pipeline for an "
+                        "apples-to-apples 'random position' comparison "
+                        "(e.g. p=0.0332 for ORZ-1.5B / math500, p=0.0393 for "
+                        "ORZ-1.5B / gsm8k). Seeded via --random_seed.")
     p.add_argument("--random_guardrail", action="store_true",
                    help="Ablation: replace the thinking-model perplexity "
                         "guardrail with a uniform random choice among the "
@@ -127,14 +246,163 @@ def parse_args():
     p.add_argument("--coef_select", type=str, default="pg",
                    choices=["pg", "kl_top3", "kl_topk",
                             "think_top1", "think_top1_match",
-                            "think_top1_match_maxconf", "fixed"],
+                            "think_top1_match_maxconf", "fixed", "mlp",
+                            "mlp_pg"],
                    help="Coefficient-selection rule. 'fixed': use --fixed_coef "
                         "directly, no sweep. 'pg' (default): pick coef whose "
                         "steered-base argmax has highest log-prob under thinking "
                         "model. 'kl_top3'/'kl_topk': minimise CE vs thinking "
-                        "top-K. 'think_top1': oracle ceiling.")
+                        "top-K. 'think_top1': oracle ceiling. 'mlp': use the "
+                        "MLP-predicted alpha directly, no sweep. 'mlp_pg': "
+                        "sweep effective coef = mlp_alpha * --coef_sweep and "
+                        "pick the multiplier whose steered argmax has highest "
+                        "thinking-model log-prob (perplexity guardrail on top "
+                        "of the MLP).")
     p.add_argument("--kl_topk", type=int, default=3,
                    help="K for --coef_select=kl_topk (and kl_top3 alias).")
+    p.add_argument("--warmup_until_sentence_end", action="store_true", default=False,
+                   help="If set, the hybrid protocol (steering + EOS suppression "
+                        "+ </think> detection) is *gated off* until the base model "
+                        "emits its first sentence-ending token (a token whose "
+                        "decoded form contains '[.?!] '/'[.?!]\\n').  During that "
+                        "warmup window each row generates with base alone and the "
+                        "thinking model is fed the base's emitted tokens to keep "
+                        "KVs aligned.  Diagnostic test for the 0.5B auto-completion "
+                        "failure: lets the base commit to its own response style "
+                        "and stop naturally before steering kicks in.")
+    p.add_argument("--warmup_max_tokens", type=int, default=60,
+                   help="Hard cap on the per-row warmup window when "
+                        "--warmup_until_sentence_end is set.  If no sentence end "
+                        "is detected within this many tokens, the hybrid protocol "
+                        "engages anyway so generation makes progress.")
+    p.add_argument("--think_prompt_family", default="auto",
+                   choices=["auto", "orz", "r1", "qwq", "other"],
+                   help="Family used to shape the thinking-model user "
+                        "content. 'auto' (default) detects from "
+                        "--thinking_model: 'open-reasoner-zero'/'orz' -> "
+                        "'orz' (prepends the Table-5 user instruction); "
+                        "'r1-distill'/'deepseek-r1' -> 'r1'; 'qwq' -> "
+                        "'qwq'; otherwise 'other' (no shaping). The base "
+                        "model's prompt is shaped independently via "
+                        "--base_prompt_style.")
+    p.add_argument("--base_prompt_style", default="default",
+                   choices=["default", "stepwise", "boxed",
+                            "legacy_task", "think_template", "simple",
+                            "qa_response", "qa_instr", "think_qa",
+                            "think_qa_marker",
+                            "think_word", "convo_marker", "convo_marker_v2",
+                            "convo_continue", "convo_reason",
+                            "orz_think_template", "r1_think_template",
+                            "qwq_think_template",
+                            "plain_chat_math",
+                            "convo_think", "mini_preamble",
+                            "orz_full", "r1_plain", "qwq_plain",
+                            "step_preamble"],
+                   help="Base-model prompt format. 'default' is the bare "
+                        "'User: {q}\\nAssistant:' completion prompt.  "
+                        "'think_template' applies the thinking model's "
+                        "chat template (with family-specific user-content "
+                        "shaping + math directive) to the question, then "
+                        "feeds that string to the base model as a raw "
+                        "completion prompt -- i.e. base sees exactly the "
+                        "same prompt as the think model.  "
+                        "'stepwise' (final_final v1) builds 'User: "
+                        "Answer the following question. Respond step by "
+                        "step.\\n\\n{q}\\nAssistant:'.  'boxed' "
+                        "(final_final v2) places the QwQ/R1 post-hoc "
+                        "math directive + ORZ \\boxed{} anchor AFTER the "
+                        "question: 'User: {q}\\n\\nPlease reason step "
+                        "by step, and put your final answer within "
+                        "\\boxed{}.\\nAssistant:'.  'legacy_task' (v3) "
+                        "is the structured Task/Question/Answer prompt "
+                        "used on origin/main's hybrid/hybrid_*.py and "
+                        "train-vectors/optimize_steering_vectors.py: "
+                        "'Task: Answer the question below. Explain your "
+                        "reasoning step by step.\\n\\n\\n\\nQuestion:"
+                        "\\n{q}\\n\\nStep by step answer:\\n'.  MUST "
+                        "match the prompt used by the cached base "
+                        "rollouts and during steering-vector training "
+                        "(same flag in generate_rollouts.py and "
+                        "optimize_correction_vectors.py).")
+    p.add_argument("--math_directive", action="store_true", default=False,
+                   help="When set AND the thinking family is r1/qwq AND "
+                        "the dataset is a math benchmark (math500, gsm8k, "
+                        "aime24, aime25), append the DeepSeek-R1/QwQ "
+                        "'Please reason step by step, and put your final "
+                        "answer within \\boxed{}.' directive to the user "
+                        "content sent to the thinking model.  ORZ "
+                        "shaping is independent of this flag (Table-5 "
+                        "always applied).  IMPORTANT: must match the "
+                        "directive used at vLLM generation time for the "
+                        "cached think rollouts -- mismatch silently "
+                        "produces a different prompt than what was "
+                        "generated, so set this for math500/gsm8k whenever "
+                        "the cached rollouts were generated with "
+                        "--math_directive_mode always.")
+    p.add_argument("--free_fly_until_think_eos", action="store_true", default=False,
+                   help="Diagnostic 'free-fly' mode (e.g. for ORZ-0.5B where "
+                        "the thinking model never emits a clean </think>).  "
+                        "Skips </think>/</answer> close-detection and the "
+                        "ANSWER-phase transition entirely: the hybrid stays "
+                        "in REASONING with steering active at every "
+                        "disagreement, and a row terminates ONLY when the "
+                        "thinking model itself predicts EOS at that step "
+                        "(base EOS is always suppressed regardless of "
+                        "--disable_eos_suppression).  Default OFF -- "
+                        "behavior for all other model pairs is unchanged.")
+    p.add_argument("--disable_eos_suppression", action="store_true", default=False,
+                   help="If set, the hybrid state machine does NOT substitute "
+                        "the thinking model's argmax when the base model emits "
+                        "EOS during the reasoning phase.  Effectively: when "
+                        "base says EOS, hybrid terminates.  Diagnostic for "
+                        "small bases that emit \\boxed{} cleanly and want to "
+                        "stop, but were being forced to auto-complete because "
+                        "the thinking model hadn't yet emitted </think>.")
+    p.add_argument("--no_termination", action="store_true", default=False,
+                   help="Disable ALL early termination conditions.  Like "
+                        "--free_fly_until_think_eos (close-detection skipped, "
+                        "base EOS always suppressed) but additionally never "
+                        "terminates on think EOS either.  Row only stops when "
+                        "max_new_tokens is reached.  Diagnostic mode used by "
+                        "the orz-1.5b termination-mode comparison experiment.")
+    p.add_argument("--eos_prob_warmup", action="store_true", default=False,
+                   help="Linearly scale base P(EOS) from 0 at hybrid step 0 "
+                        "to the unmodified base P(EOS) at "
+                        "--eos_prob_warmup_steps.  Implemented exactly in "
+                        "probability space: at step n out of T, base "
+                        "softmax probability of EOS is multiplied by "
+                        "alpha = n / T and the displaced mass is "
+                        "redistributed proportionally to non-EOS tokens.  "
+                        "This converts the binary 'allow / suppress base EOS' "
+                        "behaviour of --pure_steer_base_eos into a smooth "
+                        "ramp, preventing the small base from terminating "
+                        "long before the budget is used while preserving "
+                        "the base's natural EOS prior near the budget.")
+    p.add_argument("--eos_prob_warmup_steps", type=int, default=0,
+                   help="Total ramp length (in hybrid generation tokens) for "
+                        "--eos_prob_warmup.  0 (default) uses --max_new_tokens. "
+                        "alpha = min(1, n_gen / T) is multiplied onto base "
+                        "P(EOS) at every step.")
+    p.add_argument("--accept_answer_close", action="store_true", default=False,
+                   help="Also accept '</answer>' as a reasoning-phase close "
+                        "trigger in the hybrid state machine (in addition to "
+                        "'</think>').  ORZ-0.5B's thinking model uses a "
+                        "non-standard template '\\boxed{X} <answer>...</answer> "
+                        "</think>' where </answer> consistently appears ~108 "
+                        "chars after \\boxed{} while </think> may only appear "
+                        "much later or not at all.  Catching </answer> lets the "
+                        "hybrid exit the reasoning phase soon after the answer "
+                        "is emitted, preventing post-boxed auto-completion drift.")
+    p.add_argument("--suppress_boxed_first_n_tokens", type=int, default=0,
+                   help="If > 0, suppress the 'boxed' tokens (79075 'boxed' and "
+                        "73664 ' boxed', which exclusively appear inside the "
+                        "'\\\\boxed{' construction in Qwen2.5 tokenizer) from "
+                        "being emitted during the first N hybrid-generation "
+                        "tokens.  Diagnostic for the 0.5B quirk where steering "
+                        "drives the base into emitting the final answer too "
+                        "early.  Implemented as a post-emit override: any "
+                        "selected 'boxed' token is replaced with the next-best "
+                        "unsteered base argmax.")
     p.add_argument("--pg_bias_cat_sweep", action="store_true", default=False,
                    help="Sweep the cartesian product of (bias_coef, cat_coef) "
                         "per disagreement step and pick the (b,c) pair with "
@@ -179,13 +447,111 @@ def parse_args():
                         "steered positions, approximating their 'apply "
                         "c*(bias+vec) to every position's layer-24 output on "
                         "every forward pass' behaviour.")
+    p.add_argument("--calibrate_coef", action="store_true", default=False,
+                   help="Before the full hybrid eval, run a 10%% calibration "
+                        "sweep on tasks where base=wrong, think=correct.  "
+                        "Sweeps --calibrate_coef_grid coefs and picks the "
+                        "one with highest gap recovery.  Then runs the full "
+                        "eval with the winning coef.")
+    p.add_argument("--calibrate_coef_grid", type=str,
+                   default="0.25,0.5,1.0,1.5,2.0",
+                   help="Comma-separated coefficient candidates for "
+                        "the calibration sweep (used with --calibrate_coef).")
+    p.add_argument("--calibrate_pct", type=float, default=0.10,
+                   help="Fraction of base-wrong/think-correct tasks to use "
+                        "for calibration (default 0.10 = 10%%).")
+    p.add_argument("--stratified_calibrate", action="store_true", default=False,
+                   help="Stratified calibration: judge all tasks, sample a "
+                        "stratified 10%% subset matching the base/think accuracy "
+                        "distribution, sweep --calibrate_coef_grid, pick the "
+                        "coef with best hybrid accuracy on the subset.")
+    p.add_argument("--save_best_coef", type=str, default=None,
+                   help="Path to save the best calibrated coefficient as JSON. "
+                        "Used to persist the bias coef for subsequent "
+                        "bias+cat runs.")
+    p.add_argument("--fixed_bias_coef", type=float, default=None,
+                   help="Lock the bias coefficient during stratified calibration "
+                        "to this value and only sweep the cat coefficient. "
+                        "Typically set to the best_coef from a prior bias-only "
+                        "run.  Implies --pg_bias_cat_sweep.")
+    p.add_argument("--act_modulate_stats", type=str, default=None,
+                   help="Path to sae_act_stats.json produced by "
+                        "tools/compute_act_stats_v8.py.  When set, "
+                        "during _classify() the per-cat steering vector "
+                        "is scaled by a function of the live SAE "
+                        "activation magnitude: v_eff = v * f(val, cat).  "
+                        "See --act_modulate_fn for the function.")
+    p.add_argument("--act_modulate_fn", type=str, default="p10p90",
+                   choices=["p10p90", "p25p75", "linear_minmax"],
+                   help="Modulation function used when "
+                        "--act_modulate_stats is set.  "
+                        "'p10p90': clip((val - p10) / (p90 - p10), 0, 1) "
+                        "(robust linear, default).  "
+                        "'p25p75': same with p25/p75 (more aggressive).  "
+                        "'linear_minmax': uses (min, max) instead.")
+    p.add_argument("--mlp_coef_path", type=str, default=None,
+                   help="Path to cat_coef_mlp.pt state dict")
+    p.add_argument("--mlp_config_path", type=str, default=None,
+                   help="Path to mlp_config.json")
+    p.add_argument("--mlp_coef_scale", type=float, default=1.0,
+                   help="Constant multiplier applied to the MLP-predicted "
+                        "alpha when --coef_select=mlp or mlp_pg.  e.g. 2.0 "
+                        "amplifies the learned steering strength by 2x at "
+                        "every disagreement position.")
     p.add_argument("--judge_model", type=str, default="openai/gpt-5.2")
     p.add_argument("--judge_repetitions", type=int, default=1)
+    # ---- Explicit rollout-cache slug overrides (for the final run) ----
+    p.add_argument("--think_cache_temp_label", type=str, default=None,
+                   help="Override the temperature label in the THINK "
+                        "cache filename (e.g. '0.6'). Defaults to the "
+                        "label derived from --temperature.")
+    p.add_argument("--think_cache_max_tokens", type=int, default=None,
+                   help="Override the max-tokens substring in the THINK "
+                        "cache filename. Defaults to --max_thinking_tokens.")
+    p.add_argument("--think_cache_sample_idx", type=int, default=-1,
+                   help="Sample-index '_s<N>' suffix for the THINK cache. "
+                        "-1 (default) omits the suffix.")
+    p.add_argument("--base_cache_temp_label", type=str, default=None,
+                   help="Override the temperature label in the BASE "
+                        "cache filename (e.g. '0' to reuse legacy "
+                        "greedy base rollouts). Defaults to the label "
+                        "derived from --temperature.")
+    p.add_argument("--base_cache_max_tokens", type=int, default=None,
+                   help="Override the max-tokens substring in the BASE "
+                        "cache filename. Defaults to --max_new_tokens.")
+    p.add_argument("--base_cache_sample_idx", type=int, default=-1,
+                   help="Sample-index '_s<N>' suffix for the BASE cache. "
+                        "-1 (default) omits the suffix.")
+    p.add_argument("--hybrid_cache_sample_idx", type=int, default=-1,
+                   help="Sample-index '_s<N>' suffix for the HYBRID "
+                        "rollout cache. -1 (default) omits the suffix.")
     p.add_argument("--max_concurrent", type=int, default=40)
     p.add_argument("--results_dir", type=str, default="results")
     p.add_argument("--results_suffix", type=str, default="")
     p.add_argument("--no_response_cache", action="store_true")
+    p.add_argument("--response_cache_dir", type=str, default=None,
+                   help="Override the rollout-cache directory used by "
+                        "_cache_path().  When unset (default), caches "
+                        "live in '${results_dir}/response_cache/' "
+                        "(legacy behaviour).  When set to an explicit "
+                        "path, the cache files are read/written there "
+                        "directly with no symlink hop.  Use this when "
+                        "launching multiple jobs (e.g. math500 + gsm8k) "
+                        "that share a --results_dir, to avoid the "
+                        "symlink race that the legacy shell-script "
+                        "pattern relied on.")
     p.add_argument("--disable_sae_mean", action="store_true")
+    p.add_argument("--max_memory_per_gpu", type=str, default=None,
+                   help="Per-GPU memory limit for the first model load, "
+                        "e.g. '35GiB'.  Forces interleaved placement of "
+                        "both models across all GPUs.")
+    p.add_argument("--two_gpu_split", action="store_true", default=False,
+                   help="Place base model entirely on cuda:0 and thinking "
+                        "model entirely on cuda:1 (requires 2 GPUs).  Used "
+                        "for the 14B/32B thinking-model evals where each "
+                        "model fits on one H200 but neither pair fits on "
+                        "a single GPU.  Default behavior (device_map='auto') "
+                        "is unchanged for smaller pairs.")
     return p.parse_args()
 
 
@@ -212,6 +578,79 @@ def _dataset_type(args):
 
 CODING_TASK_PREFIX = "Task: Write a single Python function for the following problem. Do not include tests or examples in your output."
 CODING_BASE_SUFFIX = "Algorithmic steps to solve this problem, followed by the Python function:\n"
+
+
+# ---------------------------------------------------------------------------
+# Model-family-aware user-content shaping
+# ---------------------------------------------------------------------------
+# Kept in sync with vllm-serve/generate_rollouts.py.  This must match the
+# user content used at *generation* time, otherwise the hybrid trajectory's
+# thinking-model prompt diverges from the cached think rollout.
+
+# ORZ Table-5 prompt: the chunk prepended to {{prompt}} under the single
+# User turn.  ORZ's shipped chat_template emits the preamble and the
+# closing ``Assistant: <think>``; we only need the user-instruction body.
+ORZ_USER_PREFIX = (
+    "You must put your answer inside <answer> </answer> tags, i.e., "
+    "<answer> answer here </answer>. And your final answer will be "
+    "extracted automatically by the \\boxed{} tag."
+)
+
+# DeepSeek-R1 / QwQ recommended directive for mathematical problems.
+MATH_DIRECTIVE = (
+    "Please reason step by step, and put your final answer within \\boxed{}."
+)
+
+# Datasets in this module whose questions we treat as "math problems" for
+# the purposes of the R1/QwQ step-by-step directive.  Note: hybrid eval
+# only runs on benchmark datasets (not trainmix), so this is a small set.
+_MATH_DATASETS = {"math500", "gsm8k", "aime24", "aime25", "natreason",
+                  "holdoutmix", "hendrycks_holdout"}
+
+
+def _detect_think_family(model_id: str) -> str:
+    """Return one of {'orz','r1','qwq','other'} based on the HF model id.
+
+    Used to pick the appropriate user-content shaping for the thinking
+    model.  The base model never gets shaped (its prompt is the legacy
+    completion-style ``User: ... Assistant:`` string)."""
+    low = (model_id or "").lower()
+    if "open-reasoner-zero" in low or "orz" in low:
+        return "orz"
+    if "r1-distill" in low or "deepseek-r1" in low:
+        return "r1"
+    if "qwq" in low:
+        return "qwq"
+    return "other"
+
+
+def _shape_think_user_content(question: str, family: str, *,
+                              is_math_question: bool,
+                              math_directive_enabled: bool) -> str:
+    """Pre-wrap a question into the per-family user content for the
+    thinking model, before ``apply_chat_template`` is called.
+
+    MUST match the prompt shaping used at rollout-generation time in
+    ``vllm-serve/generate_rollouts.py`` so that the parallel think
+    model's argmax at hybrid time stays on the same distribution as
+    the cached think tokens that were used to train the MLP.
+
+    - ``orz`` : prepend the Table-5 user instruction; ALSO append the
+      math directive when ``is_math_question`` (and
+      ``math_directive_enabled``).  Mirrors generate_rollouts.py:
+      ``_format_orz`` math-question branch.
+    - ``r1`` / ``qwq`` : append the math directive iff
+      ``is_math_question`` and ``math_directive_enabled``.
+    - ``other`` : unchanged.
+    """
+    if family == "orz":
+        content = f"{ORZ_USER_PREFIX}\n{question}"
+        if is_math_question and math_directive_enabled:
+            content = f"{content}\n\n{MATH_DIRECTIVE}"
+        return content
+    if family in ("r1", "qwq") and is_math_question and math_directive_enabled:
+        return f"{question}\n\n{MATH_DIRECTIVE}"
+    return question
 
 
 def _format_gpqa_item(item, index):
@@ -251,8 +690,208 @@ def _build_task_prompts(item, i, args):
         q, a = _format_gpqa_item(item, i)
     elif args.dataset == "legalbench":
         q, a = item.get("text", str(item)), str(item.get("answer", ""))
+    elif args.dataset in ("natreason", "holdoutmix", "hendrycks_holdout"):
+        q, a = item["question"], str(item.get("reference_answer", ""))
     else:
         q, a = str(item), ""
+
+    # Base-prompt style switch:
+    #   'default'      = bare "User: q\nAssistant:"
+    #   'stepwise'     = "User: Answer the following question. Respond
+    #                    step by step.\n\n{q}\nAssistant:" (ff v1)
+    #   'boxed'        = "User: {q}\n\nPlease reason step by step, and
+    #                    put your final answer within \boxed{}.\n
+    #                    Assistant:" (ff v2; QwQ/R1+ORZ derivative)
+    #   'legacy_task'  = "Task: Answer the question below. Explain your
+    #                    reasoning step by step.\n\n\n\nQuestion:\n{q}
+    #                    \n\nStep by step answer:\n" (ff v3; the
+    #                    structured prompt used on origin/main's
+    #                    hybrid_*.py / optimize_steering_vectors.py
+    #                    pipeline -- step-by-step instruction PLUS
+    #                    explicit Task/Question/Answer scaffolding).
+    # Coding datasets use their own scaffolding and are intentionally
+    # NOT touched.
+    base_style = getattr(args, "base_prompt_style", "default")
+
+    # For 'think_template' style, the base prompt = think tokenizer's chat
+    # template applied to the family-shaped user content (matches
+    # gen_base_thinkprompt.py).  Lazy-load + cache the tokenizer on args.
+    if base_style == "think_template":
+        from transformers import AutoTokenizer
+        if getattr(args, "_think_tok_for_baseprompt", None) is None:
+            args._think_tok_for_baseprompt = AutoTokenizer.from_pretrained(
+                args.thinking_model, trust_remote_code=True)
+        _tt_tok = args._think_tok_for_baseprompt
+        _tt_family = getattr(args, "think_prompt_family", "auto")
+        if _tt_family == "auto":
+            _tt_family = _detect_think_family(args.thinking_model)
+        _tt_math = args.dataset in _MATH_DATASETS
+        _tt_md_on = bool(getattr(args, "math_directive", False))
+
+    def _bp_for(question: str) -> str:
+        if base_style == "stepwise":
+            return ("User: Answer the following question. Respond step "
+                    f"by step.\n\n{question}\nAssistant:")
+        if base_style == "boxed":
+            return (f"User: {question}\n\nPlease reason step by step, "
+                    "and put your final answer within "
+                    "\\boxed{}.\nAssistant:")
+        if base_style == "legacy_task":
+            return ("Task: Answer the question below. Explain your "
+                    "reasoning step by step.\n\n\n\nQuestion:\n"
+                    f"{question}\n\nStep by step answer:\n")
+        if base_style == "simple":
+            return f"User: {question}\nAssistant: <think>\n"
+        if base_style == "qa_response":
+            return f"Question: {question}\nResponse: "
+        if base_style == "qa_instr":
+            return f"Answer the following question:\nQ: {question}\nA:"
+        if base_style == "think_qa":
+            return (
+                "Your task is to answer the following question. First, "
+                "carefully think through the question and then provide "
+                "your final answer.\n"
+                f"Q: {question}\nA:"
+            )
+        if base_style == "think_qa_marker":
+            # Same preamble as think_qa, but the terminal cue is
+            # "Think:" instead of "A:".  The hypothesis: the base
+            # model is far less likely to emit an answer-first token
+            # like " 8" right after "Think:" than right after "A:",
+            # which gives the hybrid steering more room to keep the
+            # response on a reasoning trajectory.
+            return (
+                "Your task is to answer the following question. First, "
+                "carefully think through the question and then provide "
+                "your final answer.\n"
+                f"Q: {question}\nThink:"
+            )
+        if base_style == "think_word":
+            return f"User: {question}\nAssistant: think:\n"
+        if base_style == "convo_marker":
+            return (
+                'A conversation between User and Assistant. The User asks a '
+                'question, and the Assistant solves it. The Assistant '
+                'reasons step by step following the "think" marker, and when '
+                'done provides their final answer after the "answer" marker.'
+                f'\n\nUser: {question}\n\nA:\nthink:\n'
+            )
+        if base_style == "convo_marker_v2":
+            return (
+                'A conversation between User and Assistant. The User asks a '
+                'question, and the Assistant solves it. The Assistant '
+                'reasons step by step following the "think" marker, and when '
+                'done provides their final answer after the "answer" marker.'
+                f'\nUser: {question}\nAssistant:\nthink:\n'
+            )
+        if base_style == "convo_continue":
+            return (
+                'A conversation between user and assistant. User asks a '
+                'question, assistant responds.'
+                f'\n\nUser:\n{question}\n\nAssistant:\n'
+            )
+        if base_style == "convo_reason":
+            return (
+                'A conversation between User and Assistant. User asks a '
+                'question and Assistant reasons through it step by step '
+                'until figuring out the correct answer.'
+                f'\n\nUser question: {question}\n\nAssistant reasoning: '
+            )
+        if base_style == "orz_think_template":
+            # ORZ chat template (rendered), with the math directive baked in.
+            return (
+                'A conversation between User and Assistant. The User asks a '
+                'question, and the Assistant solves it. The Assistant first '
+                'thinks about the reasoning process in the mind and then '
+                'provides the User with the answer. The reasoning process is '
+                'enclosed within <think> </think> and answer is enclosed '
+                'within <answer> </answer> tags, respectively, i.e., <think> '
+                'reasoning process here </think> <answer> answer here '
+                '</answer>. User: You must put your answer inside <answer> '
+                '</answer> tags, i.e., <answer> answer here </answer>. And '
+                'your final answer will be extracted automatically by the '
+                '\\boxed{} tag.\n' + question +
+                '\n\nPlease reason step by step, and put your final answer '
+                'within \\boxed{}.\nAssistant: <think>'
+            )
+        if base_style == "r1_think_template":
+            # DeepSeek-R1-Distill chat template (rendered), BOS token omitted.
+            return (
+                '<｜User｜>' + question +
+                '\n\nPlease reason step by step, and put your final answer '
+                'within \\boxed{}.<｜Assistant｜><think>\n'
+            )
+        if base_style == "qwq_think_template":
+            # QwQ-32B (ChatML) chat template, rendered.
+            return (
+                '<|im_start|>user\n' + question +
+                '\n\nPlease reason step by step, and put your final answer '
+                'within \\boxed{}.<|im_end|>\n<|im_start|>assistant\n<think>\n'
+            )
+        if base_style == "plain_chat_math":
+            return (
+                f'user\n{question}\nPlease reason step by step, and put '
+                f'your final answer within \\boxed{{}}.\n\nassistant\n'
+                f'<think>\n'
+            )
+        if base_style == "convo_think":
+            return (
+                'A conversation between a User and Assistant. The User asks '
+                'a question, and the Assistant solves it. The Assistant '
+                'first thinks about the reasoning process in the mind and '
+                'then provides the User with the answer. The reasoning '
+                'process is enclosed within <think> </think> followed by '
+                'the answer.'
+                f'\nUser: \n{question}\nAssistant: <think>\n'
+            )
+        if base_style == "mini_preamble":
+            return (
+                'User asks a question. Assistant solves it by thinking '
+                'through the question.'
+                f'\n\nUser: {question}\nAssistant: <think>\n'
+            )
+        if base_style == "orz_full":
+            return (
+                'A conversation between User and Assistant. The User asks '
+                'a question, and the Assistant solves it. The Assistant '
+                'first thinks about the reasoning process in the mind and '
+                'then provides the User with the answer. The reasoning '
+                'process is enclosed within <think> </think> and answer '
+                'is enclosed within <answer> </answer> tags, respectively, '
+                'i.e., <think> reasoning process here </think> <answer> '
+                'answer here </answer>. User: You must put your answer '
+                'inside <answer> </answer> tags, i.e., <answer> answer '
+                'here </answer>. And your final answer will be extracted '
+                'automatically by the \\boxed{} tag.'
+                f'\n{question}\nAssistant: <think>\n'
+            )
+        if base_style == "r1_plain":
+            return (
+                f'User:\n{question}\nPlease reason step by step, and put '
+                f'your final answer within \\boxed{{}}.\n\nAssistant:\n'
+                f'<think>\n'
+            )
+        if base_style == "qwq_plain":
+            return (
+                f'User: {question}\n\nPlease reason step by step, and put '
+                f'your final answer within \\boxed{{}}. \n\nAssistant: '
+                f'<think>\n'
+            )
+        if base_style == "step_preamble":
+            return (
+                f'Please reason step by step\n\n'
+                f'User: {question}\nAssistant:<think>'
+            )
+        if base_style == "think_template":
+            shaped = _shape_think_user_content(
+                question, _tt_family,
+                is_math_question=_tt_math,
+                math_directive_enabled=_tt_md_on,
+            )
+            return _tt_tok.apply_chat_template(
+                [{"role": "user", "content": shaped}],
+                tokenize=False, add_generation_prompt=True)
+        return f"User: {question}\nAssistant:"
 
     if args.dataset == "mbpp":
         tc = "\n".join(test_list) if test_list else ""
@@ -267,10 +906,27 @@ def _build_task_prompts(item, i, args):
         bp = f"{tp}\n\n{CODING_BASE_SUFFIX}"
     elif args.dataset in ("medqa", "gpqa"):
         tp = f"{q}\n\nPlease select the correct answer (A, B, C, or D) and explain your reasoning."
-        bp = f"User: {q}\nAssistant:"
+        bp = _bp_for(q)
     else:
         tp = q
-        bp = f"User: {q}\nAssistant:"
+        bp = _bp_for(q)
+
+    # ── Per-family user-content shaping for the thinking model ────────────
+    # ORZ: prepend Table-5 instruction unconditionally.
+    # R1 / QwQ: append math directive on math-style benchmarks if enabled.
+    # Coding / MCQA prompts already have task-specific scaffolding; we still
+    # apply the family shaping on top so that the model sees its expected
+    # template ending (e.g. "Assistant: <think>" for ORZ via chat template).
+    think_family = getattr(args, "think_prompt_family", "auto")
+    if think_family == "auto":
+        think_family = _detect_think_family(args.thinking_model)
+    math_directive_enabled = bool(getattr(args, "math_directive", False))
+    is_math = args.dataset in _MATH_DATASETS
+    tp = _shape_think_user_content(
+        tp, think_family,
+        is_math_question=is_math,
+        math_directive_enabled=math_directive_enabled,
+    )
 
     return {"question": q, "correct_answer": a,
             "thinking_prompt": tp, "base_prompt": bp, "test_list": test_list}
@@ -467,7 +1123,11 @@ def hybrid_generate_batched(
     thinking_tokenizer=None,
     disable_sae_mean=False,
     show_progress=False, collect_details=True,
-    random_firing=False, random_guardrail=False, random_seed=0,
+    random_firing=False, random_firing_exclude_top_k_keys=0,
+    firing_replace_with_min_cosine=False,
+    pure_steer_base_eos=False,
+    random_steer_prob=0.0,
+    random_guardrail=False, random_seed=0,
     coef_sweep=None, steer_all_positions=False,
     steer_all_positions_full=False,
     coef_select="pg", kl_topk=3,
@@ -478,6 +1138,22 @@ def hybrid_generate_batched(
     pg_bias_coefs=(0.0, 0.5, 1.0),
     pg_cat_coefs=(0.0, 0.5, 1.0),
     token_window=0,
+    act_modulate: Optional[Dict[str, Tuple[float, float]]] = None,
+    mlp_model=None,
+    warmup_until_sentence_end: bool = False,
+    warmup_max_tokens: int = 60,
+    suppress_boxed_first_n_tokens: int = 0,
+    accept_answer_close: bool = False,
+    disable_eos_suppression: bool = False,
+    free_fly_until_think_eos: bool = False,
+    no_termination: bool = False,
+    eos_prob_warmup: bool = False,
+    eos_prob_warmup_steps: int = 0,
+    thinking_continuation_text: Optional[List[str]] = None,
+    base_continuation_text: Optional[List[str]] = None,
+    mlp_coef_scale: float = 1.0,
+    decode_temperature: float = 0.0,
+    decode_seed: int = 0,
 ):
     """Batched KV-cached hybrid generation (paper recipe).
 
@@ -494,6 +1170,15 @@ def hybrid_generate_batched(
 
     device = next(base_model.parameters()).device
     dtype = next(base_model.parameters()).dtype
+    # When base and thinking models live on separate GPUs (--two_gpu_split),
+    # we need to bounce small think-model inputs onto the think GPU before
+    # each forward, and copy the final-step think logits back onto the base
+    # GPU for token-comparison / steering.  When both models share a device
+    # the .to() calls below are no-ops.
+    think_device = next(thinking_model.parameters()).device
+    _split_devices = (think_device != device)
+    def _to_think(x):
+        return x.to(think_device, non_blocking=True) if _split_devices else x
     hidden_size = base_model.config.hidden_size
     act_mean = (sae.activation_mean if hasattr(sae, "activation_mean")
                 and not disable_sae_mean else None)
@@ -516,7 +1201,49 @@ def hybrid_generate_batched(
     # Ablation RNGs. Seeded Python RNGs so runs are reproducible.
     _firing_rng = random.Random(random_seed + 1)
     _guard_rng = random.Random(random_seed + 2)
+    # Torch generator for the per-step Bernoulli draw used by
+    # --random_steer_prob.  CPU-side so we can construct it once before
+    # the model placement.
+    _rstpos_gen = torch.Generator(device="cpu").manual_seed(int(random_seed) + 3)
     _firing_keys = [k for k in steering_vectors.keys() if k in steering_layer_map]
+
+    # Pre-compute the deterministic "min-cosine-to-self" anti-cat map for the
+    # firing_replace_with_min_cosine ablation.  For each key k_top in the
+    # firing pool, find the key k_min (k_min != k_top) whose steering vector
+    # has the lowest cosine similarity to V[k_top].  Use full L2-normalised
+    # dot product; vectors may live on different layers but the *direction*
+    # itself is compared (we're asking which trained anti-direction to apply).
+    _min_cos_map = {}
+    if firing_replace_with_min_cosine and len(_firing_keys) >= 2:
+        _norm_vecs = {}
+        for _k in _firing_keys:
+            _v = steering_vectors.get(_k)
+            if _v is None:
+                continue
+            _vf = _v.detach().float().flatten()
+            _n = float(_vf.norm().item())
+            if _n < 1e-8:
+                continue
+            _norm_vecs[_k] = (_vf / _n).cpu()
+        for _kt in list(_norm_vecs.keys()):
+            best_k = None
+            best_cos = float("inf")
+            for _ko in _norm_vecs:
+                if _ko == _kt:
+                    continue
+                _c = float(torch.dot(_norm_vecs[_kt], _norm_vecs[_ko]).item())
+                if _c < best_cos:
+                    best_cos = _c
+                    best_k = _ko
+            if best_k is not None:
+                _min_cos_map[_kt] = (best_k, best_cos)
+        try:
+            _summary_lines = ["[ablation:min_cosine] anti-cat map (per SAE top-1 -> min-cos cat):"]
+            for _kt, (_km, _c) in _min_cos_map.items():
+                _summary_lines.append(f"    {_kt} -> {_km}   cos={_c:+.3f}")
+            print("\n".join(_summary_lines), flush=True)
+        except Exception:
+            pass
 
     generated_ids = [[] for _ in range(B)]
     token_infos = [[] for _ in range(B)] if collect_details else None
@@ -694,20 +1421,77 @@ def hybrid_generate_batched(
         vecs = torch.zeros(B, hidden_size, device=device, dtype=dtype)
         assigns = [default_layer] * B
         keys, titles = [], []
+        mod_factors = []
+        # Precompute top-K latents per row for the exclude-top-k ablation.
+        # We pull enough top latents so that we can recover at least K distinct
+        # category keys even when multiple latents map to the same key.
+        _excl_k = int(random_firing_exclude_top_k_keys)
+        _top_lids = None
+        if random_firing and _excl_k > 0:
+            # Pull a generous number of top latents to ensure K distinct keys.
+            _topn = min(la.shape[-1], max(_excl_k * 4, 16))
+            _top_lids = la.topk(_topn, dim=-1).indices.to(device)
         for b in range(B):
             lid = ids[b].item()
             k = latent_descriptions[lid]["key"]
+            # Deterministic anti-cat replacement (min cosine to SAE top-1).
+            # Independent of --random_firing.
+            if firing_replace_with_min_cosine and _min_cos_map:
+                _ent = _min_cos_map.get(k)
+                if _ent is not None:
+                    k = _ent[0]
             if random_firing and _firing_keys:
-                # Ablation: override SAE-picked key with a uniform random
-                # category key (same pool the SAE oracle selects from).
-                k = _firing_rng.choice(_firing_keys)
+                if _excl_k > 0 and _top_lids is not None:
+                    # Build the set of top-K *unique* keys by activation rank.
+                    excl = []
+                    seen = set()
+                    for _l in _top_lids[b].tolist():
+                        _kk = latent_descriptions[_l]["key"]
+                        if _kk not in seen:
+                            seen.add(_kk)
+                            excl.append(_kk)
+                            if len(excl) >= _excl_k:
+                                break
+                    pool = [kk for kk in _firing_keys if kk not in seen]
+                    if not pool:
+                        # Edge case: excluded everything (shouldn't happen if
+                        # excl_k < len(_firing_keys)). Fall back to uniform.
+                        pool = list(_firing_keys)
+                    k = _firing_rng.choice(pool)
+                else:
+                    # Ablation: override SAE-picked key with a uniform random
+                    # category key (same pool the SAE oracle selects from).
+                    k = _firing_rng.choice(_firing_keys)
             keys.append(k)
             titles.append(latent_descriptions[lid]["title"])
             sv = steering_vectors.get(k)
+            # ---- Optional per-position activation modulation ----
+            mod_b = 1.0
+            if act_modulate is not None and sv is not None:
+                rng = act_modulate.get(k)
+                if rng is not None:
+                    lo, hi = rng
+                    val_b = float(vals[b].item())
+                    if hi > lo + 1e-8:
+                        mod_b = (val_b - lo) / (hi - lo)
+                        if mod_b < 0.0:
+                            mod_b = 0.0
+                        elif mod_b > 1.0:
+                            mod_b = 1.0
+                    else:
+                        mod_b = 1.0
+            mod_factors.append(mod_b)
             if sv is not None:
-                vecs[b] = sv
+                if mod_b == 1.0:
+                    vecs[b] = sv
+                else:
+                    vecs[b] = sv * mod_b
             if k in steering_layer_map:
                 assigns[b] = steering_layer_map[k]
+        if act_modulate is not None:
+            steer_s["last_mod_factors"] = mod_factors
+        else:
+            steer_s["last_mod_factors"] = None
         steer_s["vecs"] = vecs
         steer_s["assigns"] = assigns
         for l in all_steer_layers:
@@ -729,6 +1513,17 @@ def hybrid_generate_batched(
         think_texts = [think_tok.apply_chat_template(
             [{"role": "user", "content": p}],
             add_generation_prompt=True, tokenize=False) for p in thinking_prompts]
+        # Continuation mode (Phase-2 4096-extension): append the cached truncated
+        # think response *after* the assistant-open header so the KV prefill
+        # absorbs it.  No new tokens are generated for this segment; the loop
+        # picks up from the seam.  Pure-mode disables all tag detection so the
+        # seam carries no protocol state.
+        if thinking_continuation_text is not None:
+            assert len(thinking_continuation_text) == len(think_texts), (
+                f"thinking_continuation_text len mismatch: "
+                f"{len(thinking_continuation_text)} vs {len(think_texts)}")
+            think_texts = [t + (c or "") for t, c in
+                           zip(think_texts, thinking_continuation_text)]
         t_enc = think_tok(think_texts, return_tensors="pt",
                           padding=True, truncation=False).to(device)
         t_ids = t_enc["input_ids"]
@@ -738,6 +1533,15 @@ def hybrid_generate_batched(
         t_lens = t_mask.sum(dim=1)
 
         base_tokenizer.padding_side = "left"
+        # Continuation mode: append the existing hybrid output to the base
+        # prompt so the base KV prefill carries the prior trace.  Generated
+        # tokens (n_generated) count only the NEW continuation segment.
+        if base_continuation_text is not None:
+            assert len(base_continuation_text) == len(base_prompts), (
+                f"base_continuation_text len mismatch: "
+                f"{len(base_continuation_text)} vs {len(base_prompts)}")
+            base_prompts = [b + (c or "") for b, c in
+                            zip(base_prompts, base_continuation_text)]
         b_enc = base_tokenizer(base_prompts, return_tensors="pt",
                                padding=True, truncation=False).to(device)
         b_ids = b_enc["input_ids"]
@@ -752,11 +1556,16 @@ def hybrid_generate_batched(
         # active (otherwise we'd allocate a (B, L, vocab) fp32 tensor during
         # prefill -> OOM at large batch sizes).
         with torch.inference_mode():
-            think_out = thinking_model(input_ids=t_ids, attention_mask=t_mask,
-                                       position_ids=t_pos, use_cache=True,
+            think_out = thinking_model(input_ids=_to_think(t_ids),
+                                       attention_mask=_to_think(t_mask),
+                                       position_ids=_to_think(t_pos),
+                                       use_cache=True,
                                        logits_to_keep=1)
         think_kv = think_out.past_key_values
-        think_logits = think_out.logits[:, -1, :]
+        # Move just the last-step logits back to base device for comparison
+        # / steering.  KV cache stays on think_device for next forward.
+        think_logits = (think_out.logits[:, -1, :].to(device)
+                        if _split_devices else think_out.logits[:, -1, :])
         del think_out
 
         lat_ids, act_vals, lat_keys, lat_titles = _classify(captured["sae_act"])
@@ -884,16 +1693,83 @@ def hybrid_generate_batched(
                   f"base transition {_BASE_TRANSITION_STR!r} = "
                   f"{_base_transition_seq} ({len(_base_transition_seq)} tok)")
 
+        # ---- Optional: also detect '</answer>' as a close trigger ----
+        # Same 3-state machine as for </think>, but with 'answer' as the
+        # invariant middle token.  Re-uses _opener_ids / _closer_ids since the
+        # '</' opener and '>' closer token sets are independent of which tag
+        # sits between them.  Single-token close for </answer> is also
+        # supported via _answer_close_id_single if applicable.
+        _answer_close_mid: int = -1
+        _answer_close_id_single: int = -1
+        if accept_answer_close:
+            try:
+                _answer_close_seq = _think_tok_for_tags.encode(
+                    "</answer>", add_special_tokens=False)
+                if len(_answer_close_seq) == 1:
+                    _answer_close_id_single = int(_answer_close_seq[0])
+                else:
+                    _answer_close_mid = int(_think_tok_for_tags.encode(
+                        "answer", add_special_tokens=False)[0])
+                print(f"[hybrid] </answer> ALSO accepted as close trigger: "
+                      f"mid={_answer_close_mid} 'answer', "
+                      f"single_id={_answer_close_id_single}")
+            except Exception as e:
+                print(f"[hybrid] WARN: could not set up </answer> detection: {e}")
+                accept_answer_close = False
+
+        # ---- Warmup-until-first-sentence-end gate (diagnostic) ----
+        # When enabled, each row's hybrid protocol (steering + EOS suppression
+        # + </think> detection) stays OFF until the base has emitted a
+        # sentence-ending token.  Used to test the hypothesis that the 0.5B
+        # auto-completion failure is driven by EOS suppression engaging from
+        # token-0 before the base has had a chance to commit to its own
+        # response style.
+        warmup_active = torch.zeros(B, dtype=torch.bool, device=device)
+        warmup_tok_count = torch.zeros(B, dtype=torch.long, device=device)
+        _sentence_end_ids: set = set()
+        if warmup_until_sentence_end:
+            import re as _re
+            # Require punctuation FOLLOWED BY whitespace inside the same token
+            # (e.g. ".\n", ".\n\n", "}.\n", "?\n").  This avoids false-positives
+            # on bare-"." tokens that appear inside numbers like "3.14".  In the
+            # rare case where the tokenizer splits sentence endings as
+            # ["...", "."] + [" ", "..."], the warmup_max_tokens cap will fire.
+            _send_re = _re.compile(r"[.?!]\s")
+            try:
+                _vsize = int(getattr(base_tokenizer, "vocab_size",
+                                     len(base_tokenizer)))
+            except Exception:
+                _vsize = len(base_tokenizer)
+            for _tid in range(_vsize):
+                try:
+                    _txt = base_tokenizer.decode([_tid])
+                except Exception:
+                    continue
+                if _send_re.search(_txt):
+                    _sentence_end_ids.add(_tid)
+            warmup_active = torch.ones(B, dtype=torch.bool, device=device)
+            print(f"[hybrid] warmup_until_sentence_end=True: "
+                  f"{len(_sentence_end_ids)} sentence-ender tokens; "
+                  f"cap={warmup_max_tokens} tokens/row")
+
         # One bool per row: True while the thinking model is still inside <think>.
         # Flips to False once the thinking model has emitted </think> and the
         # base model has been advanced by the transition sequence.
-        inside_think = torch.ones(B, dtype=torch.bool, device=device)
+        # When warmup is active for a row, inside_think starts False (so the
+        # state machine routes through the pass-through branch) and flips to
+        # True the step a sentence-end is detected.
+        inside_think = ~warmup_active.clone()
+        if not warmup_until_sentence_end:
+            inside_think = torch.ones(B, dtype=torch.bool, device=device)
         # Per-row queues of token IDs to force.  Independent per model
         # because the transition sequences differ.
         _think_forced_queues: list = [[] for _ in range(B)]
         _base_forced_queues: list = [[] for _ in range(B)]
         # Per-row partial-match counter for multi-token </think> in think vocab.
         _think_close_partial: list = [0] * B
+        # Parallel partial-match state for '</answer>' detection.  Only used
+        # when accept_answer_close=True.
+        _answer_close_partial: list = [0] * B
 
         # Coefficient sweep. Default is paper's 10-point grid [0.1..1.0];
         # overridable via --coef_sweep (e.g. [0.5..1.0] to match the
@@ -901,10 +1777,60 @@ def hybrid_generate_batched(
         _SWEEP = list(coef_sweep) if coef_sweep else [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
         assert len(_SWEEP) > 0 and all(0.0 <= float(c) <= 10.0 for c in _SWEEP)
 
+        # ---- EOS probability warmup (linear in probability space) ----
+        # If --eos_prob_warmup is set, on every step we multiply the base
+        # softmax probability of EOS by alpha = min(1, n_gen / T), where
+        # T = --eos_prob_warmup_steps (or max_new_tokens by default), and
+        # redistribute the displaced mass proportionally to the non-EOS
+        # tokens.  The result is fed back through log() into base_logits
+        # so all downstream argmax / EOS-suppression / steering decisions
+        # see the warmed-up distribution.
+        _eos_T = (eos_prob_warmup_steps
+                  if eos_prob_warmup_steps > 0 else max_new_tokens)
+        _eos_T = max(1, int(_eos_T))
+
+        # ---- Per-batch sampling generator (for decode_temperature > 0) ----
+        # In sampling mode, the base/think candidate tokens used for the
+        # disagreement gate are sampled from each model's distribution, and the
+        # emitted token is sampled from either the base or steered distribution.
+        # The generator is seeded per-process so repeated runs of the same
+        # prompt with the same seed give reproducible samples.
+        _decode_T = float(decode_temperature)
+        _do_decode_sample = _decode_T > 0.0
+        if _do_decode_sample:
+            _decode_gen = torch.Generator(device=device)
+            _decode_gen.manual_seed(int(decode_seed))
+
+        def _sample_or_argmax(logits: torch.Tensor) -> torch.Tensor:
+            """Return shape-(B,) ids; argmax when T==0, else categorical
+            sample from softmax(logits / T)."""
+            if not _do_decode_sample:
+                return torch.argmax(logits, dim=-1)
+            probs = torch.softmax(logits.float() / _decode_T, dim=-1)
+            return torch.multinomial(probs, num_samples=1,
+                                     generator=_decode_gen).squeeze(-1)
+
         while n_gen < max_new_tokens:
+            # ---- 0. EOS probability warmup ----
+            if eos_prob_warmup:
+                _alpha = min(1.0, n_gen / float(_eos_T))
+                if _alpha < 1.0:
+                    _probs = torch.softmax(base_logits, dim=-1)
+                    _p_eos = _probs[:, eos_id]                    # (B,)
+                    _new_p_eos = _alpha * _p_eos                  # (B,)
+                    _denom = (1.0 - _p_eos).clamp(min=1e-12)
+                    _scale = ((1.0 - _new_p_eos) / _denom).unsqueeze(-1)
+                    _probs = _probs * _scale
+                    _probs[:, eos_id] = _new_p_eos
+                    base_logits = torch.log(_probs.clamp(min=1e-30))
+                    del _probs, _p_eos, _new_p_eos, _denom, _scale
+
             # ---- 1. Candidate tokens from each model ----
-            base_next_toks = torch.argmax(base_logits, dim=-1)
-            think_next_toks = torch.argmax(think_logits, dim=-1)
+            # T=0: historical argmax gate. T>0: sampled gate, so both the
+            # disagreement decision and the emitted token share the same
+            # stochastic base / think candidates at this step.
+            base_next_toks = _sample_or_argmax(base_logits)
+            think_next_toks = _sample_or_argmax(think_logits)
             # Skip steering on:
             #  - finished rows
             #  - rows draining a forced-token queue (transition mid-flight)
@@ -916,10 +1842,30 @@ def hybrid_generate_batched(
                 dtype=torch.bool, device=device)
             _not_inside = ~inside_think
             _is_tag = torch.zeros(B, dtype=torch.bool, device=device)
-            if _think_close_id_single >= 0:
-                _is_tag |= (think_next_toks == _think_close_id_single)
-            token_agree = ((think_next_toks == base_next_toks)
-                           | finished | _is_tag | _is_forced | _not_inside)
+            # In pure_steer_base_eos mode we IGNORE any think-side close-tag
+            # signals -- the run is purely base-EOS driven and steering must
+            # keep firing at every disagreement position, regardless of
+            # whether the think model is emitting </think> / </answer> right
+            # now. Free-fly mode follows the same logic for the same reason.
+            if not (pure_steer_base_eos or free_fly_until_think_eos):
+                if _think_close_id_single >= 0:
+                    _is_tag |= (think_next_toks == _think_close_id_single)
+                if accept_answer_close and _answer_close_id_single >= 0:
+                    _is_tag |= (think_next_toks == _answer_close_id_single)
+            if random_steer_prob > 0.0:
+                # Ablation: REPLACE the natural disagreement signal with a
+                # per-step Bernoulli(p) draw.  Every other gate (finished,
+                # forced-queue, answer-phase, warmup, tag) still suppresses
+                # steering -- only the (think == base) check is swapped out.
+                _rs_draw = torch.rand(B, generator=_rstpos_gen).to(device)
+                _synthetic_agree = (_rs_draw >= random_steer_prob)
+                token_agree = (_synthetic_agree
+                               | finished | _is_tag | _is_forced | _not_inside
+                               | warmup_active)
+            else:
+                token_agree = ((think_next_toks == base_next_toks)
+                               | finished | _is_tag | _is_forced | _not_inside
+                               | warmup_active)
 
             best_coeff = torch.zeros(B, device=device)
             # Parallel best-bias-coef tracker (only meaningful under
@@ -966,6 +1912,95 @@ def hybrid_generate_batched(
                     matched_row = torch.zeros(B, dtype=torch.bool, device=device)
                 raw_vecs = steer_s["vecs"]
 
+                # ----- MLP coefficient prediction -----
+                # For coef_select == "mlp": single forward with mlp_alpha, no sweep.
+                # For coef_select == "mlp_pg": compute mlp_alpha here, then fall
+                #   through to the perplexity-guardrail sweep below where the
+                #   effective coef per candidate is mlp_alpha * sweep_coef.
+                _mlp_handled = False
+                _mlp_alpha = None
+                if coef_select in ("mlp", "mlp_pg") and mlp_model is not None:
+                    _cap = {}
+                    steer_layer_for_cap = min(all_steer_layers)
+                    def _cap_hook(_mod, _inp, _out):
+                        h = _out[0] if isinstance(_out, tuple) else _out
+                        _cap["h"] = h[:, -1, :].detach().float()
+                    _cap_handle = base_model.model.layers[steer_layer_for_cap].register_forward_hook(_cap_hook)
+                    _clear_steering()
+                    base_kv = _truncate_kv(base_kv)
+                    with torch.inference_mode():
+                        _cap_out = base_model(
+                            input_ids=prev_base_input.unsqueeze(1),
+                            attention_mask=b_mask,
+                            position_ids=(base_pos - 1).unsqueeze(1),
+                            past_key_values=base_kv, use_cache=True)
+                    base_kv = _cap_out.past_key_values
+                    del _cap_out
+                    _cap_handle.remove()
+                    h_raw = _cap["h"]  # (B, D)
+
+                    _mlp_n_cats = mlp_model.n_cats
+                    cat_id_list = []
+                    for b in range(B):
+                        k = lat_keys[b]
+                        cid = int(k.replace("idx", "")) if k.startswith("idx") else 0
+                        cat_id_list.append(min(cid, _mlp_n_cats - 1))
+                    cat_id_tensor = torch.tensor(cat_id_list, dtype=torch.long, device=h_raw.device)
+
+                    _mlp_dev = next(mlp_model.parameters()).device
+                    if h_raw.device != _mlp_dev:
+                        mlp_model = mlp_model.to(h_raw.device)
+                    with torch.inference_mode():
+                        alpha = mlp_model(h_raw, cat_id_tensor)  # (B,)
+                    alpha = alpha.to(device=device, dtype=torch.float32)
+                    alpha = torch.where(disagree_mask, alpha, torch.zeros_like(alpha))
+                    if mlp_coef_scale != 1.0:
+                        alpha = alpha * float(mlp_coef_scale)
+                    _mlp_alpha = alpha
+
+                if coef_select == "mlp" and _mlp_alpha is not None:
+                    alpha = _mlp_alpha
+                    steer_s["coef"] = alpha
+                    for li in all_steer_layers:
+                        steer_s["layer_masks"][li] = torch.tensor(
+                            [steer_s["assigns"][b] == li for b in range(B)],
+                            dtype=torch.bool, device=device) & disagree_mask
+                    base_kv = _truncate_kv(base_kv)
+                    with torch.inference_mode():
+                        _mlp_out = base_model(
+                            input_ids=prev_base_input.unsqueeze(1),
+                            attention_mask=b_mask,
+                            position_ids=(base_pos - 1).unsqueeze(1),
+                            past_key_values=base_kv, use_cache=True)
+                    base_kv = _mlp_out.past_key_values
+                    mlp_logits = _mlp_out.logits[:, -1, :]
+                    # Emission token: sampled from steered logits when
+                    # decode_temperature>0, else argmax.
+                    best_tok = _sample_or_argmax(mlp_logits)
+                    del _mlp_out
+
+                    best_coeff = alpha
+                    need_steer = disagree_mask
+                    # For no-steering rows, emit the same base candidate that
+                    # participated in the gate above.  In sampling mode this
+                    # avoids drawing a second independent base token.
+                    output_toks = torch.where(need_steer, best_tok, base_next_toks)
+                    did_steer = need_steer
+
+                    # Revert KV to unsteered state
+                    _clear_steering()
+                    steer_s["coef"] = 1.0
+                    base_kv = _truncate_kv(base_kv)
+                    with torch.inference_mode():
+                        _mlp_revert = base_model(
+                            input_ids=prev_base_input.unsqueeze(1),
+                            attention_mask=b_mask,
+                            position_ids=(base_pos - 1).unsqueeze(1),
+                            past_key_values=base_kv, use_cache=True)
+                    base_kv = _mlp_revert.past_key_values
+                    del _mlp_revert
+                    _mlp_handled = True
+
                 # Random-guardrail ablation: pre-sample a random coefficient
                 # per row; we'll commit whatever the sweep produces at that
                 # coefficient instead of picking by thinking-model logp.
@@ -982,300 +2017,310 @@ def hybrid_generate_batched(
                     full_pos = base_mask_full.long().cumsum(-1) - 1
                     full_pos.masked_fill_(base_mask_full == 0, 0)
 
-                # For think_top1_match we want the SMALLEST coef that
-                # produces an argmax==thinking top-1, so iterate sorted.
-                # For think_top1_match_maxconf we iterate the full sweep
-                # and pick the matching coef with highest log p(T).
-                if coef_select == "pg_bias_cat":
-                    # Cartesian product (bias_coef, cat_coef). Both are
-                    # passed through steer_s; the hook adds
-                    # bias_coef * bias_vec  +  cat_coef * cat_vec
-                    # at the disagreement-step positions.  Sort so that
-                    # (0, 0) comes first; this lets `last_logits` for the
-                    # no-shift candidate be the 1-token base logits and
-                    # avoids running a useless forward.
-                    _sweep_iter = sorted(
-                        [(float(b), float(c))
-                         for b in pg_bias_coefs
-                         for c in pg_cat_coefs],
-                        key=lambda bc: (bc[0] + bc[1], bc[0], bc[1]))
-                else:
-                    _sweep_iter = (sorted(_SWEEP)
-                                   if coef_select == "think_top1_match"
-                                   else _SWEEP)
-                # Track whether any candidate forward actually touched
-                # base_kv (so we know whether the post-sweep restore is
-                # needed).  Stays False when only the no-shift candidate
-                # ran via the short-circuit below.
-                _kv_dirty = False
-                # Snapshot the last N positions of base_kv before any
-                # shifted candidate runs.  After the sweep we copy these
-                # back, giving a cache state that's byte-identical to
-                # the pristine incrementally-built cache (no extra drift
-                # from an unsteered re-roll).  Only relevant in
-                # _kv_window_mode.
-                _kv_snap_ks, _kv_snap_vs = [], []
-                if _kv_window_mode:
-                    _N_snap = max(1, min(int(token_window), int(n_gen) + 1))
-                    _kv_snap_ks, _kv_snap_vs = _snapshot_last_n(
-                        base_kv, _N_snap)
-                for _sw in _sweep_iter:
-                    if coef_select == "pg_bias_cat":
-                        _bc, sc = _sw  # (bias_coef, cat_coef)
-                        steer_s["bias_coef"] = _bc
-                        steer_s["coef"] = sc
+                if not _mlp_handled:
+                    # Cartesian sweep over (bias_coef, cat_coef) is controlled
+                    # by `pg_bias_cat_sweep` (independent of `coef_select`, which
+                    # now only controls the SCORING rule used to rank the
+                    # candidates).  For think_top1_match we want the SMALLEST
+                    # coef that produces an argmax==thinking top-1, so iterate
+                    # sorted.
+                    if pg_bias_cat_sweep:
+                        # Cartesian product (bias_coef, cat_coef). Both are
+                        # passed through steer_s; the hook adds
+                        # bias_coef * bias_vec  +  cat_coef * cat_vec
+                        # at the disagreement-step positions.  Sort so that
+                        # (0, 0) comes first; this lets `last_logits` for the
+                        # no-shift candidate be the 1-token base logits and
+                        # avoids running a useless forward.
+                        _sweep_iter = sorted(
+                            [(float(b), float(c))
+                             for b in pg_bias_coefs
+                             for c in pg_cat_coefs],
+                            key=lambda bc: (bc[0] + bc[1], bc[0], bc[1]))
                     else:
-                        _bc = 0.0
-                        sc = _sw
-                        steer_s["coef"] = sc
-                    for li in all_steer_layers:
-                        steer_s["layer_masks"][li] = torch.tensor(
-                            [steer_s["assigns"][b] == li for b in range(B)],
-                            dtype=torch.bool, device=device) & disagree_mask
-
-                    if steer_all_positions_full:
-                        # Faithful reproduction of hybrid_token.py:
-                        # fresh full-sequence forward (no KV cache),
-                        # hook applies c*v to ALL positions of layer
-                        # `steering_layer`. Logits at last position
-                        # are the candidate next-token distribution.
-                        steer_s["all_positions"] = True
-                        with torch.inference_mode():
-                            out = base_model(
-                                input_ids=base_ids_full,
-                                attention_mask=base_mask_full,
-                                position_ids=full_pos,
-                                use_cache=False,
-                                logits_to_keep=1)
-                        steer_s["all_positions"] = False
-                        last_logits = out.logits[:, -1, :]
-                        cand = torch.argmax(last_logits, dim=-1)
-                        del out
-                    elif _kv_window_mode:
-                        # Dynamic last-N window with KV-cache reuse.
-                        #   - N_eff = min(token_window, current generation
-                        #     length).  We never reach back into prompt
-                        #     tokens (would be OOD w.r.t. the bias which
-                        #     was trained on reasoning positions only).
-                        #
-                        # IMPORTANT: when this candidate is the "no-shift"
-                        # one (bias_coef == cat_coef == 0), we MUST short-
-                        # circuit to the 1-token base decode logits
-                        # (`base_logits` / `base_next_toks`) rather than
-                        # re-rolling the last N tokens.  Otherwise tiny
-                        # bf16/matmul nondeterminism between the
-                        # incrementally-built KV cache (built by repeated
-                        # 1-token forwards) and the multi-token re-roll
-                        # over the same positions can flip the argmax,
-                        # turning real "no-shift wins" decisions into
-                        # spurious "shift needed" picks downstream.  This
-                        # drift is mild for SDPA but enormous for eager
-                        # attention on Qwen2.5-1.5B (cache K/V can drift
-                        # by O(1) per position after ~60 steps), and is
-                        # what was producing the eager runs' negative gap
-                        # recovery.  Skipping the forward also saves us
-                        # one model call per disagreement step.
-                        _is_no_shift = (
-                            coef_select == "pg_bias_cat"
-                            and float(_bc) == 0.0 and float(sc) == 0.0)
-                        if _is_no_shift:
-                            last_logits = base_logits
-                            cand = base_next_toks
+                        _sweep_iter = (sorted(_SWEEP)
+                                       if coef_select == "think_top1_match"
+                                       else _SWEEP)
+                    # Track whether any candidate forward actually touched
+                    # base_kv (so we know whether the post-sweep restore is
+                    # needed).  Stays False when only the no-shift candidate
+                    # ran via the short-circuit below.
+                    _kv_dirty = False
+                    # Snapshot the last N positions of base_kv before any
+                    # shifted candidate runs.  After the sweep we copy these
+                    # back, giving a cache state that's byte-identical to
+                    # the pristine incrementally-built cache (no extra drift
+                    # from an unsteered re-roll).  Only relevant in
+                    # _kv_window_mode.
+                    _kv_snap_ks, _kv_snap_vs = [], []
+                    if _kv_window_mode:
+                        _N_snap = max(1, min(int(token_window), int(n_gen) + 1))
+                        _kv_snap_ks, _kv_snap_vs = _snapshot_last_n(
+                            base_kv, _N_snap)
+                    for _sw in _sweep_iter:
+                        if pg_bias_cat_sweep:
+                            _bc, sc = _sw  # (bias_coef, cat_coef)
+                            steer_s["bias_coef"] = _bc
+                            steer_s["coef"] = sc
                         else:
-                            N_eff = max(1, min(int(token_window), int(n_gen) + 1))
-                            base_kv = _truncate_kv(base_kv, n=N_eff)
-                            last_N_ids = base_ids_full[:, -N_eff:]
-                            pos_ids = (
-                                torch.arange(N_eff, device=device).view(1, -1)
-                                + (base_pos - N_eff).view(-1, 1))
-                            # Multi-token forward: ask the hook to shift
-                            # ALL of these N positions (= the last N of
-                            # the full sequence after re-extending the
-                            # cache).
+                            _bc = 0.0
+                            sc = _sw
+                            if coef_select == "mlp_pg" and _mlp_alpha is not None:
+                                # Effective per-row coef = mlp_alpha * sweep_coef.
+                                # Zero rows where MLP would steer with alpha=0
+                                # (i.e. non-disagree positions) stay zero.
+                                steer_s["coef"] = (_mlp_alpha
+                                                   * float(sc)).to(device)
+                            else:
+                                steer_s["coef"] = sc
+                        for li in all_steer_layers:
+                            steer_s["layer_masks"][li] = torch.tensor(
+                                [steer_s["assigns"][b] == li for b in range(B)],
+                                dtype=torch.bool, device=device) & disagree_mask
+
+                        if steer_all_positions_full:
+                            # Faithful reproduction of hybrid_token.py:
+                            # fresh full-sequence forward (no KV cache),
+                            # hook applies c*v to ALL positions of layer
+                            # `steering_layer`. Logits at last position
+                            # are the candidate next-token distribution.
                             steer_s["all_positions"] = True
                             with torch.inference_mode():
                                 out = base_model(
-                                    input_ids=last_N_ids,
-                                    attention_mask=b_mask,
-                                    position_ids=pos_ids,
-                                    past_key_values=base_kv,
-                                    use_cache=True)
+                                    input_ids=base_ids_full,
+                                    attention_mask=base_mask_full,
+                                    position_ids=full_pos,
+                                    use_cache=False,
+                                    logits_to_keep=1)
                             steer_s["all_positions"] = False
+                            last_logits = out.logits[:, -1, :]
+                            cand = torch.argmax(last_logits, dim=-1)
+                            del out
+                        elif _kv_window_mode:
+                            # Dynamic last-N window with KV-cache reuse.
+                            #   - N_eff = min(token_window, current generation
+                            #     length).  We never reach back into prompt
+                            #     tokens (would be OOD w.r.t. the bias which
+                            #     was trained on reasoning positions only).
+                            #
+                            # IMPORTANT: when this candidate is the "no-shift"
+                            # one (bias_coef == cat_coef == 0), we MUST short-
+                            # circuit to the 1-token base decode logits
+                            # (`base_logits` / `base_next_toks`) rather than
+                            # re-rolling the last N tokens.  Otherwise tiny
+                            # bf16/matmul nondeterminism between the
+                            # incrementally-built KV cache (built by repeated
+                            # 1-token forwards) and the multi-token re-roll
+                            # over the same positions can flip the argmax,
+                            # turning real "no-shift wins" decisions into
+                            # spurious "shift needed" picks downstream.  This
+                            # drift is mild for SDPA but enormous for eager
+                            # attention on Qwen2.5-1.5B (cache K/V can drift
+                            # by O(1) per position after ~60 steps), and is
+                            # what was producing the eager runs' negative gap
+                            # recovery.  Skipping the forward also saves us
+                            # one model call per disagreement step.
+                            _is_no_shift = (
+                                pg_bias_cat_sweep
+                                and float(_bc) == 0.0 and float(sc) == 0.0)
+                            if _is_no_shift:
+                                last_logits = base_logits
+                                cand = base_next_toks
+                            else:
+                                N_eff = max(1, min(int(token_window), int(n_gen) + 1))
+                                base_kv = _truncate_kv(base_kv, n=N_eff)
+                                last_N_ids = base_ids_full[:, -N_eff:]
+                                pos_ids = (
+                                    torch.arange(N_eff, device=device).view(1, -1)
+                                    + (base_pos - N_eff).view(-1, 1))
+                                # Multi-token forward: ask the hook to shift
+                                # ALL of these N positions (= the last N of
+                                # the full sequence after re-extending the
+                                # cache).
+                                steer_s["all_positions"] = True
+                                with torch.inference_mode():
+                                    out = base_model(
+                                        input_ids=last_N_ids,
+                                        attention_mask=b_mask,
+                                        position_ids=pos_ids,
+                                        past_key_values=base_kv,
+                                        use_cache=True)
+                                steer_s["all_positions"] = False
+                                base_kv = out.past_key_values
+                                last_logits = out.logits[:, -1, :]
+                                cand = torch.argmax(last_logits, dim=-1)
+                                _kv_dirty = True
+                                del out
+                        else:
+                            base_kv = _truncate_kv(base_kv)
+                            with torch.inference_mode():
+                                out = base_model(
+                                    input_ids=prev_base_input.unsqueeze(1),
+                                    attention_mask=b_mask,
+                                    position_ids=(base_pos - 1).unsqueeze(1),
+                                    past_key_values=base_kv, use_cache=True)
                             base_kv = out.past_key_values
                             last_logits = out.logits[:, -1, :]
                             cand = torch.argmax(last_logits, dim=-1)
-                            _kv_dirty = True
                             del out
+
+                        if random_guardrail:
+                            # Commit this candidate for rows whose random draw == sc.
+                            picked = (torch.isclose(
+                                chosen_coef, torch.tensor(sc, device=device))
+                                & disagree_mask)
+                            if picked.any():
+                                best_coeff[picked] = sc
+                                best_tok[picked] = cand[picked]
+                        elif coef_select == "think_top1_match":
+                            # Strict ceiling: lock in the SMALLEST coef whose
+                            # steered argmax already equals thinking's top-1.
+                            # Rows that already matched are skipped; rows that
+                            # never match stay unsteered (best_coeff stays 0,
+                            # best_tok stays base_next_toks).
+                            new_match = (
+                                (cand == think_next_toks)
+                                & disagree_mask
+                                & ~matched_row)
+                            if new_match.any():
+                                matched_row[new_match] = True
+                                best_coeff[new_match] = sc
+                                best_tok[new_match] = cand[new_match]
+                        elif coef_select == "think_top1_match_maxconf":
+                            # Low-confound oracle: among coefs whose steered
+                            # argmax EQUALS thinking's top-1 token T, pick the
+                            # one with the HIGHEST log p_steered(T).  Random
+                            # vectors fail the strict argmax==T condition (~1/V
+                            # per coef) and fall through to base unsteered.
+                            is_match = (
+                                (cand == think_next_toks) & disagree_mask)
+                            if is_match.any():
+                                base_lp = torch.log_softmax(
+                                    last_logits.float(), dim=-1)
+                                c_lp = base_lp[arange_B, think_next_toks]
+                                c_lp = c_lp.to(best_lp.dtype)
+                                # Only consider matching rows: non-matchers'
+                                # logp shouldn't compete.
+                                c_lp = torch.where(
+                                    is_match, c_lp,
+                                    torch.full_like(c_lp, float("-inf")))
+                                better = (c_lp > best_lp) & is_match
+                                if better.any():
+                                    matched_row[better] = True
+                                    best_lp[better] = c_lp[better]
+                                    best_coeff[better] = sc
+                                    best_tok[better] = cand[better]
+                        elif coef_select == "fixed":
+                            # Fixed coef: unconditionally commit the result of this
+                            # (only) sweep step for all disagreeing rows.
+                            best_coeff = torch.where(
+                                disagree_mask,
+                                torch.tensor(sc, device=device,
+                                             dtype=best_coeff.dtype).expand(B),
+                                best_coeff)
+                            best_tok = torch.where(disagree_mask, cand, best_tok)
+                        else:
+                            if coef_select in ("pg", "mlp_pg"):
+                                c_lp = think_lp[arange_B, cand]
+                            elif coef_select == "think_top1":
+                                # Oracle / ceiling: pick coef that maximises
+                                # the steered-base log-prob at the thinking
+                                # model's argmax token T.  Tokenizer alignment
+                                # (base vocab == think vocab, 1:1) is verified
+                                # at startup so think_next_toks indexes base
+                                # logits correctly.
+                                base_lp = torch.log_softmax(
+                                    last_logits.float(), dim=-1)
+                                c_lp = base_lp[arange_B, think_next_toks]
+                                c_lp = c_lp.to(best_lp.dtype)
+                            else:
+                                # KL-top-K score: -CE between thinking top-K
+                                # (as soft target) and steered base log-probs.
+                                # Larger (closer to 0) = better fit.
+                                base_lp = torch.log_softmax(
+                                    last_logits.float(), dim=-1)
+                                base_lp_at_topk = base_lp.gather(
+                                    -1, t_topk_ix)  # (B, K)
+                                c_lp = (t_topk_p * base_lp_at_topk).sum(dim=-1)
+                                c_lp = c_lp.to(best_lp.dtype)
+                            better = (c_lp > best_lp) & disagree_mask
+                            if better.any():
+                                best_lp[better] = c_lp[better]
+                                best_coeff[better] = sc
+                                if pg_bias_cat_sweep:
+                                    best_bcoef[better] = _bc
+                                best_tok[better] = cand[better]
+
+                    if coef_select in ("think_top1_match",
+                                       "think_top1_match_maxconf"):
+                        # Only count rows that actually matched thinking's top-1
+                        # at some coef as "steered"; the rest fall through to
+                        # the unsteered base argmax.
+                        need_steer = matched_row & disagree_mask
+                    elif coef_select == "fixed":
+                        need_steer = disagree_mask
                     else:
+                        need_steer = disagree_mask
+                    output_toks = torch.where(need_steer, best_tok, base_next_toks)
+                    did_steer = need_steer
+
+                    if steer_all_positions_full:
+                        # Faithful mode: the sweep never touched base_kv
+                        # (use_cache=False), so nothing to revert. The KV
+                        # cache still reflects the unsteered processing up
+                        # to prev_base_input.
+                        _clear_steering()
+                    elif steer_all_positions:
+                        # Reproduce collaborator's hybrid_token.py semantics:
+                        # persist the winning-coef shift at this position in
+                        # the K/V cache for all layers > sae_layer, rather
+                        # than reverting to unsteered. Across decode steps
+                        # this accumulates so subsequent attention sees
+                        # steered K/V for every past disagreement position,
+                        # approximating their 'shift every position's layer-
+                        # sae_layer output on every forward pass' behaviour.
+                        for li in all_steer_layers:
+                            steer_s["layer_masks"][li] = torch.tensor(
+                                [steer_s["assigns"][b] == li for b in range(B)],
+                                dtype=torch.bool, device=device) & disagree_mask
+                        steer_s["coef"] = best_coeff  # per-row winner
                         base_kv = _truncate_kv(base_kv)
                         with torch.inference_mode():
-                            out = base_model(
+                            commit = base_model(
                                 input_ids=prev_base_input.unsqueeze(1),
                                 attention_mask=b_mask,
                                 position_ids=(base_pos - 1).unsqueeze(1),
                                 past_key_values=base_kv, use_cache=True)
-                        base_kv = out.past_key_values
-                        last_logits = out.logits[:, -1, :]
-                        cand = torch.argmax(last_logits, dim=-1)
-                        del out
-
-                    if random_guardrail:
-                        # Commit this candidate for rows whose random draw == sc.
-                        picked = (torch.isclose(
-                            chosen_coef, torch.tensor(sc, device=device))
-                            & disagree_mask)
-                        if picked.any():
-                            best_coeff[picked] = sc
-                            best_tok[picked] = cand[picked]
-                    elif coef_select == "think_top1_match":
-                        # Strict ceiling: lock in the SMALLEST coef whose
-                        # steered argmax already equals thinking's top-1.
-                        # Rows that already matched are skipped; rows that
-                        # never match stay unsteered (best_coeff stays 0,
-                        # best_tok stays base_next_toks).
-                        new_match = (
-                            (cand == think_next_toks)
-                            & disagree_mask
-                            & ~matched_row)
-                        if new_match.any():
-                            matched_row[new_match] = True
-                            best_coeff[new_match] = sc
-                            best_tok[new_match] = cand[new_match]
-                    elif coef_select == "think_top1_match_maxconf":
-                        # Low-confound oracle: among coefs whose steered
-                        # argmax EQUALS thinking's top-1 token T, pick the
-                        # one with the HIGHEST log p_steered(T).  Random
-                        # vectors fail the strict argmax==T condition (~1/V
-                        # per coef) and fall through to base unsteered.
-                        is_match = (
-                            (cand == think_next_toks) & disagree_mask)
-                        if is_match.any():
-                            base_lp = torch.log_softmax(
-                                last_logits.float(), dim=-1)
-                            c_lp = base_lp[arange_B, think_next_toks]
-                            c_lp = c_lp.to(best_lp.dtype)
-                            # Only consider matching rows: non-matchers'
-                            # logp shouldn't compete.
-                            c_lp = torch.where(
-                                is_match, c_lp,
-                                torch.full_like(c_lp, float("-inf")))
-                            better = (c_lp > best_lp) & is_match
-                            if better.any():
-                                matched_row[better] = True
-                                best_lp[better] = c_lp[better]
-                                best_coeff[better] = sc
-                                best_tok[better] = cand[better]
-                    elif coef_select == "fixed":
-                        # Fixed coef: unconditionally commit the result of this
-                        # (only) sweep step for all disagreeing rows.
-                        best_coeff = torch.where(
-                            disagree_mask,
-                            torch.tensor(sc, device=device,
-                                         dtype=best_coeff.dtype).expand(B),
-                            best_coeff)
-                        best_tok = torch.where(disagree_mask, cand, best_tok)
+                        base_kv = commit.past_key_values
+                        del commit
+                        steer_s["coef"] = 1.0  # reset
+                    elif _kv_window_mode:
+                        # Restore K/V at positions [-N:] to the snapshot we
+                        # took before the sweep.  This gives back the
+                        # pristine, incrementally-built cache state — bit-
+                        # identical to "no sweep ever happened", so the next
+                        # 1-token decode produces the same logits it would
+                        # without our steering machinery.  This replaces the
+                        # old "re-roll unsteered" path, which was itself
+                        # introducing batched-vs-incremental drift into the
+                        # cache at every disagreement step.
+                        _clear_steering()
+                        if _kv_dirty:
+                            _restore_last_n(base_kv, _kv_snap_ks, _kv_snap_vs)
                     else:
-                        if coef_select in ("pg", "pg_bias_cat"):
-                            c_lp = think_lp[arange_B, cand]
-                        elif coef_select == "think_top1":
-                            # Oracle / ceiling: pick coef that maximises
-                            # the steered-base log-prob at the thinking
-                            # model's argmax token T.  Tokenizer alignment
-                            # (base vocab == think vocab, 1:1) is verified
-                            # at startup so think_next_toks indexes base
-                            # logits correctly.
-                            base_lp = torch.log_softmax(
-                                last_logits.float(), dim=-1)
-                            c_lp = base_lp[arange_B, think_next_toks]
-                            c_lp = c_lp.to(best_lp.dtype)
-                        else:
-                            # KL-top-K score: -CE between thinking top-K
-                            # (as soft target) and steered base log-probs.
-                            # Larger (closer to 0) = better fit.
-                            base_lp = torch.log_softmax(
-                                last_logits.float(), dim=-1)
-                            base_lp_at_topk = base_lp.gather(
-                                -1, t_topk_ix)  # (B, K)
-                            c_lp = (t_topk_p * base_lp_at_topk).sum(dim=-1)
-                            c_lp = c_lp.to(best_lp.dtype)
-                        better = (c_lp > best_lp) & disagree_mask
-                        if better.any():
-                            best_lp[better] = c_lp[better]
-                            best_coeff[better] = sc
-                            if coef_select == "pg_bias_cat":
-                                best_bcoef[better] = _bc
-                            best_tok[better] = cand[better]
-
-                if coef_select in ("think_top1_match",
-                                   "think_top1_match_maxconf"):
-                    # Only count rows that actually matched thinking's top-1
-                    # at some coef as "steered"; the rest fall through to
-                    # the unsteered base argmax.
-                    need_steer = matched_row & disagree_mask
-                elif coef_select == "fixed":
-                    need_steer = disagree_mask
-                else:
-                    need_steer = disagree_mask
-                output_toks = torch.where(need_steer, best_tok, base_next_toks)
-                did_steer = need_steer
-
-                if steer_all_positions_full:
-                    # Faithful mode: the sweep never touched base_kv
-                    # (use_cache=False), so nothing to revert. The KV
-                    # cache still reflects the unsteered processing up
-                    # to prev_base_input.
-                    _clear_steering()
-                elif steer_all_positions:
-                    # Reproduce collaborator's hybrid_token.py semantics:
-                    # persist the winning-coef shift at this position in
-                    # the K/V cache for all layers > sae_layer, rather
-                    # than reverting to unsteered. Across decode steps
-                    # this accumulates so subsequent attention sees
-                    # steered K/V for every past disagreement position,
-                    # approximating their 'shift every position's layer-
-                    # sae_layer output on every forward pass' behaviour.
-                    for li in all_steer_layers:
-                        steer_s["layer_masks"][li] = torch.tensor(
-                            [steer_s["assigns"][b] == li for b in range(B)],
-                            dtype=torch.bool, device=device) & disagree_mask
-                    steer_s["coef"] = best_coeff  # per-row winner
-                    base_kv = _truncate_kv(base_kv)
-                    with torch.inference_mode():
-                        commit = base_model(
-                            input_ids=prev_base_input.unsqueeze(1),
-                            attention_mask=b_mask,
-                            position_ids=(base_pos - 1).unsqueeze(1),
-                            past_key_values=base_kv, use_cache=True)
-                    base_kv = commit.past_key_values
-                    del commit
-                    steer_s["coef"] = 1.0  # reset
-                elif _kv_window_mode:
-                    # Restore K/V at positions [-N:] to the snapshot we
-                    # took before the sweep.  This gives back the
-                    # pristine, incrementally-built cache state — bit-
-                    # identical to "no sweep ever happened", so the next
-                    # 1-token decode produces the same logits it would
-                    # without our steering machinery.  This replaces the
-                    # old "re-roll unsteered" path, which was itself
-                    # introducing batched-vs-incremental drift into the
-                    # cache at every disagreement step.
-                    _clear_steering()
-                    if _kv_dirty:
-                        _restore_last_n(base_kv, _kv_snap_ks, _kv_snap_vs)
-                else:
-                    # Revert the K/V at prev_base_input to unsteered —
-                    # steering should act as a per-step logit nudge only,
-                    # matching the old non-KV pipeline's semantics.
-                    _clear_steering()
-                    base_kv = _truncate_kv(base_kv)
-                    with torch.inference_mode():
-                        revert = base_model(
-                            input_ids=prev_base_input.unsqueeze(1),
-                            attention_mask=b_mask,
-                            position_ids=(base_pos - 1).unsqueeze(1),
-                            past_key_values=base_kv, use_cache=True)
-                    base_kv = revert.past_key_values
-                    del revert
+                        # Revert the K/V at prev_base_input to unsteered —
+                        # steering should act as a per-step logit nudge only,
+                        # matching the old non-KV pipeline's semantics.
+                        _clear_steering()
+                        base_kv = _truncate_kv(base_kv)
+                        with torch.inference_mode():
+                            revert = base_model(
+                                input_ids=prev_base_input.unsqueeze(1),
+                                attention_mask=b_mask,
+                                position_ids=(base_pos - 1).unsqueeze(1),
+                                past_key_values=base_kv, use_cache=True)
+                        base_kv = revert.past_key_values
+                        del revert
 
             # ---- 2b. Think-region state machine ----
             # Per-row logic (applied in this priority order):
@@ -1325,13 +2370,18 @@ def hybrid_generate_batched(
                 if not inside_think[_b]:
                     think_feed_toks[_b] = output_toks[_b]
                     continue
-                # Reasoning phase: detect </think> in thinking stream
+                # Reasoning phase: detect </think> (and optionally </answer>)
+                # in thinking stream
                 think_tok_id = int(think_next_toks[_b].item())
                 detected_close = False
                 in_partial_window = False  # true while building multi-token match
                 if _think_close_id_single >= 0:
                     # Single-token detection (DeepSeek distill)
                     if think_tok_id == _think_close_id_single:
+                        detected_close = True
+                    elif (accept_answer_close
+                          and _answer_close_id_single >= 0
+                          and think_tok_id == _answer_close_id_single):
                         detected_close = True
                 else:
                     # BPE-suffix detection (ORZ / Qwen base).  Both leading
@@ -1370,6 +2420,43 @@ def hybrid_generate_batched(
                             in_partial_window = True
                         else:
                             _think_close_partial[_b] = 0
+
+                    # Parallel '</answer>' state machine (only if enabled).
+                    # Same opener/closer sets, different middle token.
+                    # If EITHER detection fires we treat it as a close.
+                    if accept_answer_close and _answer_close_mid >= 0 and not detected_close:
+                        sa = _answer_close_partial[_b]
+                        if sa == 0:
+                            if think_tok_id in _opener_ids:
+                                _answer_close_partial[_b] = 1
+                                in_partial_window = True
+                        elif sa == 1:
+                            if think_tok_id == _answer_close_mid:
+                                _answer_close_partial[_b] = 2
+                                in_partial_window = True
+                            elif think_tok_id in _opener_ids:
+                                in_partial_window = True
+                            else:
+                                _answer_close_partial[_b] = 0
+                        elif sa == 2:
+                            if think_tok_id in _closer_ids:
+                                _answer_close_partial[_b] = 0
+                                detected_close = True
+                            elif think_tok_id in _opener_ids:
+                                _answer_close_partial[_b] = 1
+                                in_partial_window = True
+                            else:
+                                _answer_close_partial[_b] = 0
+                # Free-fly mode: ignore any detected close.  The hybrid
+                # stays in REASONING and steering keeps firing.  The row
+                # only terminates when think predicts EOS (handled in the
+                # record-output block below).
+                # Pure-steer-base-eos mode: same close-detection skip, but
+                # the row terminates on BASE EOS (no transition / no Final
+                # answer injection / no EOS suppression).
+                if free_fly_until_think_eos or pure_steer_base_eos or no_termination:
+                    detected_close = False
+                    in_partial_window = False
                 if detected_close:
                     # Full close detected — start transition.
                     # Seed both queues with their respective transition seqs.
@@ -1401,12 +2488,39 @@ def hybrid_generate_batched(
                     # close-sequence token).
                     think_feed_toks[_b] = think_tok_id
                     continue
-                # Normal reasoning step: suppress base EOS
-                if int(output_toks[_b].item()) == eos_id:
+                # Normal reasoning step: optionally suppress base EOS so the
+                # row keeps generating until thinking emits </think>.  When
+                # --disable_eos_suppression OR --pure_steer_base_eos is set,
+                # base's EOS is allowed through, the row is marked finished
+                # in the record-output block.
+                # In free-fly mode base EOS is ALWAYS suppressed regardless
+                # of the other flags (we only stop on think EOS).
+                _eff_supp_off = (disable_eos_suppression or pure_steer_base_eos)
+                if ((not _eff_supp_off or free_fly_until_think_eos or no_termination)
+                        and int(output_toks[_b].item()) == eos_id):
                     output_toks[_b] = think_next_toks[_b]
                 # Feed think model the EMITTED base token (keeps KVs roughly
                 # aligned during reasoning).
                 think_feed_toks[_b] = output_toks[_b]
+
+            # ---- 2c. Boxed-token suppression (diagnostic) ----
+            # If --suppress_boxed_first_n_tokens > 0, replace any emitted
+            # 'boxed' (79075) or ' boxed' (73664) token in the first N
+            # hybrid-generation tokens with the next-best UNSTEERED base
+            # argmax.  These two tokens exclusively form the '\\boxed{' final
+            # answer marker in the Qwen2.5 vocabulary, so suppressing them
+            # tests the 0.5B quirk where steering drives the model into the
+            # final-answer template too early.
+            if (suppress_boxed_first_n_tokens > 0
+                    and n_gen < suppress_boxed_first_n_tokens):
+                _box_mask = ((output_toks == 79075)
+                             | (output_toks == 73664)) & (~finished)
+                if _box_mask.any():
+                    _masked_blogits = base_logits.clone()
+                    _masked_blogits[:, 79075] = float("-inf")
+                    _masked_blogits[:, 73664] = float("-inf")
+                    _alt_toks = torch.argmax(_masked_blogits, dim=-1)
+                    output_toks = torch.where(_box_mask, _alt_toks, output_toks)
 
             # ---- 3. Record output ----
             # Pre-compute per-row debug tensors so the Python loop below
@@ -1454,8 +2568,44 @@ def hybrid_generate_batched(
                         "shift_norm": round(cc * v_norm, 3),
                         "steered_matches_think": bool(steer_match_think[b]),
                     })
-                if tid == eos_id:
+                if tid == eos_id and not no_termination:
                     finished[b] = True
+                # Free-fly: terminate this row when the THINK model
+                # predicts EOS at this step, regardless of what base
+                # predicted (base EOS is suppressed above).
+                # --no_termination overrides this: row only stops at
+                # max_new_tokens.
+                if (free_fly_until_think_eos
+                        and int(think_top_ids[b]) == eos_id
+                        and not no_termination):
+                    finished[b] = True
+
+            # ---- 3b. Warmup-exit detection ----
+            # For rows currently in warmup, check if the just-emitted token
+            # ends a sentence (or if we've hit the hard cap).  When the
+            # condition fires, the row transitions out of warmup and the
+            # hybrid protocol (steering + EOS suppression + </think>
+            # detection) engages from the next step on.
+            if warmup_until_sentence_end and warmup_active.any():
+                # Increment per-row warmup counter for still-warming rows.
+                warmup_tok_count = torch.where(
+                    warmup_active,
+                    warmup_tok_count + 1,
+                    warmup_tok_count)
+                _to_list = output_toks.detach().cpu().tolist()
+                _act_list = warmup_active.cpu().tolist()
+                _cnt_list = warmup_tok_count.cpu().tolist()
+                exit_idx = []
+                for _b in range(B):
+                    if not _act_list[_b]:
+                        continue
+                    if (_to_list[_b] in _sentence_end_ids
+                            or _cnt_list[_b] >= warmup_max_tokens):
+                        exit_idx.append(_b)
+                if exit_idx:
+                    for _b in exit_idx:
+                        warmup_active[_b] = False
+                        inside_think[_b] = True
 
             n_gen += 1
             if pbar:
@@ -1477,12 +2627,14 @@ def hybrid_generate_batched(
 
             with torch.inference_mode():
                 think_out = thinking_model(
-                    input_ids=think_feed_toks.unsqueeze(1),
-                    attention_mask=t_mask,
-                    position_ids=think_pos.unsqueeze(1),
+                    input_ids=_to_think(think_feed_toks.unsqueeze(1)),
+                    attention_mask=_to_think(t_mask),
+                    position_ids=_to_think(think_pos.unsqueeze(1)),
                     past_key_values=think_kv, use_cache=True)
             think_kv = think_out.past_key_values
-            think_logits = think_out.logits[:, -1, :]
+            think_logits = (think_out.logits[:, -1, :].to(device)
+                            if _split_devices else
+                            think_out.logits[:, -1, :])
             del think_out
             think_pos += 1
 
@@ -1657,10 +2809,30 @@ def judge_batch(items, judge_model, n_reps=1, max_concurrent=40):
 # Response cache
 # ---------------------------------------------------------------------------
 
-def _cache_path(results_dir, role, model_id, dataset, temp, max_tok):
-    os.makedirs(f"{results_dir}/response_cache", exist_ok=True)
-    ts = f"{temp:.2f}".rstrip("0").rstrip(".")
-    return f"{results_dir}/response_cache/{role}_{model_id}_{dataset}_temp{ts}_max{max_tok}.jsonl"
+def _cache_path(results_dir, role, model_id, dataset, temp, max_tok,
+                sample_idx=-1, temp_label=None, cache_dir=None):
+    """Build the rollout-cache filename.
+
+    ``temp`` is a float (used to derive a default label).  ``temp_label``,
+    when given, overrides the derived label exactly (used so the
+    hybrid-eval cache filename can point at legacy ``temp0`` base files
+    while we run with ``--temperature 0.6`` for think rollouts).
+
+    ``cache_dir``, when given, is used verbatim as the cache directory
+    (no ``results_dir`` joining, no ``/response_cache`` suffix).  This
+    lets callers point at an explicit cache root and avoids the symlink
+    hack the launcher scripts used to use (which races when sibling
+    jobs share ``results_dir`` and rewrite ``${results_dir}/response_cache``).
+    When unset (default), the legacy ``${results_dir}/response_cache/``
+    layout is used.
+    """
+    cdir = cache_dir if cache_dir else f"{results_dir}/response_cache"
+    os.makedirs(cdir, exist_ok=True)
+    if temp_label is None:
+        temp_label = f"{temp:.2f}".rstrip("0").rstrip(".") or "0"
+    s = f"_s{sample_idx}" if sample_idx >= 0 else ""
+    return (f"{cdir}/{role}_{model_id}_{dataset}"
+            f"_temp{temp_label}_max{max_tok}{s}.jsonl")
 
 
 def _load_cache(path):
@@ -1812,6 +2984,25 @@ def main():
         dataset = load_dataset("GBaker/MedQA-USMLE-4-options")["test"].select(range(500))
     elif args.dataset == "gpqa":
         dataset = load_dataset("Idavidrein/gpqa", "gpqa_main", split="train")
+    elif args.dataset == "natreason":
+        if not args.natreason_file or not os.path.exists(args.natreason_file):
+            raise ValueError("--natreason_file must point to the eval jsonl "
+                             f"(got {args.natreason_file})")
+        dataset = [json.loads(l) for l in open(args.natreason_file)
+                   if l.strip()]
+    elif args.dataset == "holdoutmix":
+        if not args.holdoutmix_file or not os.path.exists(args.holdoutmix_file):
+            raise ValueError("--holdoutmix_file must point to the eval jsonl "
+                             f"(got {args.holdoutmix_file})")
+        dataset = [json.loads(l) for l in open(args.holdoutmix_file)
+                   if l.strip()]
+    elif args.dataset == "hendrycks_holdout":
+        if (not args.hendrycks_holdout_file
+                or not os.path.exists(args.hendrycks_holdout_file)):
+            raise ValueError("--hendrycks_holdout_file must point to the eval "
+                             f"jsonl (got {args.hendrycks_holdout_file})")
+        dataset = [json.loads(l) for l in open(args.hendrycks_holdout_file)
+                   if l.strip()]
     else:
         raise ValueError(f"Unsupported dataset: {args.dataset}")
 
@@ -1827,12 +3018,55 @@ def main():
     base_id = args.base_model.split("/")[-1].lower()
     dom_model_short = args.dom_vectors_model_short or base_id
 
+    _sdp_force = os.environ.get("SDP_FORCE")
+    if _sdp_force:
+        kernels = {
+            "math":    (False, False, True,  False),
+            "mem_eff": (False, True,  True,  False),
+            "flash":   (True,  False, True,  False),
+        }
+        if _sdp_force not in kernels:
+            raise ValueError(f"SDP_FORCE must be one of {list(kernels)}; got {_sdp_force}")
+        f, m, mt, c = kernels[_sdp_force]
+        torch.backends.cuda.enable_flash_sdp(f)
+        torch.backends.cuda.enable_mem_efficient_sdp(m)
+        torch.backends.cuda.enable_math_sdp(mt)
+        try:
+            torch.backends.cuda.enable_cudnn_sdp(c)
+        except AttributeError:
+            pass
+        print(f"[sdp] SDP_FORCE={_sdp_force} -> flash={torch.backends.cuda.flash_sdp_enabled()} "
+              f"mem_eff={torch.backends.cuda.mem_efficient_sdp_enabled()} "
+              f"math={torch.backends.cuda.math_sdp_enabled()}")
+
+    first_max_mem = None
+    if args.max_memory_per_gpu:
+        n_gpus = torch.cuda.device_count()
+        first_max_mem = {i: args.max_memory_per_gpu for i in range(n_gpus)}
+        print(f"  [multi-gpu] {n_gpus} GPUs, first model max_memory="
+              f"{args.max_memory_per_gpu}/GPU")
+
+    if args.two_gpu_split:
+        n_gpus_avail = torch.cuda.device_count()
+        if n_gpus_avail < 2:
+            raise RuntimeError(f"--two_gpu_split requires >=2 visible GPUs, "
+                               f"got {n_gpus_avail}.")
+        # Thinking model on cuda:1, base on cuda:0.  Each model pinned to
+        # a single device (no sharding).
+        think_dm = {"": 1}
+        base_dm  = {"": 0}
+        print(f"  [two-gpu] base=cuda:0  thinking=cuda:1  ({n_gpus_avail} GPUs visible)")
+    else:
+        think_dm = "auto"
+        base_dm  = "auto"
+
     print(f"\nLoading thinking model {args.thinking_model}...")
     think_tok = AutoTokenizer.from_pretrained(args.thinking_model)
     if think_tok.pad_token is None:
         think_tok.pad_token = think_tok.eos_token
     think_model = AutoModelForCausalLM.from_pretrained(
-        args.thinking_model, torch_dtype=torch.bfloat16, device_map="auto",
+        args.thinking_model, torch_dtype=torch.bfloat16, device_map=think_dm,
+        max_memory=(None if args.two_gpu_split else first_max_mem),
         attn_implementation=os.environ.get("ATTN_IMPL", "sdpa"))
     think_model.eval()
 
@@ -1841,7 +3075,7 @@ def main():
     if base_tok.pad_token is None:
         base_tok.pad_token = base_tok.eos_token
     base_model = AutoModelForCausalLM.from_pretrained(
-        args.base_model, torch_dtype=torch.bfloat16, device_map="auto",
+        args.base_model, torch_dtype=torch.bfloat16, device_map=base_dm,
         attn_implementation=os.environ.get("ATTN_IMPL", "sdpa"))
     base_model.eval()
 
@@ -1941,23 +3175,46 @@ def main():
             with open(lm_path) as f:
                 per_key_layers = {k: int(v) for k, v in json.load(f).items()}
             print(f"  Using per-category layer_map.json: {per_key_layers}")
-        for cat_id in range(args.n_clusters):
-            key = f"idx{cat_id}"
-            fpath = os.path.join(args.old_vectors_dir,
-                                 f"{dom_model_short}_idx{cat_id}_linear.pt")
-            if not os.path.exists(fpath):
-                print(f"  WARNING: {fpath} not found, skipping {key}")
-                continue
-            ckpt = torch.load(fpath, map_location="cpu", weights_only=False)
-            vec = ckpt[key]
-            steering_vectors[key] = vec.to(torch.float32)
-            layer_map[key] = per_key_layers.get(key, old_layer)
-            print(f"  {key}: layer={layer_map[key]}, "
-                  f"norm={vec.norm().item():.2f}")
+        global_fpath = os.path.join(args.old_vectors_dir,
+                                    f"{dom_model_short}_global_linear.pt")
+        if os.path.exists(global_fpath):
+            ckpt = torch.load(global_fpath, map_location="cpu",
+                              weights_only=False)
+            vec = ckpt.get("global", next(iter(ckpt.values())))
+            steering_vectors["global"] = vec.to(torch.float32)
+            layer_map["global"] = per_key_layers.get("global", old_layer)
+            print(f"  global: layer={layer_map['global']}, "
+                  f"norm={vec.norm().item():.2f} (single-vector mode)")
+        else:
+            for cat_id in range(args.n_clusters):
+                key = f"idx{cat_id}"
+                fpath = os.path.join(args.old_vectors_dir,
+                                     f"{dom_model_short}_idx{cat_id}_linear.pt")
+                if not os.path.exists(fpath):
+                    print(f"  WARNING: {fpath} not found, skipping {key}")
+                    continue
+                ckpt = torch.load(fpath, map_location="cpu",
+                                  weights_only=False)
+                vec = ckpt[key]
+                steering_vectors[key] = vec.to(torch.float32)
+                layer_map[key] = per_key_layers.get(key, old_layer)
+                print(f"  {key}: layer={layer_map[key]}, "
+                      f"norm={vec.norm().item():.2f}")
     else:
         print(f"Loading DOM vectors from {args.dom_vectors_dir}...")
         steering_vectors, layer_map = load_dom_vectors(
             args.dom_vectors_dir, dom_model_short, descriptions)
+
+    if "global" in steering_vectors and not any(
+            k.startswith("idx") for k in steering_vectors):
+        gv = steering_vectors.pop("global")
+        gl = layer_map.pop("global")
+        for cat_id in range(args.n_clusters):
+            k = f"idx{cat_id}"
+            steering_vectors[k] = gv.clone()
+            layer_map[k] = gl
+        print(f"  [single-vector] Replicated 'global' vector to "
+              f"{args.n_clusters} category keys")
 
     for k, v in steering_vectors.items():
         steering_vectors[k] = v.to(device=base_dev, dtype=base_dt)
@@ -2101,6 +3358,29 @@ def main():
             print(f"  [bias_only] layer_map overridden to "
                   f"{bias_layer} for all keys")
 
+    # ---- Load CatCoefMLP (optional, for --coef_select=mlp) ----
+    mlp_model = None
+    if args.mlp_coef_path and args.mlp_config_path:
+        import sys as _sys
+        _sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "train-vectors"))
+        from coef_mlp import CatCoefMLP
+        with open(args.mlp_config_path) as f:
+            mlp_cfg = json.load(f)
+        mlp_model = CatCoefMLP(
+            d_in=mlp_cfg["d_in"],
+            n_cats=mlp_cfg["n_cats"],
+            d_hidden=mlp_cfg["d_hidden"],
+            per_cat=bool(mlp_cfg.get("per_cat", False)))
+        mlp_model.load_state_dict(
+            torch.load(args.mlp_coef_path, map_location="cpu", weights_only=True))
+        mlp_model.eval()
+        for _p in mlp_model.parameters():
+            _p.requires_grad = False
+        print(f"Loaded CatCoefMLP from {args.mlp_coef_path} "
+              f"(d_in={mlp_cfg['d_in']}, n_cats={mlp_cfg['n_cats']}, "
+              f"d_hidden={mlp_cfg['d_hidden']}, "
+              f"per_cat={bool(mlp_cfg.get('per_cat', False))})")
+
     # ---- One-time debug metadata dump (config + loaded vectors) ----
     # This lets us reconstruct AFTER THE FACT exactly what was steered,
     # from which files, at which layers, with which norms.  Cheap (few
@@ -2154,36 +3434,143 @@ def main():
         print(f"[debug] WARNING: could not write debug_meta: {e}")
 
     # ---- Prepare tasks ----
+    eval_indices = []
+    if getattr(args, "eval_indices", ""):
+        raw = args.eval_indices.replace(",", " ").split()
+        eval_indices = [int(x) for x in raw]
+        if not eval_indices:
+            raise ValueError("--eval_indices was provided but parsed empty")
+        args.n_tasks = len(eval_indices)
+        print(f"[eval_indices] evaluating explicit dataset indices: "
+              f"{eval_indices}")
+
     if args.n_tasks <= 0:
         args.n_tasks = len(dataset) - args.eval_start_idx
 
     completed = _count_completed(args, base_id, think_id)
-    if completed > 0:
+    if completed > 0 and not getattr(args, "continuation_mode", False):
         if completed >= args.n_tasks:
             print(f"Already completed {completed} tasks. Nothing to do.")
             return
-        print(f"Resuming: {completed} done, {args.n_tasks - completed} remaining")
-        args.eval_start_idx = completed
-        args.n_tasks -= completed
+        if eval_indices:
+            print(f"Resuming explicit-index run: {completed} done, "
+                  f"{args.n_tasks - completed} remaining")
+            eval_indices = eval_indices[completed:]
+            args.n_tasks = len(eval_indices)
+        else:
+            print(f"Resuming: {completed} done, {args.n_tasks - completed} remaining "
+                  f"(eval_start_idx {args.eval_start_idx} -> {args.eval_start_idx + completed})")
+            # PRESERVE the original eval_start_idx (important for sharded runs
+            # where the shard starts at a non-zero offset into the dataset).
+            args.eval_start_idx += completed
+            args.n_tasks -= completed
+    elif completed > 0 and getattr(args, "continuation_mode", False):
+        # In continuation mode the resume offset shortcut doesn't apply
+        # (tasks are filtered post-hoc by question text).  Skip resume.
+        # User should delete the ext rolling file if they want a fresh run.
+        print(f"[continuation] WARN: {completed} ext rows already present; "
+              f"continuation_mode will re-run all extended rows.")
 
     tasks = []
-    for i, item in enumerate(dataset):
-        if i < args.eval_start_idx:
-            continue
-        if len(tasks) >= args.n_tasks:
-            break
-        t = _build_task_prompts(item, i, args)
-        t["dataset_idx"] = i
-        tasks.append(t)
+    if eval_indices:
+        for i in eval_indices:
+            item = dataset[i]
+            t = _build_task_prompts(item, i, args)
+            t["dataset_idx"] = i
+            tasks.append(t)
+    else:
+        for i, item in enumerate(dataset):
+            if i < args.eval_start_idx:
+                continue
+            if len(tasks) >= args.n_tasks:
+                break
+            t = _build_task_prompts(item, i, args)
+            t["dataset_idx"] = i
+            tasks.append(t)
     n_tasks = len(tasks)
     print(f"\n=== {n_tasks} tasks ===")
 
+    # ---- Continuation-mode filter: load source rolling rows, restrict
+    # tasks to eos.hybrid==False rows, attach continuation text.
+    if getattr(args, "continuation_mode", False):
+        src_paths_raw = (args.continuation_source_rolling or "").strip()
+        assert src_paths_raw, (
+            "--continuation_mode requires --continuation_source_rolling")
+        import glob as _glob
+        src_paths: List[str] = []
+        for chunk in src_paths_raw.split(","):
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+            src_paths.extend(sorted(_glob.glob(chunk)) or [chunk])
+        print(f"[continuation] source rolling files:")
+        for p in src_paths:
+            print(f"  - {p}  ({'exists' if os.path.exists(p) else 'MISSING'})")
+        # Build {question -> source row}. dataset_idx isn't stored in the
+        # rolling file (only question text), so we match by question.
+        src_rows: Dict[str, dict] = {}
+        for p in src_paths:
+            if not os.path.exists(p):
+                continue
+            with open(p) as fh:
+                for line in fh:
+                    try:
+                        r = json.loads(line)
+                    except Exception:
+                        continue
+                    q = r.get("question")
+                    if q is not None:
+                        src_rows[q] = r
+        print(f"[continuation] loaded {len(src_rows)} source rows across "
+              f"{len(src_paths)} file(s)")
+        # Filter tasks: only keep rows where eos.hybrid is False.
+        kept = []
+        n_no_match = 0
+        n_already_eos = 0
+        for t in tasks:
+            r = src_rows.get(t["question"])
+            if r is None:
+                n_no_match += 1
+                continue
+            eos_map = r.get("eos") or {}
+            if eos_map.get("hybrid"):
+                n_already_eos += 1
+                continue
+            ans = r.get("answers") or {}
+            t["thinking_continuation_text"] = ans.get("thinking", "") or ""
+            t["base_continuation_text"] = ans.get("hybrid", "") or ""
+            # Also pull original truncated lengths for diagnostics.
+            ntok = r.get("n_tokens") or {}
+            t["_cont_orig_think_toks"] = int(ntok.get("thinking", 0))
+            t["_cont_orig_hybrid_toks"] = int(ntok.get("hybrid", 0))
+            kept.append(t)
+        tasks = kept
+        n_tasks = len(tasks)
+        print(f"[continuation] dropped {n_already_eos} already-EOS rows, "
+              f"{n_no_match} no-match rows; kept {n_tasks} to extend")
+        if n_tasks == 0:
+            print(f"[continuation] no rows need extension - exiting cleanly")
+            return
+
     # ---- Phase 2: Standalone responses ----
     use_cache = not args.no_response_cache
-    tc_path = _cache_path(args.results_dir, "thinking", think_id,
-                          args.dataset, args.temperature, args.max_thinking_tokens)
-    bc_path = _cache_path(args.results_dir, "base", base_id,
-                          args.dataset, args.temperature, args.max_new_tokens)
+    cache_dir_override = getattr(args, "response_cache_dir", None) or None
+    tc_path = _cache_path(
+        args.results_dir, "thinking", think_id, args.dataset,
+        args.temperature,
+        args.think_cache_max_tokens if args.think_cache_max_tokens is not None
+        else args.max_thinking_tokens,
+        sample_idx=args.think_cache_sample_idx,
+        temp_label=args.think_cache_temp_label,
+        cache_dir=cache_dir_override)
+    bc_path = _cache_path(
+        args.results_dir, "base", base_id, args.dataset,
+        args.temperature,
+        args.base_cache_max_tokens if args.base_cache_max_tokens is not None
+        else args.max_new_tokens,
+        sample_idx=args.base_cache_sample_idx,
+        temp_label=args.base_cache_temp_label,
+        cache_dir=cache_dir_override)
     tc = _load_cache(tc_path) if use_cache else {}
     bc = _load_cache(bc_path) if use_cache else {}
     print(f"  Cache: thinking={len(tc)}, base={len(bc)}")
@@ -2215,6 +3602,38 @@ def main():
             t.update(thinking_response=c["response"],
                      thinking_n_tokens=c["n_tokens"], thinking_eos=c["eos"])
 
+    # ---- Optional: cold-start prefix from the thinking model ----
+    # Inject the first N tokens (re-encoded with the THINKING tokenizer for
+    # exact alignment with the cached rollout) into both standalone base
+    # generation and hybrid prefill, so all three rollouts share the same
+    # opener and any "first-token jump-to-answer" failure mode is removed.
+    cold_n = int(getattr(args, "cold_start_n_tokens", 0) or 0)
+    cold_start_active = cold_n > 0
+    if cold_start_active:
+        print(f"\n=== Cold-start: injecting first {cold_n} think-tokens "
+              f"of the thinking rollout into base + hybrid ===")
+        for t in tasks:
+            tr = t.get("thinking_response", "") or ""
+            if not tr:
+                t["cold_start_text"] = ""
+                continue
+            # Re-encode the cached rollout text in the THINKING tokenizer,
+            # take the first cold_n tokens, decode back to text.  Using
+            # the think-tok side keeps the count exact w.r.t. the model
+            # that actually generated those tokens; the base side just
+            # re-tokenizes that text (count may differ by ±1).
+            ids = think_tok(tr, add_special_tokens=False)["input_ids"][:cold_n]
+            cs_text = think_tok.decode(ids, skip_special_tokens=True)
+            t["cold_start_text"] = cs_text
+            # Hybrid: feed the same prefix into both prefills.
+            t["thinking_continuation_text"] = cs_text
+            t["base_continuation_text"]     = cs_text
+        # Disable base response cache (the base prompt now carries a
+        # per-task prefix so existing cache entries are invalid).
+        bc = {}
+        for ti in range(min(3, len(tasks))):
+            print(f"  [{ti}] cold_start={tasks[ti]['cold_start_text']!r}")
+
     uncached_b = [(i, t) for i, t in enumerate(tasks) if t["dataset_idx"] not in bc]
     print(f"\n=== Base: {n_tasks - len(uncached_b)} cached, {len(uncached_b)} to generate ===")
     if uncached_b:
@@ -2226,14 +3645,25 @@ def main():
                 oi, t = uncached_b[bstart + k]
                 entries.append(dict(dataset_idx=t["dataset_idx"], **r))
             _append_cache(bc_path, entries)
+        # Cold-start: append the shared prefix to the raw base prompt so
+        # base standalone generation starts from the same opener as the
+        # hybrid's base side.
+        base_prompts_for_gen = [
+            (t["base_prompt"] + (t.get("cold_start_text", "") or ""))
+            for _, t in uncached_b]
         res = _batch_generate(base_model, base_tok,
-                              [t["base_prompt"] for _, t in uncached_b],
+                              base_prompts_for_gen,
                               args.max_new_tokens, args.batch_gen_size,
                               temperature=args.temperature,
                               on_batch_done=_flush_b, tag="base")
         for (oi, t), r in zip(uncached_b, res):
-            t.update(base_response=r["response"],
-                     base_n_tokens=r["n_tokens"], base_eos=r["eos"])
+            # Glue the prefix back so the saved response is judgeable
+            # end-to-end (base completion = prefix + continuation).
+            cs = t.get("cold_start_text", "") or ""
+            full = cs + r["response"]
+            t.update(base_response=full,
+                     base_n_tokens=r["n_tokens"] + cold_n if cs else r["n_tokens"],
+                     base_eos=r["eos"])
         del res; torch.cuda.empty_cache()
 
     for t in tasks:
@@ -2242,9 +3672,424 @@ def main():
             t.update(base_response=c["response"],
                      base_n_tokens=c["n_tokens"], base_eos=c["eos"])
 
+    # ---- Optional fast-path: skip hybrid, judge base+think only ----
+    if bool(getattr(args, "skip_hybrid", False)):
+        print(f"\n=== --skip_hybrid: judging base+think only on "
+              f"{n_tasks} tasks ===")
+        # Build judge items for all tasks at once.
+        judge_items = []
+        for ti, t in enumerate(tasks):
+            q, gold, tl = t["question"], t["correct_answer"], t["test_list"]
+            common = dict(gold=gold, question=q, ds_type=ds_type, test_list=tl)
+            judge_items.append(dict(
+                answer=re.sub(r'\s+', ' ', t["thinking_response"]).strip(),
+                label=f"T{ti+1} Think", **common))
+            judge_items.append(dict(
+                answer=re.sub(r'\s+', ' ', t["base_response"]).strip(),
+                label=f"T{ti+1} Base", **common))
+        jr = judge_batch(judge_items, args.judge_model,
+                         n_reps=args.judge_repetitions,
+                         max_concurrent=args.max_concurrent)
+        n_think_correct = 0
+        n_base_correct = 0
+        for ti, t in enumerate(tasks):
+            te, be = jr[2 * ti], jr[2 * ti + 1]
+            if te["correct"]:
+                n_think_correct += 1
+            if be["correct"]:
+                n_base_correct += 1
+            append_rolling({
+                "ts": time.time(), "dataset": args.dataset,
+                "question": t["question"], "gold_answer": t["correct_answer"],
+                "answers": {"thinking": t["thinking_response"],
+                            "base": t["base_response"]},
+                "judges": {"thinking": te, "base": be},
+                "eos": {"thinking": t["thinking_eos"],
+                        "base": t["base_eos"]},
+                "n_tokens": {"thinking": t["thinking_n_tokens"],
+                             "base": t["base_n_tokens"]},
+            }, args, base_id, think_id)
+        tp = n_think_correct / n_tasks * 100
+        bp = n_base_correct / n_tasks * 100
+        print()
+        print(f"===== Final (base+think only) =====")
+        print(f"Thinking: {n_think_correct}/{n_tasks} ({tp:.1f}%)")
+        print(f"Base:     {n_base_correct}/{n_tasks} ({bp:.1f}%)")
+        print(f"Gap (Think - Base): {tp - bp:+.1f} pts")
+        print("Done.")
+        return
+
+    # ---- Phase 2.5: Optional coef calibration sweep ----
+    _calibrated_cat_coef = None
+    if getattr(args, "calibrate_coef", False):
+        # Identify tasks where think=correct AND base=wrong using the judge.
+        # We already have think_response and base_response; judge them now.
+        cal_pct = float(getattr(args, "calibrate_pct", 0.10))
+        cal_grid = [float(x) for x in args.calibrate_coef_grid.split(",")]
+        print(f"\n=== Calibration: judging think/base on all {n_tasks} tasks "
+              f"to find disagreement subset ===")
+
+        # Judge think and base in one batch
+        cal_judge_items = []
+        for ti, t in enumerate(tasks):
+            q, gold, tl = t["question"], t["correct_answer"], t["test_list"]
+            common = dict(gold=gold, question=q, ds_type=ds_type, test_list=tl)
+            cal_judge_items.append(dict(
+                answer=re.sub(r'\s+', ' ', t["thinking_response"]).strip(),
+                label=f"CAL_T{ti}", **common))
+            cal_judge_items.append(dict(
+                answer=re.sub(r'\s+', ' ', t["base_response"]).strip(),
+                label=f"CAL_B{ti}", **common))
+
+        cal_jr = judge_batch(cal_judge_items, args.judge_model,
+                             n_reps=1, max_concurrent=args.max_concurrent)
+
+        # Pair up: think_correct[i], base_correct[i]
+        think_correct = [cal_jr[2*i]["correct"] for i in range(n_tasks)]
+        base_correct  = [cal_jr[2*i+1]["correct"] for i in range(n_tasks)]
+
+        # Select: think=YES, base=NO
+        disagree_idx = [i for i in range(n_tasks)
+                        if think_correct[i] and not base_correct[i]]
+        # Take up to cal_pct of TOTAL benchmark size, capped by available
+        n_cal = min(max(1, int(round(n_tasks * cal_pct))),
+                    len(disagree_idx))
+        cal_idx = disagree_idx[:n_cal]
+
+        print(f"\n=== Calibration: {len(disagree_idx)} think-correct/base-wrong "
+              f"tasks, using {len(cal_idx)} (of {n_tasks} total × "
+              f"{cal_pct:.0%} = {int(round(n_tasks * cal_pct))}) for sweep ===")
+        print(f"  Grid: {cal_grid}")
+
+        if len(cal_idx) >= 2:
+            cal_tasks = [tasks[i] for i in cal_idx]
+            _cal_hbs = min(len(cal_tasks), args.hybrid_gen_batch_size)
+            best_coef, best_gap, best_correct = cal_grid[0], -1.0, 0
+
+            for _cc in cal_grid:
+                print(f"\n  -- Calibrating cat_coef={_cc} --")
+                _cal_bc = 1.0  # bias coef always 1.0
+
+                # Run hybrid on calibration tasks with this coef
+                all_hybrid = []
+                for cb_start in range(0, len(cal_tasks), _cal_hbs):
+                    cb = cal_tasks[cb_start:cb_start + _cal_hbs]
+                    torch.cuda.empty_cache()
+                    hr = hybrid_generate_batched(
+                        think_model, base_model, base_tok,
+                        [t["thinking_prompt"] for t in cb],
+                        [t["base_prompt"] for t in cb],
+                        args.max_new_tokens, args.sae_layer, sae,
+                        steering_vectors, descriptions, layer_map,
+                        thinking_tokenizer=think_tok,
+                        disable_sae_mean=args.disable_sae_mean,
+                        show_progress=False, collect_details=False,
+                        random_firing=args.random_firing,
+                        random_firing_exclude_top_k_keys=args.random_firing_exclude_top_k_keys,
+                        firing_replace_with_min_cosine=args.firing_replace_with_min_cosine,
+                        pure_steer_base_eos=args.pure_steer_base_eos,
+                        random_steer_prob=args.random_steer_prob,
+                        random_guardrail=False,
+                        random_seed=args.random_seed,
+                        coef_sweep=[1.0],
+                        coef_select="think_top1",
+                        pg_bias_cat_sweep=True,
+                        pg_bias_vec=(locals().get("bias_vec")
+                                     if getattr(args, "pg_bias_cat_sweep", False)
+                                     else None),
+                        pg_bias_coefs=(_cal_bc,),
+                        pg_cat_coefs=(_cc,),
+                        token_window=int(getattr(args, "token_window", 0)),
+                        act_modulate=None)
+                    all_hybrid.extend(hr)
+
+                # Judge hybrid responses
+                cal_h_items = []
+                for j, (t, h) in enumerate(zip(cal_tasks, all_hybrid)):
+                    resp = base_tok.decode(h["generated_ids"],
+                                           skip_special_tokens=True)
+                    q, gold, tl = t["question"], t["correct_answer"], t["test_list"]
+                    cal_h_items.append(dict(
+                        answer=re.sub(r'\s+', ' ', resp).strip(),
+                        label=f"CAL_H_c{_cc}_{j}",
+                        gold=gold, question=q, ds_type=ds_type, test_list=tl))
+
+                h_jr = judge_batch(cal_h_items, args.judge_model,
+                                   n_reps=1, max_concurrent=args.max_concurrent)
+                n_correct = sum(1 for r in h_jr if r["correct"])
+                gap_rec = n_correct / len(cal_tasks)  # fraction of fixable tasks fixed
+                print(f"  cat_coef={_cc}: {n_correct}/{len(cal_tasks)} correct "
+                      f"(gap_rec={gap_rec:.1%})")
+
+                if n_correct > best_correct:
+                    best_correct = n_correct
+                    best_gap = gap_rec
+                    best_coef = _cc
+
+            _calibrated_cat_coef = best_coef
+            print(f"\n=== Calibration result: best cat_coef={best_coef} "
+                  f"({best_correct}/{len(cal_tasks)} = {best_gap:.1%}) ===")
+            print(f"  Using cat_coef={best_coef} for full eval")
+        else:
+            print("  Too few calibration tasks; defaulting to cat_coef=1.0")
+            _calibrated_cat_coef = 1.0
+
+    # ---- Phase 2.6: Stratified calibration sweep ----
+    _calibrated_bias_coef = None
+    _calibrated_fixed_coef = None
+    if getattr(args, "stratified_calibrate", False):
+        cal_pct = float(getattr(args, "calibrate_pct", 0.10))
+        cal_grid = [float(x) for x in args.calibrate_coef_grid.split(",")]
+        print(f"\n=== Stratified calibration: judging think/base on all "
+              f"{n_tasks} tasks ===")
+
+        cal_judge_items = []
+        for ti, t in enumerate(tasks):
+            q, gold, tl = t["question"], t["correct_answer"], t["test_list"]
+            common = dict(gold=gold, question=q, ds_type=ds_type, test_list=tl)
+            cal_judge_items.append(dict(
+                answer=re.sub(r'\s+', ' ', t["thinking_response"]).strip(),
+                label=f"STCAL_T{ti}", **common))
+            cal_judge_items.append(dict(
+                answer=re.sub(r'\s+', ' ', t["base_response"]).strip(),
+                label=f"STCAL_B{ti}", **common))
+
+        cal_jr = judge_batch(cal_judge_items, args.judge_model,
+                             n_reps=1, max_concurrent=args.max_concurrent)
+
+        think_correct = [cal_jr[2*i]["correct"] for i in range(n_tasks)]
+        base_correct  = [cal_jr[2*i+1]["correct"] for i in range(n_tasks)]
+
+        base_acc = sum(base_correct) / n_tasks
+        think_acc = sum(think_correct) / n_tasks
+        gap = think_acc - base_acc
+        print(f"  Base acc={base_acc:.1%}  Think acc={think_acc:.1%}  "
+              f"Gap={gap:.1%}")
+
+        # Stratified sampling: partition tasks into 4 buckets by
+        # (base_correct, think_correct) and sample proportionally.
+        import math as _math
+        n_cal = max(1, _math.ceil(n_tasks * cal_pct))
+        buckets = {(False, False): [], (False, True): [],
+                   (True, False): [], (True, True): []}
+        for i in range(n_tasks):
+            buckets[(base_correct[i], think_correct[i])].append(i)
+
+        cal_idx = []
+        _remaining = n_cal
+        _bucket_items = sorted(buckets.items(),
+                               key=lambda kv: len(kv[1]))
+        for bi, (bkey, bidxs) in enumerate(_bucket_items):
+            if not bidxs:
+                continue
+            frac = len(bidxs) / n_tasks
+            want = max(1, round(n_cal * frac)) if len(bidxs) > 0 else 0
+            if bi == len(_bucket_items) - 1:
+                want = _remaining
+            want = min(want, len(bidxs), _remaining)
+            random.seed(42)
+            chosen = random.sample(bidxs, want)
+            cal_idx.extend(chosen)
+            _remaining -= want
+            bc_lbl = ("Bcorrect" if bkey[0] else "Bwrong")
+            tc_lbl = ("Tcorrect" if bkey[1] else "Twrong")
+            print(f"  Bucket ({bc_lbl},{tc_lbl}): {len(bidxs)} tasks, "
+                  f"sampled {want}")
+
+        print(f"\n  Calibration set: {len(cal_idx)} tasks "
+              f"(target {n_cal} = ceil({n_tasks} × {cal_pct}))")
+        cal_base_acc = sum(base_correct[i] for i in cal_idx) / len(cal_idx)
+        cal_think_acc = sum(think_correct[i] for i in cal_idx) / len(cal_idx)
+        print(f"  Cal subset: base_acc={cal_base_acc:.1%}  "
+              f"think_acc={cal_think_acc:.1%}  "
+              f"(full: {base_acc:.1%} / {think_acc:.1%})")
+
+        if len(cal_idx) >= 2:
+            cal_tasks_s = [tasks[i] for i in cal_idx]
+            _cal_hbs = min(len(cal_tasks_s), args.hybrid_gen_batch_size)
+            best_coef_s, best_correct_s = cal_grid[0], -1
+            _sweep_results = {}
+
+            for _cc in cal_grid:
+                print(f"\n  -- Stratified sweep coef={_cc} --")
+                all_hybrid_s = []
+                for cb_start in range(0, len(cal_tasks_s), _cal_hbs):
+                    cb = cal_tasks_s[cb_start:cb_start + _cal_hbs]
+                    torch.cuda.empty_cache()
+
+                    if args.fixed_bias_coef is not None:
+                        _sweep_bias_coefs = (args.fixed_bias_coef,)
+                        _sweep_cat_coefs = (_cc,)
+                    elif args.bias_only:
+                        _sweep_bias_coefs = (_cc,)
+                        _sweep_cat_coefs = (0.0,)
+                    else:
+                        _sweep_bias_coefs = (_cc,)
+                        _sweep_cat_coefs = (_cc,)
+
+                    hr = hybrid_generate_batched(
+                        think_model, base_model, base_tok,
+                        [t["thinking_prompt"] for t in cb],
+                        [t["base_prompt"] for t in cb],
+                        args.max_new_tokens, args.sae_layer, sae,
+                        steering_vectors, descriptions, layer_map,
+                        thinking_tokenizer=think_tok,
+                        disable_sae_mean=args.disable_sae_mean,
+                        show_progress=False, collect_details=False,
+                        random_firing=args.random_firing,
+                        random_firing_exclude_top_k_keys=args.random_firing_exclude_top_k_keys,
+                        firing_replace_with_min_cosine=args.firing_replace_with_min_cosine,
+                        pure_steer_base_eos=args.pure_steer_base_eos,
+                        random_steer_prob=args.random_steer_prob,
+                        random_guardrail=False,
+                        random_seed=args.random_seed,
+                        coef_sweep=[1.0],
+                        coef_select="think_top1",
+                        pg_bias_cat_sweep=True,
+                        pg_bias_vec=(locals().get("bias_vec")
+                                     if locals().get("bias_vec") is not None
+                                     else None),
+                        pg_bias_coefs=_sweep_bias_coefs,
+                        pg_cat_coefs=_sweep_cat_coefs,
+                        token_window=int(getattr(args, "token_window", 0)),
+                        act_modulate=None)
+                    all_hybrid_s.extend(hr)
+
+                cal_h_items_s = []
+                for j, (t, h) in enumerate(zip(cal_tasks_s, all_hybrid_s)):
+                    resp = base_tok.decode(h["generated_ids"],
+                                           skip_special_tokens=True)
+                    q, gold, tl = (t["question"], t["correct_answer"],
+                                   t["test_list"])
+                    cal_h_items_s.append(dict(
+                        answer=re.sub(r'\s+', ' ', resp).strip(),
+                        label=f"STCAL_H_c{_cc}_{j}",
+                        gold=gold, question=q, ds_type=ds_type,
+                        test_list=tl))
+
+                h_jr_s = judge_batch(cal_h_items_s, args.judge_model,
+                                     n_reps=1,
+                                     max_concurrent=args.max_concurrent)
+                n_correct_s = sum(1 for r in h_jr_s if r["correct"])
+                acc = n_correct_s / len(cal_tasks_s)
+                print(f"  coef={_cc}: {n_correct_s}/{len(cal_tasks_s)} "
+                      f"correct ({acc:.1%})")
+                _sweep_results[str(_cc)] = {
+                    "n_correct": n_correct_s,
+                    "n_total": len(cal_tasks_s),
+                    "accuracy": acc,
+                }
+
+                if n_correct_s > best_correct_s:
+                    best_correct_s = n_correct_s
+                    best_coef_s = _cc
+
+            _calibrated_fixed_coef = best_coef_s
+            if args.bias_only:
+                _calibrated_bias_coef = best_coef_s
+            if args.fixed_bias_coef is not None:
+                _calibrated_bias_coef = args.fixed_bias_coef
+                _calibrated_cat_coef = best_coef_s
+                _calibrated_fixed_coef = None
+            print(f"\n=== Stratified calibration: best coef={best_coef_s} "
+                  f"({best_correct_s}/{len(cal_tasks_s)} = "
+                  f"{best_correct_s/len(cal_tasks_s):.1%}) ===")
+
+            if args.save_best_coef:
+                _bucket_info = {}
+                for bkey, bidxs in buckets.items():
+                    bc_lbl = ("Bcorrect" if bkey[0] else "Bwrong")
+                    tc_lbl = ("Tcorrect" if bkey[1] else "Twrong")
+                    _sampled = sum(1 for i in cal_idx if i in bidxs)
+                    _bucket_info[f"{bc_lbl},{tc_lbl}"] = {
+                        "total": len(bidxs), "sampled": _sampled,
+                    }
+                _coef_info = {
+                    "best_coef": best_coef_s,
+                    "best_correct": best_correct_s,
+                    "cal_size": len(cal_tasks_s),
+                    "cal_acc": best_correct_s / len(cal_tasks_s),
+                    "base_acc_full": base_acc,
+                    "think_acc_full": think_acc,
+                    "cal_base_acc": cal_base_acc,
+                    "cal_think_acc": cal_think_acc,
+                    "bias_only": bool(args.bias_only),
+                    "dataset": args.dataset,
+                    "base_model": args.base_model,
+                    "thinking_model": args.thinking_model,
+                    "grid": cal_grid,
+                    "sweep_results": _sweep_results,
+                    "stratified_buckets": _bucket_info,
+                }
+                if args.fixed_bias_coef is not None:
+                    _coef_info["fixed_bias_coef"] = args.fixed_bias_coef
+                    _coef_info["best_cat_coef"] = best_coef_s
+                    _coef_info["bias_only"] = False
+                os.makedirs(os.path.dirname(args.save_best_coef) or ".",
+                            exist_ok=True)
+                with open(args.save_best_coef, "w") as f:
+                    json.dump(_coef_info, f, indent=2)
+                print(f"  Saved best coef info -> {args.save_best_coef}")
+        else:
+            print("  Too few calibration tasks; defaulting to coef=1.0")
+            _calibrated_fixed_coef = 1.0
+            if args.bias_only:
+                _calibrated_bias_coef = 1.0
+            if args.fixed_bias_coef is not None:
+                _calibrated_bias_coef = args.fixed_bias_coef
+                _calibrated_cat_coef = 1.0
+                _calibrated_fixed_coef = None
+
     # ---- Phase 3: Hybrid + judge ----
     hbs = args.hybrid_gen_batch_size
     print(f"\n=== Hybrid (B={hbs}, KV-cached, coeff-sweep) + judge ===")
+
+    _suffix = _result_suffix(args)
+    hc_path = _cache_path(
+        args.results_dir, f"hybrid_{base_id}", think_id, args.dataset,
+        args.temperature, args.max_new_tokens,
+        sample_idx=args.hybrid_cache_sample_idx,
+        cache_dir=cache_dir_override)
+    if _suffix:
+        hc_path = hc_path.replace(".jsonl", f"{_suffix}.jsonl")
+    _hc_existing = set()
+    if use_cache and os.path.exists(hc_path):
+        with open(hc_path) as _hcf:
+            for _hcl in _hcf:
+                _hcl = _hcl.strip()
+                if _hcl:
+                    try:
+                        _hcj = json.loads(_hcl)
+                        _hc_existing.add(_hcj.get("dataset_idx"))
+                    except json.JSONDecodeError:
+                        pass
+    print(f"  Hybrid response cache: {hc_path} ({len(_hc_existing)} existing)")
+
+    # ---- Optional: per-cat activation-magnitude modulation ----
+    _act_modulate = None
+    if getattr(args, "act_modulate_stats", None):
+        with open(args.act_modulate_stats, "r") as f:
+            _stats = json.load(f)
+        _fn = getattr(args, "act_modulate_fn", "p10p90")
+        if _fn == "p25p75":
+            _lo_key, _hi_key = "p25", "p75"
+        elif _fn == "linear_minmax":
+            _lo_key, _hi_key = "min", "max"
+        else:
+            _lo_key, _hi_key = "p10", "p90"
+        _act_modulate = {}
+        print(f"\n[act_modulate] loading stats: {args.act_modulate_stats}")
+        print(f"[act_modulate] using fn='{_fn}' "
+              f"(lo={_lo_key}, hi={_hi_key})")
+        print(f"[act_modulate] per-cat (lo, hi):")
+        for _k, _s in _stats.get("per_cat", {}).items():
+            if _s.get("count", 0) == 0:
+                continue
+            if _lo_key not in _s or _hi_key not in _s:
+                continue
+            _act_modulate[_k] = (float(_s[_lo_key]), float(_s[_hi_key]))
+            print(f"  {_k}: ({_s[_lo_key]:.3f}, {_s[_hi_key]:.3f})  "
+                  f"n={_s['count']}")
 
     prev_n, prev_counts, prev_per_rep = _load_prev_counts(
         args, base_id, think_id)
@@ -2275,9 +4120,20 @@ def main():
                        if args.fixed_coef is not None
                        else [float(x) for x in args.coef_sweep.split(",")])
         if getattr(args, "pg_bias_cat_sweep", False):
-            _coef_select = "pg_bias_cat"
+            _coef_select = args.coef_select
             _pg_bias_coefs = tuple(float(x) for x in args.pg_bias_coefs.split(","))
             _pg_cat_coefs = tuple(float(x) for x in args.pg_cat_coefs.split(","))
+            # Override with calibrated coef if available
+            if _calibrated_cat_coef is not None:
+                _pg_cat_coefs = (_calibrated_cat_coef,)
+                print(f"  [calibrated] using cat_coef={_calibrated_cat_coef}")
+            if _calibrated_bias_coef is not None:
+                _pg_bias_coefs = (_calibrated_bias_coef,)
+                print(f"  [strat-calibrated] using bias_coef={_calibrated_bias_coef}")
+            if _calibrated_fixed_coef is not None and _calibrated_bias_coef is None:
+                _pg_bias_coefs = (_calibrated_fixed_coef,)
+                _pg_cat_coefs = (_calibrated_fixed_coef,)
+                print(f"  [strat-calibrated] using coef={_calibrated_fixed_coef}")
         else:
             _coef_select = ("fixed"
                             if args.fixed_coef is not None
@@ -2294,6 +4150,10 @@ def main():
             disable_sae_mean=args.disable_sae_mean,
             show_progress=True, collect_details=True,
             random_firing=args.random_firing,
+            random_firing_exclude_top_k_keys=args.random_firing_exclude_top_k_keys,
+            firing_replace_with_min_cosine=args.firing_replace_with_min_cosine,
+            pure_steer_base_eos=args.pure_steer_base_eos,
+            random_steer_prob=args.random_steer_prob,
             random_guardrail=args.random_guardrail,
             random_seed=args.random_seed,
             coef_sweep=_coef_sweep,
@@ -2313,12 +4173,47 @@ def main():
                          else None),
             pg_bias_coefs=_pg_bias_coefs,
             pg_cat_coefs=_pg_cat_coefs,
-            token_window=int(getattr(args, "token_window", 0)))
+            token_window=int(getattr(args, "token_window", 0)),
+            act_modulate=_act_modulate,
+            mlp_model=locals().get("mlp_model"),
+            mlp_coef_scale=float(getattr(args, "mlp_coef_scale", 1.0)),
+            decode_temperature=float(getattr(
+                args, "decode_temperature", 0.0)),
+            decode_seed=int(getattr(args, "decode_seed", 0)),
+            warmup_until_sentence_end=bool(getattr(
+                args, "warmup_until_sentence_end", False)),
+            warmup_max_tokens=int(getattr(args, "warmup_max_tokens", 60)),
+            suppress_boxed_first_n_tokens=int(getattr(
+                args, "suppress_boxed_first_n_tokens", 0)),
+            accept_answer_close=bool(getattr(
+                args, "accept_answer_close", False)),
+            disable_eos_suppression=bool(getattr(
+                args, "disable_eos_suppression", False)),
+            free_fly_until_think_eos=bool(getattr(
+                args, "free_fly_until_think_eos", False)),
+            no_termination=bool(getattr(args, "no_termination", False)),
+            eos_prob_warmup=bool(getattr(args, "eos_prob_warmup", False)),
+            eos_prob_warmup_steps=int(getattr(
+                args, "eos_prob_warmup_steps", 0)),
+            thinking_continuation_text=(
+                [t.get("thinking_continuation_text", "") or "" for t in batch]
+                if any(t.get("thinking_continuation_text") for t in batch)
+                else None),
+            base_continuation_text=(
+                [t.get("base_continuation_text", "") or "" for t in batch]
+                if any(t.get("base_continuation_text") for t in batch)
+                else None))
 
         judge_items = []
         batch_meta = []
         for j, (t, h) in enumerate(zip(batch, hr)):
-            hybrid_resp = base_tok.decode(h["generated_ids"], skip_special_tokens=True)
+            hybrid_new = base_tok.decode(h["generated_ids"], skip_special_tokens=True)
+            # In continuation mode, judge / record the FULL response: existing
+            # (truncated) hybrid text + the freshly-generated continuation.
+            _cont_base = t.get("base_continuation_text") or ""
+            hybrid_resp = (_cont_base + hybrid_new) if _cont_base else hybrid_new
+            _orig_hyb_tok = int(t.get("_cont_orig_hybrid_toks", 0))
+            hybrid_toks_total = _orig_hyb_tok + int(h["n_generated"])
             q, gold, tl = t["question"], t["correct_answer"], t["test_list"]
             common = dict(gold=gold, question=q, ds_type=ds_type, test_list=tl)
             ti = batch_start + j
@@ -2328,14 +4223,41 @@ def main():
                                     label=f"T{ti+1} Base", **common))
             judge_items.append(dict(answer=re.sub(r'\s+', ' ', hybrid_resp).strip(),
                                     label=f"T{ti+1} Hybrid", **common))
+            # If a cold-start prefix was injected into the hybrid prefill,
+            # the per-token info from hybrid_generate_batched only covers
+            # the freshly-generated continuation.  Prepend synthetic
+            # non-steered entries for the cold-start tokens so the
+            # inspector renders the whole hybrid response and the prefix
+            # shows up as plain (un-highlighted) tokens.
+            tli = h.get("token_latent_info") or []
+            cs = (t.get("base_continuation_text") or "")
+            if cs:
+                cs_ids = base_tok(cs, add_special_tokens=False)["input_ids"]
+                cs_entries = []
+                for tid in cs_ids:
+                    cs_entries.append({
+                        "token": base_tok.decode([tid], skip_special_tokens=True),
+                        "selection": "base",
+                        "latent_key": "",
+                        "latent_id": None,
+                        "latent_title": "",
+                        "coefficient": 0.0,
+                        "steer_layer": None,
+                        "activation_value": 0.0,
+                        "steered_matches_think": None,
+                        "disagreed": None,
+                        "cold_start": True,
+                    })
+                tli = cs_entries + (tli if isinstance(tli, list) else [])
             batch_meta.append(dict(
                 task_idx=ti, question=q, gold=gold, test_list=tl,
                 think_resp=t["thinking_response"], base_resp=t["base_response"],
                 hybrid_resp=hybrid_resp, hybrid_eos=h["ended_by_eos"],
-                hybrid_toks=h["n_generated"],
+                hybrid_toks=hybrid_toks_total,
                 think_eos=t["thinking_eos"], base_eos=t["base_eos"],
                 think_toks=t["thinking_n_tokens"], base_toks=t["base_n_tokens"],
-                steering_stats=h.get("steering_stats")))
+                steering_stats=h.get("steering_stats"),
+                token_latent_info=tli))
 
         if any(m.get("steering_stats") for m in batch_meta):
             ss_all = [m["steering_stats"] for m in batch_meta if m.get("steering_stats")]
@@ -2408,6 +4330,7 @@ def main():
                 "n_tokens": {"thinking": m["think_toks"], "base": m["base_toks"],
                              "hybrid": m["hybrid_toks"]},
                 "steering_stats": m.get("steering_stats"),
+                "token_latent_info": m.get("token_latent_info"),
             }, args, base_id, think_id)
 
             done = m["task_idx"] + 1 + prev_n

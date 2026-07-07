@@ -1,11 +1,36 @@
+# --- secrets / machine-specific env ---
 .env
-wandb
-__pycache__
-.DS_Store
-base_models_reasoning_interp.egg-info/
-train-vectors/results/vars/perplexity/
-# Trained correction-vector / bias artifacts (regenerable from the
-# bias-first run scripts; large .pt checkpoints).
-train-vectors/results/vars/correction_vectors_*/
-train-vectors/results/vars/qwen32b_linear/
+.env_exports.sh
 
+# --- virtualenvs ---
+.venv/
+.venv_vllm/
+wandb/
+
+# --- python caches / build ---
+__pycache__/
+*.pyc
+*.egg-info/
+
+# --- OS ---
+.DS_Store
+
+# --- large regenerable artifacts (all regenerable from the run scripts) ---
+# trained category-vector checkpoints (multi-GB .pt files)
+mlp_vectors_*/
+# hybrid-eval outputs: per-sample rollouts, judge traces, summaries (multi-GB)
+mlp_eval_*/
+# cached base/thinking model rollouts used as eval inputs
+hybrid/results/
+train-vectors/results/
+generate-responses/results/
+visualize-saes/results/
+# SAE activations + trained clustering artifacts (multi-GB)
+train-saes/results/
+
+# --- cluster logs / scratch ---
+slurm_logs/
+slurm_jobs/
+*.out
+*.log
+*.err
