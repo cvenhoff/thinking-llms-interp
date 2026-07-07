@@ -1,0 +1,85 @@
+{
+  "base_id": "llama-3.1-8b",
+  "dataset": "hendrycks_holdout",
+  "suffix": "final",
+  "sources": {
+    "main": "/workspace-vast/constantinv/thinking-llms-interp/mlp_eval_hendrycks_holdout_qa_instr_holdoutsel_h512/r1-llama8b/judge_reps_llama-3.1-8b_hendrycks_holdout_final.json",
+    "extra_think": "/workspace-vast/constantinv/thinking-llms-interp/mlp_eval_hendrycks_holdout_qa_instr_holdoutsel_h512/r1-llama8b/judge_reps_extra_think_llama-3.1-8b_hendrycks_holdout_final.json"
+  },
+  "roles": {
+    "thinking_s0": {
+      "per_rep_acc_pct": [
+        95.8,
+        95.6,
+        95.6
+      ],
+      "mean_pct": 95.66666666666667,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "base": {
+      "per_rep_acc_pct": [
+        30.0,
+        30.2,
+        30.3
+      ],
+      "mean_pct": 30.166666666666668,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "hybrid": {
+      "per_rep_acc_pct": [
+        26.4,
+        26.8,
+        26.5
+      ],
+      "mean_pct": 26.566666666666666,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "thinking_s1": {
+      "per_rep_acc_pct": [
+        95.7,
+        95.8,
+        95.7
+      ],
+      "mean_pct": 95.73333333333333,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "thinking_s2": {
+      "per_rep_acc_pct": [
+        96.2,
+        95.9,
+        96.2
+      ],
+      "mean_pct": 96.10000000000001,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "thinking": {
+      "per_rep_acc_pct": [
+        95.8,
+        95.6,
+        95.6,
+        95.7,
+        95.8,
+        95.7,
+        96.2,
+        95.9,
+        96.2
+      ],
+      "mean_pct": 95.83333333333333,
+      "n_samples": 3,
+      "n_reps_per_sample": 3
+    }
+  },
+  "total": 1000,
+  "headline": {
+    "thinking_mean_pct": 95.83333333333333,
+    "base_mean_pct": 30.166666666666668,
+    "hybrid_mean_pct": 26.566666666666666,
+    "gap_pct": 65.66666666666666,
+    "gap_recovered_pct": 0.0
+  }
+}

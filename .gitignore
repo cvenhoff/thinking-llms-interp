@@ -15,12 +15,26 @@ __pycache__/
 # --- OS ---
 .DS_Store
 
-# --- large regenerable artifacts (all regenerable from the run scripts) ---
-# trained category-vector checkpoints (multi-GB .pt files)
-mlp_vectors_*/
-# hybrid-eval outputs: per-sample rollouts, judge traces, summaries (multi-GB)
-mlp_eval_*/
-# cached base/thinking model rollouts used as eval inputs
+# --- category-vector checkpoints ---
+# The final SELECTED vectors are committed so they can be loaded directly.
+# The per-run training outputs (run1 + best-of-3 runs) are regenerable scratch,
+# and the big regenerable pieces of the selected set are excluded below.
+mlp_vectors_qa_instr_h512/
+mlp_vectors_qa_instr_h512_bo3/
+# big regenerable pieces of the selected set (excluded everywhere):
+# - activation cache rebuilt during training
+# - per-epoch training snapshots
+disagree_cache.pt
+epoch_checkpoints/
+
+# --- hybrid-eval outputs ---
+# Keep the result files (summaries, judge traces, per-category metrics, plots)
+# so every number and figure is reproducible without rerunning eval. Drop the
+# multi-GB raw per-sample rollout dumps.
+mlp_eval_*/**/*.jsonl
+mlp_eval_*/**/rolling/
+
+# --- cached base/thinking model rollouts (multi-GB, regenerable) ---
 hybrid/results/
 train-vectors/results/
 generate-responses/results/

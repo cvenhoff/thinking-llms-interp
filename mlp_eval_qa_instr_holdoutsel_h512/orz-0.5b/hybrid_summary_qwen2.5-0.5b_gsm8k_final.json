@@ -1,0 +1,85 @@
+{
+  "base_id": "qwen2.5-0.5b",
+  "dataset": "gsm8k",
+  "suffix": "final",
+  "sources": {
+    "main": "/workspace-vast/constantinv/thinking-llms-interp/mlp_eval_qa_instr_holdoutsel_h512/orz-0.5b/judge_reps_qwen2.5-0.5b_gsm8k_final.json",
+    "extra_think": "/workspace-vast/constantinv/thinking-llms-interp/mlp_eval_qa_instr_holdoutsel_h512/orz-0.5b/judge_reps_extra_think_qwen2.5-0.5b_gsm8k_final.json"
+  },
+  "roles": {
+    "thinking_s0": {
+      "per_rep_acc_pct": [
+        47.53601213040182,
+        47.53601213040182,
+        47.53601213040182
+      ],
+      "mean_pct": 47.53601213040182,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "base": {
+      "per_rep_acc_pct": [
+        24.94313874147081,
+        25.170583775587566,
+        24.79150871872631
+      ],
+      "mean_pct": 24.96841041192823,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "hybrid": {
+      "per_rep_acc_pct": [
+        43.290371493555725,
+        43.214556482183475,
+        43.214556482183475
+      ],
+      "mean_pct": 43.23982815264089,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "thinking_s1": {
+      "per_rep_acc_pct": [
+        46.550416982562545,
+        46.32297194844579,
+        46.32297194844579
+      ],
+      "mean_pct": 46.39878695981804,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "thinking_s2": {
+      "per_rep_acc_pct": [
+        47.08112206216831,
+        46.929492039423806,
+        47.08112206216831
+      ],
+      "mean_pct": 47.03057872125348,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "thinking": {
+      "per_rep_acc_pct": [
+        47.53601213040182,
+        47.53601213040182,
+        47.53601213040182,
+        46.550416982562545,
+        46.32297194844579,
+        46.32297194844579,
+        47.08112206216831,
+        46.929492039423806,
+        47.08112206216831
+      ],
+      "mean_pct": 46.98845927049111,
+      "n_samples": 3,
+      "n_reps_per_sample": 3
+    }
+  },
+  "total": 1319,
+  "headline": {
+    "thinking_mean_pct": 46.98845927049111,
+    "base_mean_pct": 24.96841041192823,
+    "hybrid_mean_pct": 43.23982815264089,
+    "gap_pct": 22.020048858562884,
+    "gap_recovered_pct": 82.97628156082631
+  }
+}

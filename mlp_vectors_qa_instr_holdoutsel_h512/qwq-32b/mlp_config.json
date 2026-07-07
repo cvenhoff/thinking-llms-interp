@@ -1,0 +1,6 @@
+{
+  "d_in": 5120,
+  "n_cats": 10,
+  "d_hidden": 512,
+  "per_cat": false
+}

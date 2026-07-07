@@ -79,10 +79,19 @@ To run a single pair through a stage, pass its name, e.g. `bash hybrid/run.sh or
 
 ## Artifacts
 
-Large regenerable artifacts are git-ignored: vector checkpoints (`mlp_vectors_*`),
-eval outputs (`mlp_eval_*`), cached rollouts (`*/results/`), and SAE activations.
-They are all produced by the stages above. The committed artifacts are the dataset
-definitions in `data/` and the rendered figures/tables in `figures/figs/`.
+Committed so results are usable and reproducible without any reruns:
+
+- the dataset definitions in `data/`,
+- the final **selected steering vectors** in `mlp_vectors_qa_instr_holdoutsel_h512/`
+  (load these to steer directly),
+- every **eval result** in `mlp_eval_*/` (summaries, judge traces, per-category
+  metrics), so `bash figures/run.sh` rebuilds all figures/tables from a clean clone,
+- the rendered figures/tables in `figures/figs/`.
+
+Only the large, regenerable bulk is git-ignored: the raw per-sample rollout dumps
+(`*.jsonl`), cached model rollouts (`*/results/`), SAE activations, the training
+activation caches (`disagree_cache.pt`) and per-epoch snapshots, and the per-run
+best-of-3 training outputs. All of these are reproduced by the stages above.
 
 ## Citation
 

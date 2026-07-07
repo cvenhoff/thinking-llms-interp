@@ -1,0 +1,121 @@
+{
+  "base_model": "Qwen/Qwen2.5-32B",
+  "thinking_model": "Qwen/QwQ-32B",
+  "base_id": "qwen2.5-32b",
+  "thinking_id": "qwq-32b",
+  "dataset": "holdoutmix",
+  "sae_layer": 27,
+  "n_clusters": 10,
+  "sae_path": null,
+  "coef_sweep": [
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0
+  ],
+  "coef_select": "mlp",
+  "kl_topk": 3,
+  "bias_only": false,
+  "bias_vector_path": null,
+  "bias_layer": null,
+  "random_firing": false,
+  "random_guardrail": false,
+  "random_seed": 0,
+  "steer_all_positions": false,
+  "steer_all_positions_full": false,
+  "disable_sae_mean": false,
+  "old_vectors_dir": "/workspace-vast/constantinv/thinking-llms-interp/mlp_vectors_qa_instr_h512/qwq-32b",
+  "old_vectors_layer": 24,
+  "n_latent_descriptions": 10,
+  "layer_map": {
+    "idx0": 24,
+    "idx1": 24,
+    "idx2": 24,
+    "idx3": 24,
+    "idx4": 24,
+    "idx5": 24,
+    "idx6": 24,
+    "idx7": 24,
+    "idx8": 24,
+    "idx9": 24
+  },
+  "steering_vectors": {
+    "idx0": {
+      "shape": [
+        5120
+      ],
+      "norm": 45.96214294433594,
+      "layer": 24
+    },
+    "idx1": {
+      "shape": [
+        5120
+      ],
+      "norm": 46.18942642211914,
+      "layer": 24
+    },
+    "idx2": {
+      "shape": [
+        5120
+      ],
+      "norm": 46.94831848144531,
+      "layer": 24
+    },
+    "idx3": {
+      "shape": [
+        5120
+      ],
+      "norm": 42.98151779174805,
+      "layer": 24
+    },
+    "idx4": {
+      "shape": [
+        5120
+      ],
+      "norm": 42.52455520629883,
+      "layer": 24
+    },
+    "idx5": {
+      "shape": [
+        5120
+      ],
+      "norm": 34.55925369262695,
+      "layer": 24
+    },
+    "idx6": {
+      "shape": [
+        5120
+      ],
+      "norm": 45.0953483581543,
+      "layer": 24
+    },
+    "idx7": {
+      "shape": [
+        5120
+      ],
+      "norm": 45.3096809387207,
+      "layer": 24
+    },
+    "idx8": {
+      "shape": [
+        5120
+      ],
+      "norm": 47.23984909057617,
+      "layer": 24
+    },
+    "idx9": {
+      "shape": [
+        5120
+      ],
+      "norm": 44.91722106933594,
+      "layer": 24
+    }
+  },
+  "suffix": "_final"
+}
