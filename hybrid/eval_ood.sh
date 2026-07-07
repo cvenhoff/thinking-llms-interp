@@ -31,7 +31,6 @@ mkdir -p "${EVAL_DIR}" "${MERGED}"
 echo "== eval-ood | ${CONFIG} ${DATASET} variant=${VARIANT} | $(date -u) =="
 [[ -f "${VEC_DIR}/cat_coef_mlp.pt" && -f "${VEC_DIR}/mlp_config.json" ]] || { echo "FATAL: missing vectors in ${VEC_DIR}"; exit 2; }
 
-# Stage the cached base + think rollouts into a merged dir for hybrid_eval.
 for S in 0 1 2; do
     ln -sfn "${CACHE_THINK}/thinking_${TS}_${DATASET}_temp0.6_max2048_s${S}.jsonl" \
             "${MERGED}/thinking_${TS}_${DATASET}_temp0.6_max2048_s${S}.jsonl"

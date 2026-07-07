@@ -29,12 +29,10 @@ mkdir -p "${SAVE_DIR}"
 
 echo "== train-vectors | ${CONFIG} seed=${SEED} steer=${SL} sae=${SAEL} k=${NK} -> ${SAVE_DIR} | $(date -u) =="
 
-# Idempotency: a complete run writes best_meta.json + cat_coef_mlp.pt last.
 if [[ -f "${SAVE_DIR}/best_meta.json" && -f "${SAVE_DIR}/cat_coef_mlp.pt" && -f "${SAVE_DIR}/mlp_config.json" ]]; then
     echo "vectors already complete in ${SAVE_DIR}; skipping."; exit 0
 fi
 
-# Verify the cached rollouts this run reads exist.
 TRACE="${CACHE}/thinking_${TS}_trainmix_temp0.6_max2048_s0.jsonl"
 NEED=$(( $(wc -l < "${TRAIN_FILE}") + $(wc -l < "${VAL_FILE}") ))
 [[ -f "${TRACE}" && $(wc -l < "${TRACE}") -ge ${NEED} ]] || { echo "FATAL: missing/short trainmix rollouts ${TRACE}"; exit 2; }

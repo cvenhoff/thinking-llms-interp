@@ -18,7 +18,6 @@ DIRS=(
 )
 SELVEC="${ROOT}/artifacts/mlp_vectors_qa_instr_holdoutsel_h${H}/${CONFIG}"
 
-# ---- run the holdout eval for each run (idempotent) ----
 for i in 0 1 2; do
     tag="run$((i+1))"; d="${DIRS[$i]}"
     [[ -f "${d}/cat_coef_mlp.pt" ]] || { echo "MISSING vectors for ${tag}: ${d}"; continue; }
@@ -28,7 +27,6 @@ for i in 0 1 2; do
     CONFIG="${CONFIG}" VEC_DIR="${d}" RUNTAG="${tag}" bash "${ROOT}/hybrid/eval_holdoutmix.sh"
 done
 
-# ---- pick the run with the highest holdout gap ----
 read -r best_dir best_gap < <(python - "${ROOT}" "${CONFIG}" "${BS}" "${DIRS[@]}" <<'PY'
 import json, sys, os
 root, cfg, bs = sys.argv[1], sys.argv[2], sys.argv[3]; dirs = sys.argv[4:]
@@ -57,6 +55,5 @@ cp -f "${best_dir}"/*_linear.pt "${SELVEC}/" 2>/dev/null || true
 cp -f "${best_dir}"/*_correction_meta.json "${SELVEC}/" 2>/dev/null || true
 cp -f "${best_dir}/disagree_cache.pt" "${SELVEC}/" 2>/dev/null || \
     ln -sfn "${ROOT}/artifacts/mlp_vectors_qa_instr_h${H}/${CONFIG}/disagree_cache.pt" "${SELVEC}/disagree_cache.pt" 2>/dev/null || true
-# Record the chosen run as a repo-relative path so the marker is portable.
 echo "${best_dir#${ROOT}/}" > "${SELVEC}/.selected_from"
 echo "== promoted ${best_dir} -> ${SELVEC} =="

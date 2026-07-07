@@ -18,7 +18,6 @@
 
 set -euo pipefail
 
-# Resolve the repo root from this script's location (override with THINKING_LLMS_ROOT).
 ROOT="${THINKING_LLMS_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "${ROOT}"
 mkdir -p slurm_logs
@@ -40,11 +39,9 @@ echo "Job ${SLURM_JOB_NAME} ${SLURM_JOB_ID}  node=$(hostname)  start=$(date -u)"
 nvidia-smi --query-gpu=index,name,memory.used,memory.total --format=csv
 echo "===================================="
 
-# Write connection info so clients can discover the endpoint
 INFO_FILE="${ROOT}/vllm-serve/active_servers.txt"
 echo "${SLURM_JOB_ID}  $(hostname):${PORT}  ${MODEL}  ngpu=${NGPU}" >> "${INFO_FILE}"
 
-# Background a watcher that creates the ready sentinel once the server is up
 (while true; do
     if curl -s "http://localhost:${PORT}/health" > /dev/null 2>&1; then
         touch "${READY_FILE}"

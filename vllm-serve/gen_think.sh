@@ -32,7 +32,6 @@ N_HOLD=$(wc -l < "${HOLDOUT_FILE}")
 
 echo "== gen-think | ${MODEL} (${SHORT}) fmt=${FMT} tp=${TP} | $(date -u) =="
 
-# Combined trainmix file (train + val) for the single training rollout.
 COMBINED=$(mktemp /tmp/trainmix_combined_XXXXXX.jsonl)
 cat "${TRAIN_FILE}" "${VAL_FILE}" > "${COMBINED}"
 trap 'rm -f "${COMBINED}"; [[ -n "${VLLM_PID:-}" ]] && kill "${VLLM_PID}" 2>/dev/null || true' EXIT

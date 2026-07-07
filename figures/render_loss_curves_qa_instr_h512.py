@@ -29,10 +29,6 @@ VECT = ROOT / "artifacts" / "mlp_vectors_qa_instr_h512"
 OUT  = ROOT / "figures/figs/loss_curves_qa_instr_h512"
 OUT.mkdir(parents=True, exist_ok=True)
 
-# Canonical train-log dirs = the exact best-of-3 vectors chosen by the
-# holdout-gap selection. Each artifacts/mlp_vectors_qa_instr_holdoutsel_h512/<slug>/ holds
-# a .selected_from pointer to the source run dir (which carries train_log.jsonl).
-# This guarantees the plotted curves match the deployed canonical vectors.
 HOLDOUTSEL = VECT.parent / "mlp_vectors_qa_instr_holdoutsel_h512"
 
 
@@ -40,7 +36,6 @@ def _canonical_dir(slug: str) -> Path:
     sel = HOLDOUTSEL / slug / ".selected_from"
     if sel.exists():
         raw = sel.read_text().strip()
-        # Marker is repo-relative; tolerate legacy absolute markers too.
         src = Path(raw) if os.path.isabs(raw) else ROOT / raw
         if (src / "train_log.jsonl").exists():
             return src

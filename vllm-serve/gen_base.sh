@@ -61,7 +61,6 @@ gen() { # dataset n_examples [questions_file]
 gen math500    "${N_MATH}"
 gen gsm8k      "${N_GSM}"
 gen holdoutmix "${N_HOLD}" "${HOLDOUT_FILE}"
-# Expose the holdout base rollouts under the name the selection eval expects.
 ln -sfn "${CACHE}/base_qa_instr_${BASE_SHORT}_holdoutmix_temp0_max${MAX_TOK}.jsonl" \
         "${CACHE_FINAL}/base_${BASE_SHORT}_holdoutmix_temp0_max${MAX_TOK}.jsonl"
 echo "== DONE gen-base ${BASE_SHORT} $(date -u) =="
