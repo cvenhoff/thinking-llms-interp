@@ -35,6 +35,7 @@ environment, and otherwise fall back to `.venv`.
 | `hybrid/`             | Best-of-3 selection and hybrid evaluation (`select_best_of_3.sh`, `eval_*.sh`, `run.sh`, `run_ablations.sh`). |
 | `figures/`            | Scripts that render every paper figure and table into `figures/figs/`. |
 | `data/`               | Training mix and held-out evaluation sets. |
+| `artifacts/`          | All pipeline outputs: selected vectors and eval results (committed) plus regenerable per-run training outputs (git-ignored). |
 
 The nine pairs are `orz-0.5b, orz-1.5b, orz-7b, orz-32b, r1-14b, r1-32b, qwq-32b,
 r1-llama8b, r1-math1.5b`.
@@ -55,14 +56,14 @@ cd train-saes && uv run ./run.sh && cd ..
 # 2. Rollouts (base + thinking, all datasets)          -> hybrid/results/response_cache_*
 bash vllm-serve/run_rollouts.sh
 
-# 3. Train the best-of-3 vector sets (seeds 42/43/44)  -> mlp_vectors_qa_instr_h512*
+# 3. Train the best-of-3 vector sets (seeds 42/43/44)  -> artifacts/mlp_vectors_qa_instr_h512*
 bash train-vectors/run.sh
 
-# 4. Select best-of-3 + evaluate the hybrid models     -> mlp_eval_qa_instr_holdoutsel_h512
+# 4. Select best-of-3 + evaluate the hybrid models     -> artifacts/mlp_eval_qa_instr_holdoutsel_h512
 #    (MATH500, GSM8K, and the Hendrycks-MATH holdout)
 bash hybrid/run.sh
 
-# 5. Negative-control ablations (orz-1.5b, orz-32b)    -> mlp_eval_qa_instr_holdoutsel_ablations
+# 5. Negative-control ablations (orz-1.5b, orz-32b)    -> artifacts/mlp_eval_qa_instr_holdoutsel_ablations
 bash hybrid/run_ablations.sh
 
 # 6. Render all figures and tables                     -> figures/figs
@@ -70,31 +71,28 @@ bash figures/run.sh
 ```
 
 Selection promotes, per pair, the vector set with the highest gap recovered on the
-holdout mix into `mlp_vectors_qa_instr_holdoutsel_h512/<cfg>/` (recorded in
+holdout mix into `artifacts/mlp_vectors_qa_instr_holdoutsel_h512/<cfg>/` (recorded in
 `.selected_from`); every downstream eval reads those vectors.
 
 To run a single pair through a stage, pass its name, e.g. `bash hybrid/run.sh orz-32b`.
 
 ## Artifacts
 
-Committed so results are usable and reproducible without any reruns:
+All pipeline outputs live under `artifacts/`. Committed so results are usable and
+reproducible without any reruns:
 
 - the dataset definitions in `data/`,
-- the final **selected steering vectors** in `mlp_vectors_qa_instr_holdoutsel_h512/`
-  (load these to steer directly),
-- every **eval result** in `mlp_eval_*/` (summaries, judge traces, per-category
-  metrics), so `bash figures/run.sh` rebuilds all figures/tables from a clean clone,
+- the final **selected steering vectors** in
+  `artifacts/mlp_vectors_qa_instr_holdoutsel_h512/` (load these to steer directly),
+- every **eval result** in `artifacts/mlp_eval_*/` (summaries, judge traces,
+  per-category metrics), so `bash figures/run.sh` rebuilds all figures/tables from a
+  clean clone,
 - the rendered figures/tables in `figures/figs/`.
 
 Only the large, regenerable bulk is git-ignored: the raw per-sample rollout text
-(`*.jsonl`), cached model rollouts (`*/results/`), SAE activations, the training
-activation caches (`disagree_cache.pt`) and per-epoch snapshots, and the per-run
-best-of-3 training outputs. All of these are reproduced by the stages above.
-
-The rollout text is left out for size reasons: the eval generations alone are about
-15 GB across ~200 `.jsonl` files (many capped at 90 MB each), and the input rollout
-caches add another ~5 GB with individual files exceeding GitHub's 100 MB/file limit.
-Rerun stages 2-5 above to regenerate them.
+(`*.jsonl`, ~15 GB), cached model rollouts (`*/results/`, ~5 GB), SAE activations,
+training activation caches (`disagree_cache.pt`) and per-epoch snapshots, and the
+per-run best-of-3 training outputs. All are reproduced by the stages above.
 
 ## Citation
 

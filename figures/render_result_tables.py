@@ -37,10 +37,10 @@ GRID = "#c9ced6"
 
 
 def headline(cfg, ds):
-    f = (f"{ROOT}/mlp_eval_hendrycks_holdout_qa_instr_holdoutsel_h512/{cfg}/"
+    f = (f"{ROOT}/artifacts/mlp_eval_hendrycks_holdout_qa_instr_holdoutsel_h512/{cfg}/"
          f"hybrid_summary_{BS[cfg]}_hendrycks_holdout_final.json"
          if ds == "hendrycks_holdout" else
-         f"{ROOT}/mlp_eval_qa_instr_holdoutsel_h512/{cfg}/"
+         f"{ROOT}/artifacts/mlp_eval_qa_instr_holdoutsel_h512/{cfg}/"
          f"hybrid_summary_{BS[cfg]}_{ds}_final.json")
     return json.load(open(f))["headline"]
 

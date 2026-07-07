@@ -2,7 +2,7 @@
 # Hybrid gap-recovery on the 788-question training-mix holdout, used as the
 # best-of-3 vector selection signal. Same recipe as the OOD evals (qa_instr base
 # greedy, think temp0.6 s0, LLM judge x3). Writes
-# mlp_eval_holdoutmix/<CONFIG>/<RUNTAG>/.
+# artifacts/mlp_eval_holdoutmix/<CONFIG>/<RUNTAG>/.
 #
 # Env: CONFIG, VEC_DIR (the run's vectors), RUNTAG (run1|run2|run3)
 set -euo pipefail
@@ -18,7 +18,7 @@ source "${ROOT}/configs.sh"
 cfg_load "${CONFIG}"
 JUDGE_MODEL="${JUDGE_MODEL:-anthropic/claude-sonnet-4-6}"
 GOLD="${ROOT}/data/trainmix_holdout_eval/eval.jsonl"
-EVAL_DIR="${ROOT}/mlp_eval_holdoutmix/${CONFIG}/${RUNTAG}"
+EVAL_DIR="${ROOT}/artifacts/mlp_eval_holdoutmix/${CONFIG}/${RUNTAG}"
 CACHE="${ROOT}/hybrid/results/response_cache_final"
 mkdir -p "${EVAL_DIR}"
 

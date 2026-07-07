@@ -19,8 +19,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 ROOT = os.environ.get("THINKING_LLMS_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CANON = f"{ROOT}/mlp_eval_qa_instr_holdoutsel_h512"
-ABL = f"{ROOT}/mlp_eval_qa_instr_holdoutsel_ablations"
+CANON = f"{ROOT}/artifacts/mlp_eval_qa_instr_holdoutsel_h512"
+ABL = f"{ROOT}/artifacts/mlp_eval_qa_instr_holdoutsel_ablations"
 OUT = f"{ROOT}/figures/figs"
 os.makedirs(OUT, exist_ok=True)
 

@@ -4,7 +4,7 @@
 #
 # Env:
 #   CONFIG    one of the nine pairs (see configs.sh)
-#   SAVE_DIR  where to write vectors (default mlp_vectors_qa_instr_h512/<CONFIG>)
+#   SAVE_DIR  where to write vectors (default artifacts/mlp_vectors_qa_instr_h512/<CONFIG>)
 #   SEED      RNG seed (default 42; best-of-3 uses 42/43/44)
 #
 # Uses all visible GPUs (DDP via torchrun) when more than one is present.
@@ -20,7 +20,7 @@ source "${ROOT}/configs.sh"
 : "${CONFIG:?CONFIG required}"
 cfg_load "${CONFIG}"
 SEED="${SEED:-42}"
-SAVE_DIR="${SAVE_DIR:-${ROOT}/mlp_vectors_qa_instr_h${MLP_HIDDEN}/${CONFIG}}"
+SAVE_DIR="${SAVE_DIR:-${ROOT}/artifacts/mlp_vectors_qa_instr_h${MLP_HIDDEN}/${CONFIG}}"
 CACHE="${ROOT}/hybrid/results/response_cache_final"
 TRAIN_FILE="${ROOT}/data/training_mix_v1/train.jsonl"
 VAL_FILE="${ROOT}/data/training_mix_v1/val.jsonl"

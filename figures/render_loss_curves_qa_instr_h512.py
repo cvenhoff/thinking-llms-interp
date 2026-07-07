@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Loss-curve figures for the qa_instr h=512 pipeline (all 9 models).
 
-Reads train_log.jsonl files from mlp_vectors_qa_instr_h512/<slug>/.
+Reads train_log.jsonl files from artifacts/mlp_vectors_qa_instr_h512/<slug>/.
 
 Outputs (under figures/figs/loss_curves_qa_instr_h512/):
   fig1_holdout_val.{pdf,png}
@@ -25,12 +25,12 @@ import numpy as np
 
 
 ROOT = Path(os.environ.get("THINKING_LLMS_ROOT") or Path(__file__).resolve().parent.parent)
-VECT = ROOT / "mlp_vectors_qa_instr_h512"
+VECT = ROOT / "artifacts" / "mlp_vectors_qa_instr_h512"
 OUT  = ROOT / "figures/figs/loss_curves_qa_instr_h512"
 OUT.mkdir(parents=True, exist_ok=True)
 
 # Canonical train-log dirs = the exact best-of-3 vectors chosen by the
-# holdout-gap selection. Each mlp_vectors_qa_instr_holdoutsel_h512/<slug>/ holds
+# holdout-gap selection. Each artifacts/mlp_vectors_qa_instr_holdoutsel_h512/<slug>/ holds
 # a .selected_from pointer to the source run dir (which carries train_log.jsonl).
 # This guarantees the plotted curves match the deployed canonical vectors.
 HOLDOUTSEL = VECT.parent / "mlp_vectors_qa_instr_holdoutsel_h512"

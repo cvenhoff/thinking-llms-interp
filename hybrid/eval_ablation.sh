@@ -35,8 +35,8 @@ case "${ABLATION}" in
     *) echo "FATAL: unknown ABLATION=${ABLATION}"; exit 2 ;;
 esac
 
-VEC_DIR="${ROOT}/mlp_vectors_qa_instr_holdoutsel_h${MLP_HIDDEN}/${CONFIG}"
-EVAL_DIR="${ROOT}/mlp_eval_qa_instr_holdoutsel_ablations/${CONFIG}-${ABLATION}/${DATASET}"
+VEC_DIR="${ROOT}/artifacts/mlp_vectors_qa_instr_holdoutsel_h${MLP_HIDDEN}/${CONFIG}"
+EVAL_DIR="${ROOT}/artifacts/mlp_eval_qa_instr_holdoutsel_ablations/${CONFIG}-${ABLATION}/${DATASET}"
 CACHE_THINK="${ROOT}/hybrid/results/response_cache_final"
 CACHE_BASE="${ROOT}/hybrid/results/response_cache_base_qa_instr"
 MERGED="${ROOT}/hybrid/results/response_cache_holdoutsel_abl_merged/${CONFIG}"

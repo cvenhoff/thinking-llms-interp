@@ -2,7 +2,7 @@
 # Out-of-distribution hybrid eval on MATH500 or GSM8K for one pair, using the
 # selected best-of-3 vectors. Builds the hybrid rollouts, judges base/think/
 # hybrid answers with an LLM judge (x3), and aggregates the 3 think samples.
-# Writes mlp_eval_qa_instr<VARIANT>_h512/<CONFIG>/.
+# Writes artifacts/mlp_eval_qa_instr<VARIANT>_h512/<CONFIG>/.
 #
 # Env: CONFIG, DATASET (math500|gsm8k) ; optional VARIANT (default _holdoutsel)
 set -euo pipefail
@@ -21,8 +21,8 @@ DECODE_T="${DECODE_T:-0}"
 JUDGE_MODEL="${JUDGE_MODEL:-anthropic/claude-sonnet-4-6}"
 case "${DATASET}" in math500|gsm8k) ;; *) echo "FATAL: DATASET must be math500|gsm8k"; exit 2 ;; esac
 
-VEC_DIR="${ROOT}/mlp_vectors_qa_instr${VARIANT}_h${MLP_HIDDEN}/${CONFIG}"
-EVAL_DIR="${ROOT}/mlp_eval_qa_instr${VARIANT}_h${MLP_HIDDEN}/${CONFIG}"
+VEC_DIR="${ROOT}/artifacts/mlp_vectors_qa_instr${VARIANT}_h${MLP_HIDDEN}/${CONFIG}"
+EVAL_DIR="${ROOT}/artifacts/mlp_eval_qa_instr${VARIANT}_h${MLP_HIDDEN}/${CONFIG}"
 CACHE_THINK="${ROOT}/hybrid/results/response_cache_final"
 CACHE_BASE="${ROOT}/hybrid/results/response_cache_base_qa_instr"
 MERGED="${ROOT}/hybrid/results/response_cache_qa_instr${VARIANT}_h${MLP_HIDDEN}_merged/${CONFIG}"

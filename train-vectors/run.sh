@@ -11,12 +11,12 @@ set -euo pipefail
 ROOT="${THINKING_LLMS_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "${ROOT}/configs.sh"
 SDIR="${ROOT}/train-vectors"
-BO3="${ROOT}/mlp_vectors_qa_instr_h${MLP_HIDDEN}_bo3"
+BO3="${ROOT}/artifacts/mlp_vectors_qa_instr_h${MLP_HIDDEN}_bo3"
 
 TARGETS=("$@"); [[ ${#TARGETS[@]} -eq 0 ]] && TARGETS=("${CONFIGS[@]}")
 for CONFIG in "${TARGETS[@]}"; do
     echo "########## train-vectors: ${CONFIG} ##########"
-    CONFIG="${CONFIG}" SEED=42 SAVE_DIR="${ROOT}/mlp_vectors_qa_instr_h${MLP_HIDDEN}/${CONFIG}" bash "${SDIR}/train_vectors.sh"
+    CONFIG="${CONFIG}" SEED=42 SAVE_DIR="${ROOT}/artifacts/mlp_vectors_qa_instr_h${MLP_HIDDEN}/${CONFIG}" bash "${SDIR}/train_vectors.sh"
     CONFIG="${CONFIG}" SEED=43 SAVE_DIR="${BO3}/${CONFIG}/run2" bash "${SDIR}/train_vectors.sh"
     CONFIG="${CONFIG}" SEED=44 SAVE_DIR="${BO3}/${CONFIG}/run3" bash "${SDIR}/train_vectors.sh"
 done

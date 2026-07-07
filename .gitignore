@@ -19,8 +19,8 @@ __pycache__/
 # The final SELECTED vectors are committed so they can be loaded directly.
 # The per-run training outputs (run1 + best-of-3 runs) are regenerable scratch,
 # and the big regenerable pieces of the selected set are excluded below.
-mlp_vectors_qa_instr_h512/
-mlp_vectors_qa_instr_h512_bo3/
+artifacts/mlp_vectors_qa_instr_h512/
+artifacts/mlp_vectors_qa_instr_h512_bo3/
 # big regenerable pieces of the selected set (excluded everywhere):
 # - activation cache rebuilt during training
 # - per-epoch training snapshots
@@ -31,8 +31,8 @@ epoch_checkpoints/
 # Keep the result files (summaries, judge traces, per-category metrics, plots)
 # so every number and figure is reproducible without rerunning eval. Drop the
 # multi-GB raw per-sample rollout dumps.
-mlp_eval_*/**/*.jsonl
-mlp_eval_*/**/rolling/
+artifacts/mlp_eval_*/**/*.jsonl
+artifacts/mlp_eval_*/**/rolling/
 
 # --- cached base/thinking model rollouts (multi-GB, regenerable) ---
 hybrid/results/

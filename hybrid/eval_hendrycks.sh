@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Hybrid eval on the Hendrycks-MATH holdout (disjoint from the training mix and
 # MATH500) for one pair, using the selected best-of-3 vectors. Same recipe as
-# the OOD evals. Writes mlp_eval_hendrycks_holdout_qa_instr<VARIANT>_h512/<CONFIG>/.
+# the OOD evals. Writes artifacts/mlp_eval_hendrycks_holdout_qa_instr<VARIANT>_h512/<CONFIG>/.
 #
 # Env: CONFIG ; optional VARIANT (default _holdoutsel)
 set -euo pipefail
@@ -20,8 +20,8 @@ JUDGE_MODEL="${JUDGE_MODEL:-anthropic/claude-sonnet-4-6}"
 DATASET=hendrycks_holdout
 GOLD="${ROOT}/data/hendrycks_holdout_eval/eval.jsonl"
 CACHE="${ROOT}/hybrid/results/response_cache_hendrycks_holdout"
-VEC_DIR="${ROOT}/mlp_vectors_qa_instr${VARIANT}_h${MLP_HIDDEN}/${CONFIG}"
-EVAL_DIR="${ROOT}/mlp_eval_hendrycks_holdout_qa_instr${VARIANT}_h${MLP_HIDDEN}/${CONFIG}"
+VEC_DIR="${ROOT}/artifacts/mlp_vectors_qa_instr${VARIANT}_h${MLP_HIDDEN}/${CONFIG}"
+EVAL_DIR="${ROOT}/artifacts/mlp_eval_hendrycks_holdout_qa_instr${VARIANT}_h${MLP_HIDDEN}/${CONFIG}"
 mkdir -p "${EVAL_DIR}"
 
 echo "== eval-hendrycks | ${CONFIG} variant=${VARIANT} | $(date -u) =="
