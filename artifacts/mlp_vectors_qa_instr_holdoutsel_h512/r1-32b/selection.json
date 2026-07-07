@@ -1,0 +1,10 @@
+{
+  "config": "r1-32b",
+  "holdout_gap_recovered_pct": {
+    "run1": 10.07,
+    "run2": -0.38,
+    "run3": 22.12
+  },
+  "selected_run": "run3",
+  "selected_gap_recovered_pct": 22.12
+}

@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Loss-curve figures for the qa_instr h=512 pipeline (all 9 models).
 
-Reads train_log.jsonl files from artifacts/mlp_vectors_qa_instr_h512/<slug>/.
+Draws holdout loss curves for the selected best-of-3 run of each pair. When the
+regenerable per-run train_log.jsonl files are present (after train-vectors/run.sh)
+they are read directly; on a clean clone they are absent and the curves are
+rebuilt from the committed data_dump.json.
 
 Outputs (under figures/figs/loss_curves_qa_instr_h512/):
   fig1_holdout_val.{pdf,png}
@@ -32,13 +35,23 @@ OUT.mkdir(parents=True, exist_ok=True)
 HOLDOUTSEL = VECT.parent / "mlp_vectors_qa_instr_holdoutsel_h512"
 
 
+BO3 = VECT.parent / "mlp_vectors_qa_instr_h512_bo3"
+
+
 def _canonical_dir(slug: str) -> Path:
-    sel = HOLDOUTSEL / slug / ".selected_from"
+    """Training dir of the selected best-of-3 run (from selection.json).
+
+    The per-run training outputs are regenerable scratch (gitignored); when present
+    the loss curves are drawn from the selected run's train_log.jsonl, otherwise the
+    curves fall back to the committed data_dump.json (see _dump_series)."""
+    sel = HOLDOUTSEL / slug / "selection.json"
     if sel.exists():
-        raw = sel.read_text().strip()
-        src = Path(raw) if os.path.isabs(raw) else ROOT / raw
-        if (src / "train_log.jsonl").exists():
-            return src
+        run = json.loads(sel.read_text()).get("selected_run")
+        cand = {"run1": VECT / slug,
+                "run2": BO3 / slug / "run2",
+                "run3": BO3 / slug / "run3"}.get(run)
+        if cand and (cand / "train_log.jsonl").exists():
+            return cand
     return VECT / slug
 
 
@@ -131,6 +144,23 @@ HOLDOUT_KEYS = [
 ]
 
 
+def _dump_series(slug: str) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
+    """Fallback curves from the committed data_dump.json (shipped output).
+
+    Used on a clean clone where the regenerable per-run train logs are absent, so
+    figures/run.sh rebuilds the loss-curve PDFs from the committed data instead of
+    silently emptying them."""
+    p = OUT / "data_dump.json"
+    if not p.exists():
+        return {}
+    fi = json.loads(p.read_text()).get("figure1_individual", {}).get(slug, {})
+    out: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
+    for hkey, kv in fi.items():
+        if kv.get("epochs") and kv.get("ce"):
+            out[hkey] = (np.asarray(kv["epochs"]), np.asarray(kv["ce"]))
+    return out
+
+
 def _gather_series() -> Tuple[
     Dict[str, Dict[str, Tuple[np.ndarray, np.ndarray]]],
     List[float],
@@ -142,6 +172,11 @@ def _gather_series() -> Tuple[
     for pair in PAIRS:
         log = _load_train_log(pair["slug"])
         if not log:
+            for hkey, (xa, ya) in _dump_series(pair["slug"]).items():
+                series.setdefault(pair["slug"], {})[hkey] = (xa, ya)
+                all_vals.extend(ya.tolist())
+                if xa.size:
+                    max_ep = max(max_ep, int(xa.max()))
             continue
         for hkey, _, _ in HOLDOUT_KEYS:
             xs, ys = [], []

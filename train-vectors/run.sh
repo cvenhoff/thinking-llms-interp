@@ -4,9 +4,11 @@
 #   bash train-vectors/run.sh            # all configs
 #   bash train-vectors/run.sh orz-32b    # one config
 #
-# Three independent runs per pair (seeds 42/43/44). run1 is the canonical path
-# used everywhere else; run2/run3 live under the _bo3 tree and only feed the
-# best-of-3 selection in stage 3.
+# Three independent runs per pair (seeds 42/43/44): run1 under
+# mlp_vectors_qa_instr_h512/<cfg>, run2/run3 under the _bo3 tree. These are
+# intermediate candidates that only feed the best-of-3 selection in stage 3, which
+# promotes the winner to mlp_vectors_qa_instr_holdoutsel_h512/<cfg>. Only that
+# winner is shipped; rerun this stage to regenerate the candidates.
 set -euo pipefail
 ROOT="${THINKING_LLMS_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "${ROOT}/configs.sh"

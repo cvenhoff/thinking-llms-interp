@@ -1,0 +1,10 @@
+{
+  "config": "r1-math1.5b",
+  "holdout_gap_recovered_pct": {
+    "run1": -6.1,
+    "run2": -14.84,
+    "run3": -12.12
+  },
+  "selected_run": "run1",
+  "selected_gap_recovered_pct": -6.1
+}

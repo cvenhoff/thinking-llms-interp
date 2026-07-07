@@ -1,0 +1,10 @@
+{
+  "config": "qwq-32b",
+  "holdout_gap_recovered_pct": {
+    "run1": 4.06,
+    "run2": -4.32,
+    "run3": 7.66
+  },
+  "selected_run": "run3",
+  "selected_gap_recovered_pct": 7.66
+}

@@ -72,8 +72,9 @@ bash figures/run.sh
 ```
 
 Selection promotes, per pair, the vector set with the highest gap recovered on the
-holdout mix into `artifacts/mlp_vectors_qa_instr_holdoutsel_h512/<cfg>/` (recorded in
-`.selected_from`); every downstream eval reads those vectors.
+holdout mix into `artifacts/mlp_vectors_qa_instr_holdoutsel_h512/<cfg>/`; the three
+per-run holdout gaps and the winning run are recorded there in `selection.json`.
+Every downstream eval reads the promoted vectors.
 
 To run a single pair through a stage, pass its name, e.g. `bash hybrid/run.sh orz-32b`.
 
@@ -85,15 +86,20 @@ reproducible without any reruns:
 - the dataset definitions in `data/`,
 - the final **selected steering vectors** in
   `artifacts/mlp_vectors_qa_instr_holdoutsel_h512/` (load these to steer directly),
+  one `selection.json` per pair recording the best-of-3 holdout gaps and the winner,
 - every **eval result** in `artifacts/mlp_eval_*/` (summaries, judge traces,
-  per-category metrics), so `bash figures/run.sh` rebuilds all figures/tables from a
-  clean clone,
+  per-category metrics), including the best-of-3 holdout selection results in
+  `artifacts/mlp_eval_holdoutmix/`, so `bash figures/run.sh` rebuilds all
+  figures/tables from a clean clone,
 - the rendered figures/tables in `figures/figs/`.
 
-Only the large, regenerable bulk is git-ignored: the raw per-sample rollout text
+Only the selected winner is shipped, not the intermediate best-of-3 candidate vector
+sets: `train-vectors/run.sh` regenerates those three per-seed sets on demand, and
+`hybrid/select_best_of_3.sh` re-derives the winner from the holdout results above.
+The other large, regenerable bulk is git-ignored: the raw per-sample rollout text
 (`*.jsonl`, ~15 GB), cached model rollouts (`*/results/`, ~5 GB), SAE activations,
-training activation caches (`disagree_cache.pt`) and per-epoch snapshots, and the
-per-run best-of-3 training outputs. All are reproduced by the stages above.
+and training activation caches (`disagree_cache.pt`). All are reproduced by the
+stages above.
 
 ## Citation
 

@@ -1,0 +1,10 @@
+{
+  "config": "orz-32b",
+  "holdout_gap_recovered_pct": {
+    "run1": 16.96,
+    "run2": 33.15,
+    "run3": 25.63
+  },
+  "selected_run": "run2",
+  "selected_gap_recovered_pct": 33.15
+}

@@ -1,0 +1,10 @@
+{
+  "config": "r1-llama8b",
+  "holdout_gap_recovered_pct": {
+    "run1": 6.08,
+    "run2": 7.03,
+    "run3": 5.8
+  },
+  "selected_run": "run2",
+  "selected_gap_recovered_pct": 7.03
+}
