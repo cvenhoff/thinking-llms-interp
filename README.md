@@ -2,8 +2,6 @@
 
 Code for the paper [Base Models Know How to Reason, Thinking Models Learn When](https://arxiv.org/abs/2510.07364) (ICML 2026).
 
-**Website:** [thinking-llms-interp.com](https://thinking-llms-interp.com/)
-
 This branch reproduces the **category-vector hybrid-steering** results: we discover
 per-model reasoning taxonomies with SAEs, train a small MLP that decides which
 taxonomy direction to steer with and where, and build hybrid models (a base model
@@ -88,10 +86,15 @@ Committed so results are usable and reproducible without any reruns:
   metrics), so `bash figures/run.sh` rebuilds all figures/tables from a clean clone,
 - the rendered figures/tables in `figures/figs/`.
 
-Only the large, regenerable bulk is git-ignored: the raw per-sample rollout dumps
+Only the large, regenerable bulk is git-ignored: the raw per-sample rollout text
 (`*.jsonl`), cached model rollouts (`*/results/`), SAE activations, the training
 activation caches (`disagree_cache.pt`) and per-epoch snapshots, and the per-run
 best-of-3 training outputs. All of these are reproduced by the stages above.
+
+The rollout text is left out for size reasons: the eval generations alone are about
+15 GB across ~200 `.jsonl` files (many capped at 90 MB each), and the input rollout
+caches add another ~5 GB with individual files exceeding GitHub's 100 MB/file limit.
+Rerun stages 2-5 above to regenerate them.
 
 ## Citation
 
