@@ -15,14 +15,14 @@ Filename conventions assumed (matches the final-run slug):
 
 Usage:
     python judge_extra_think_samples.py \
-        --cache_dir /workspace-vast/.../response_cache_final \
+        --cache_dir hybrid/results/response_cache_final \
         --think_short open-reasoner-zero-32b \
         --base_id qwen2.5-32b \
         --dataset math500 \
         --temp_label 0.6 --max_tokens 2048 \
         --sample_ids 1,2 \
         --judge_repetitions 3 \
-        --out_dir /workspace-vast/.../mlp_eval_final/orz-32b
+        --out_dir artifacts/mlp_eval_qa_instr_holdoutsel_h512/orz-32b
 """
 
 from __future__ import annotations

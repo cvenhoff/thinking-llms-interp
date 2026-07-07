@@ -14,7 +14,7 @@ mix_idx lets us re-slice the cached trainmix think rollouts.
 import json, os, re
 from datasets import load_dataset
 
-ROOT = "/workspace-vast/constantinv/thinking-llms-interp"
+ROOT = os.environ.get("THINKING_LLMS_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VAL = f"{ROOT}/data/training_mix_v1/val.jsonl"
 OUT_DIR = f"{ROOT}/data/trainmix_holdout_eval"
 VAL_BASE = 9794  # global trainmix idx of first val row (train has 9794 rows)

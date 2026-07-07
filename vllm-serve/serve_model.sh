@@ -13,14 +13,17 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=200G
 #SBATCH --time=24:00:00
-#SBATCH --output=/workspace-vast/constantinv/thinking-llms-interp/slurm_logs/%x-%j.out
-#SBATCH --error=/workspace-vast/constantinv/thinking-llms-interp/slurm_logs/%x-%j.err
+#SBATCH --output=slurm_logs/%x-%j.out
+#SBATCH --error=slurm_logs/%x-%j.err
 
 set -euo pipefail
 
-cd /workspace-vast/constantinv/thinking-llms-interp
+# Resolve the repo root from this script's location (override with THINKING_LLMS_ROOT).
+ROOT="${THINKING_LLMS_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+cd "${ROOT}"
+mkdir -p slurm_logs
 source .env_exports.sh
-source .venv_vllm/bin/activate
+source .venv_vllm/bin/activate 2>/dev/null || source .venv/bin/activate
 
 : "${MODEL:?Must set MODEL (e.g. Qwen/QwQ-32B)}"
 : "${NGPU:=2}"
@@ -38,7 +41,7 @@ nvidia-smi --query-gpu=index,name,memory.used,memory.total --format=csv
 echo "===================================="
 
 # Write connection info so clients can discover the endpoint
-INFO_FILE="/workspace-vast/constantinv/thinking-llms-interp/vllm-serve/active_servers.txt"
+INFO_FILE="${ROOT}/vllm-serve/active_servers.txt"
 echo "${SLURM_JOB_ID}  $(hostname):${PORT}  ${MODEL}  ngpu=${NGPU}" >> "${INFO_FILE}"
 
 # Background a watcher that creates the ready sentinel once the server is up

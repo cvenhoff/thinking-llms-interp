@@ -18,7 +18,7 @@ import argparse, json, os, random
 from collections import Counter
 from datasets import load_dataset
 
-ROOT = "/workspace-vast/constantinv/thinking-llms-interp"
+ROOT = os.environ.get("THINKING_LLMS_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = f"{ROOT}/data/hendrycks_holdout_eval"
 TRAIN = f"{ROOT}/data/training_mix_v1/train.jsonl"
 VAL = f"{ROOT}/data/training_mix_v1/val.jsonl"

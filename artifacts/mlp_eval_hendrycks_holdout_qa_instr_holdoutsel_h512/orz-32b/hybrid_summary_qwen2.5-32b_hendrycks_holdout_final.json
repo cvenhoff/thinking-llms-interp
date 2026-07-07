@@ -3,8 +3,8 @@
   "dataset": "hendrycks_holdout",
   "suffix": "final",
   "sources": {
-    "main": "/workspace-vast/constantinv/thinking-llms-interp/mlp_eval_hendrycks_holdout_qa_instr_holdoutsel_h512/orz-32b/judge_reps_qwen2.5-32b_hendrycks_holdout_final.json",
-    "extra_think": "/workspace-vast/constantinv/thinking-llms-interp/mlp_eval_hendrycks_holdout_qa_instr_holdoutsel_h512/orz-32b/judge_reps_extra_think_qwen2.5-32b_hendrycks_holdout_final.json"
+    "main": "mlp_eval_hendrycks_holdout_qa_instr_holdoutsel_h512/orz-32b/judge_reps_qwen2.5-32b_hendrycks_holdout_final.json",
+    "extra_think": "mlp_eval_hendrycks_holdout_qa_instr_holdoutsel_h512/orz-32b/judge_reps_extra_think_qwen2.5-32b_hendrycks_holdout_final.json"
   },
   "roles": {
     "thinking_s0": {

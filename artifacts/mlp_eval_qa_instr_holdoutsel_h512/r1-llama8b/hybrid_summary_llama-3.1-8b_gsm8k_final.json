@@ -3,8 +3,8 @@
   "dataset": "gsm8k",
   "suffix": "final",
   "sources": {
-    "main": "/workspace-vast/constantinv/thinking-llms-interp/mlp_eval_qa_instr_holdoutsel_h512/r1-llama8b/judge_reps_llama-3.1-8b_gsm8k_final.json",
-    "extra_think": "/workspace-vast/constantinv/thinking-llms-interp/mlp_eval_qa_instr_holdoutsel_h512/r1-llama8b/judge_reps_extra_think_llama-3.1-8b_gsm8k_final.json"
+    "main": "mlp_eval_qa_instr_holdoutsel_h512/r1-llama8b/judge_reps_llama-3.1-8b_gsm8k_final.json",
+    "extra_think": "mlp_eval_qa_instr_holdoutsel_h512/r1-llama8b/judge_reps_extra_think_llama-3.1-8b_gsm8k_final.json"
   },
   "roles": {
     "thinking_s0": {

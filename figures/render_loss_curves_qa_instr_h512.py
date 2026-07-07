@@ -39,7 +39,9 @@ HOLDOUTSEL = VECT.parent / "mlp_vectors_qa_instr_holdoutsel_h512"
 def _canonical_dir(slug: str) -> Path:
     sel = HOLDOUTSEL / slug / ".selected_from"
     if sel.exists():
-        src = Path(sel.read_text().strip())
+        raw = sel.read_text().strip()
+        # Marker is repo-relative; tolerate legacy absolute markers too.
+        src = Path(raw) if os.path.isabs(raw) else ROOT / raw
         if (src / "train_log.jsonl").exists():
             return src
     return VECT / slug

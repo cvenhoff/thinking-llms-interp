@@ -3,8 +3,8 @@
   "dataset": "math500",
   "suffix": "final",
   "sources": {
-    "main": "/workspace-vast/constantinv/thinking-llms-interp/mlp_eval_qa_instr_holdoutsel_h512/qwq-32b/judge_reps_qwen2.5-32b_math500_final.json",
-    "extra_think": "/workspace-vast/constantinv/thinking-llms-interp/mlp_eval_qa_instr_holdoutsel_h512/qwq-32b/judge_reps_extra_think_qwen2.5-32b_math500_final.json"
+    "main": "mlp_eval_qa_instr_holdoutsel_h512/qwq-32b/judge_reps_qwen2.5-32b_math500_final.json",
+    "extra_think": "mlp_eval_qa_instr_holdoutsel_h512/qwq-32b/judge_reps_extra_think_qwen2.5-32b_math500_final.json"
   },
   "roles": {
     "thinking_s0": {

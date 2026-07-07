@@ -57,5 +57,6 @@ cp -f "${best_dir}"/*_linear.pt "${SELVEC}/" 2>/dev/null || true
 cp -f "${best_dir}"/*_correction_meta.json "${SELVEC}/" 2>/dev/null || true
 cp -f "${best_dir}/disagree_cache.pt" "${SELVEC}/" 2>/dev/null || \
     ln -sfn "${ROOT}/artifacts/mlp_vectors_qa_instr_h${H}/${CONFIG}/disagree_cache.pt" "${SELVEC}/disagree_cache.pt" 2>/dev/null || true
-echo "${best_dir}" > "${SELVEC}/.selected_from"
+# Record the chosen run as a repo-relative path so the marker is portable.
+echo "${best_dir#${ROOT}/}" > "${SELVEC}/.selected_from"
 echo "== promoted ${best_dir} -> ${SELVEC} =="

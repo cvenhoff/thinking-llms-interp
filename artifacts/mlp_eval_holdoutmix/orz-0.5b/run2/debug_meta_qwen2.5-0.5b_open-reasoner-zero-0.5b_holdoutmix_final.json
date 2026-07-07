@@ -30,7 +30,7 @@
   "steer_all_positions": false,
   "steer_all_positions_full": false,
   "disable_sae_mean": false,
-  "old_vectors_dir": "/workspace-vast/constantinv/thinking-llms-interp/mlp_vectors_qa_instr_h512_bo3/orz-0.5b/run2",
+  "old_vectors_dir": "mlp_vectors_qa_instr_h512_bo3/orz-0.5b/run2",
   "old_vectors_layer": 9,
   "n_latent_descriptions": 10,
   "layer_map": {
