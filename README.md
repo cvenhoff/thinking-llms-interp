@@ -35,6 +35,7 @@ environment, and otherwise fall back to `.venv`.
 | `hybrid/`             | Best-of-3 selection and hybrid evaluation (`select_best_of_3.sh`, `eval_*.sh`, `run.sh`, `run_ablations.sh`). |
 | `figures/`            | Scripts that render every paper figure and table into `figures/figs/`. |
 | `data/`               | Training mix and held-out evaluation sets. |
+| `human_eval/`         | Human agreement study for the LLM judge (annotation tool, judge samples, agreement computation). |
 | `artifacts/`          | All pipeline outputs: selected vectors and eval results (committed) plus regenerable per-run training outputs (git-ignored). |
 
 The nine pairs are `orz-0.5b, orz-1.5b, orz-7b, orz-32b, r1-14b, r1-32b, qwq-32b,
