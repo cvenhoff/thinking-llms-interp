@@ -1,110 +1,107 @@
 # Base Models Know How to Reason, Thinking Models Learn When
 
-Code for the paper [Base Models Know How to Reason, Thinking Models Learn When](https://arxiv.org/abs/2510.07364).
+Code for the paper [Base Models Know How to Reason, Thinking Models Learn When](https://arxiv.org/abs/2510.07364) (ICML 2026).
 
-**Website:** [thinking-llms-interp.com](https://thinking-llms-interp.com/)
+This branch reproduces the **category-vector hybrid-steering** results: we discover
+per-model reasoning taxonomies with SAEs, train a small MLP that decides which
+taxonomy direction to steer with and where, and build hybrid models (a base model
+plus the learned steering) that we compare against the matching thinking model.
 
 ## Setup
 
-### Requirements
-
-- Python 3.10+
-- `uv` installed (`pip install uv` or see the [uv docs](https://docs.astral.sh/uv/getting-started/installation/))
-
-### Install
+Requires Python 3.10+, [`uv`](https://docs.astral.sh/uv/), and GPUs (the 32B pairs
+need 2×80 GB).
 
 ```bash
 git clone https://github.com/cvenhoff/cot-interp.git
 cd cot-interp
-uv sync
+uv sync                                       # installs everything into .venv
+cp .env_exports.sh.example .env_exports.sh    # then edit paths (HF cache, etc.)
+echo "ANTHROPIC_API_KEY=sk-..." > .env        # LLM judge credentials
 ```
 
-## Generating thinking model responses
+The rollout scripts activate `.venv_vllm` if you keep vLLM in a separate
+environment, and otherwise fall back to `.venv`.
 
-To generate responses from thinking models on MMLU-Pro:
+## Repository layout
+
+| Path | Purpose |
+|------|---------|
+| `configs.sh`          | The nine model pairs and their SAE/steering settings (one source of truth). |
+| `generate-responses/` | Generate and annotate thinking-model responses (SAE inputs). |
+| `train-saes/`         | Train SAEs and build the reasoning taxonomies. |
+| `vllm-serve/`         | Rollout generation (`gen_think.sh`, `gen_base.sh`, `gen_hendrycks.sh`, `run_rollouts.sh`). |
+| `train-vectors/`      | Category-vector training (`train_vectors.sh`, `run.sh`). |
+| `hybrid/`             | Best-of-3 selection and hybrid evaluation (`select_best_of_3.sh`, `eval_*.sh`, `run.sh`, `run_ablations.sh`). |
+| `figures/`            | Scripts that render every paper figure and table into `figures/figs/`. |
+| `data/`               | Training mix and held-out evaluation sets. |
+| `human_eval/`         | Human agreement study for the LLM judge (annotation tool, judge samples, agreement computation). |
+| `artifacts/`          | All pipeline outputs: selected vectors and eval results (committed) plus regenerable per-run training outputs (git-ignored). |
+
+The nine pairs are `orz-0.5b, orz-1.5b, orz-7b, orz-32b, r1-14b, r1-32b, qwq-32b,
+r1-llama8b, r1-math1.5b`.
+
+## Reproducing the paper
+
+Each stage has one entry-point `run.sh` that takes an optional config name (default:
+all nine). Every step is idempotent: it skips work whose output already exists, so
+runs can be resumed. The base prompt is deliberately minimal
+(`Answer the following question:\nQ: {q}\nA:`) so any reasoning behaviour comes from
+the steering vectors, not the prompt.
 
 ```bash
-cd generate-responses
-uv run ./run.sh
+# 1. Thinking-model responses and taxonomies
+cd generate-responses && uv run ./run.sh && uv run ./run_annotation.sh && cd ..
+cd train-saes && uv run ./run.sh && cd ..
+
+# 2. Rollouts (base + thinking, all datasets)          -> hybrid/results/response_cache_*
+bash vllm-serve/run_rollouts.sh
+
+# 3. Train the best-of-3 vector sets (seeds 42/43/44)  -> artifacts/mlp_vectors_qa_instr_h512*
+bash train-vectors/run.sh
+
+# 4. Select best-of-3 + evaluate the hybrid models     -> artifacts/mlp_eval_qa_instr_holdoutsel_h512
+#    (MATH500, GSM8K, and the Hendrycks-MATH holdout)
+bash hybrid/run.sh
+
+# 5. Negative-control ablations (orz-1.5b, orz-32b)    -> artifacts/mlp_eval_qa_instr_holdoutsel_ablations
+bash hybrid/run_ablations.sh
+
+# 6. Render all figures and tables                     -> figures/figs
+bash figures/run.sh
 ```
 
-This will generate responses from multiple thinking models (DeepSeek-R1 variants and QwQ) with their reasoning traces.
+Selection promotes, per pair, the vector set with the highest gap recovered on the
+holdout mix into `artifacts/mlp_vectors_qa_instr_holdoutsel_h512/<cfg>/` (recorded in
+`.selected_from`); every downstream eval reads those vectors.
 
-## Training taxonomy
+To run a single pair through a stage, pass its name, e.g. `bash hybrid/run.sh orz-32b`.
 
-To train and evaluate taxonomies:
+## Artifacts
 
-```bash
-cd train-saes
-uv run ./run.sh
-```
+All pipeline outputs live under `artifacts/`. Committed so results are usable and
+reproducible without any reruns:
 
-This will:
-- Collect activations for each of the selected layers for each model
-- Train all the Sparse Autoencoders (SAEs) for different cluster sizes, for each selected layer on each model
-- Generate titles and descriptions for each cluster in the trained SAEs (5 repetitions by default)
-- Evaluate all the candidate taxonomies (using the 5 default repetitions if available)
-- Plot results
+- the dataset definitions in `data/`,
+- the final **selected steering vectors** in
+  `artifacts/mlp_vectors_qa_instr_holdoutsel_h512/` (load these to steer directly),
+- every **eval result** in `artifacts/mlp_eval_*/` (summaries, judge traces,
+  per-category metrics), so `bash figures/run.sh` rebuilds all figures/tables from a
+  clean clone,
+- the rendered figures/tables in `figures/figs/`.
 
-## Annotating thinking traces
-
-To annotate thinking traces using a given taxonomy (specific layer and cluster size):
-
-```bash
-cd generate-responses
-uv run ./run_annotation.sh
-```
-
-This will annotate the thinking traces for each model using the selected taxonomy.
-
-## Training steering vectors
-
-To train steering vectors for the models used in the paper:
-
-```bash
-cd train-vectors
-
-# For each model, run the corresponding script:
-uv run ./run_qwen_1.5b.sh
-uv run ./run_llama_8b.sh
-uv run ./run_qwen_14b.sh
-uv run ./run_qwen_32b_linear_on_deepseek.sh
-uv run ./run_qwen_32b_linear_on_qwq.sh
-```
-
-## Running hybrid model
-
-To run hybrid model experiments:
-
-```bash
-cd hybrid
-
-# Run experiments for different models:
-uv run ./run_qwen_1.5b.sh
-uv run ./run_qwen_math_1.5b.sh
-uv run ./run_llama_8b.sh
-uv run ./run_qwen_14b.sh
-uv run ./run_qwen_32b_on_deepseek.sh
-uv run ./run_qwen_32b_on_qwq.sh
-
-# Additional ablation experiments:
-uv run ./run_qwen_32b_only_bias.sh
-uv run ./run_qwen_32b_random_firing.sh
-uv run ./run_qwen_32b_random_vectors.sh
-```
+Only the large, regenerable bulk is git-ignored: the raw per-sample rollout text
+(`*.jsonl`, ~15 GB), cached model rollouts (`*/results/`, ~5 GB), SAE activations,
+training activation caches (`disagree_cache.pt`) and per-epoch snapshots, and the
+per-run best-of-3 training outputs. All are reproduced by the stages above.
 
 ## Citation
 
-If you find this work useful, please cite:
-
 ```bibtex
-@misc{venhoff2025basemodelsknowreason,
-      title={Base Models Know How to Reason, Thinking Models Learn When},
-      author={Constantin Venhoff and Iván Arcuschin and Philip Torr and Arthur Conmy and Neel Nanda},
-      year={2025},
-      eprint={2510.07364},
-      archivePrefix={arXiv},
-      primaryClass={cs.AI},
-      url={https://arxiv.org/abs/2510.07364},
+@inproceedings{venhoff2026basemodels,
+  title={Base Models Know How to Reason, Thinking Models Learn When},
+  author={Venhoff, Constantin and Arcuschin, Iv{\'a}n and Torr, Philip and Conmy, Arthur and Nanda, Neel},
+  booktitle={International Conference on Machine Learning (ICML)},
+  year={2026},
 }
 ```

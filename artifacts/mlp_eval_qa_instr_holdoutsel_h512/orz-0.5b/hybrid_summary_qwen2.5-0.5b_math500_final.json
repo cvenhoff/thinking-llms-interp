@@ -1,0 +1,85 @@
+{
+  "base_id": "qwen2.5-0.5b",
+  "dataset": "math500",
+  "suffix": "final",
+  "sources": {
+    "main": "mlp_eval_qa_instr_holdoutsel_h512/orz-0.5b/judge_reps_qwen2.5-0.5b_math500_final.json",
+    "extra_think": "mlp_eval_qa_instr_holdoutsel_h512/orz-0.5b/judge_reps_extra_think_qwen2.5-0.5b_math500_final.json"
+  },
+  "roles": {
+    "thinking_s0": {
+      "per_rep_acc_pct": [
+        36.4,
+        36.2,
+        36.2
+      ],
+      "mean_pct": 36.26666666666667,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "base": {
+      "per_rep_acc_pct": [
+        27.2,
+        27.2,
+        27.4
+      ],
+      "mean_pct": 27.266666666666666,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "hybrid": {
+      "per_rep_acc_pct": [
+        36.2,
+        35.8,
+        36.6
+      ],
+      "mean_pct": 36.199999999999996,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "thinking_s1": {
+      "per_rep_acc_pct": [
+        37.2,
+        37.4,
+        37.2
+      ],
+      "mean_pct": 37.26666666666667,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "thinking_s2": {
+      "per_rep_acc_pct": [
+        36.4,
+        36.6,
+        36.2
+      ],
+      "mean_pct": 36.4,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "thinking": {
+      "per_rep_acc_pct": [
+        36.4,
+        36.2,
+        36.2,
+        37.2,
+        37.4,
+        37.2,
+        36.4,
+        36.6,
+        36.2
+      ],
+      "mean_pct": 36.644444444444446,
+      "n_samples": 3,
+      "n_reps_per_sample": 3
+    }
+  },
+  "total": 500,
+  "headline": {
+    "thinking_mean_pct": 36.644444444444446,
+    "base_mean_pct": 27.266666666666666,
+    "hybrid_mean_pct": 36.199999999999996,
+    "gap_pct": 9.37777777777778,
+    "gap_recovered_pct": 95.26066350710894
+  }
+}

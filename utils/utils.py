@@ -3,7 +3,12 @@ dotenv.load_dotenv("../.env")
 
 import gc
 import torch
-from nnsight import LanguageModel
+# Lazy import: nnsight monkey-patches torch.Tensor.backward at import time,
+# which adds ~4 s/step overhead to any training loop. Only import it when
+# load_model_nnsight() is actually called, not at module load time.
+def _get_LanguageModel():
+    from nnsight import LanguageModel  # noqa: PLC0415
+    return LanguageModel
 import time
 import anthropic
 from openai import OpenAI
@@ -386,72 +391,128 @@ def process_saved_responses(model_name, n_examples, model, tokenizer, layer_or_l
 
     clear_gpu_memory()
 
-    print(f"Extracting activations for {n_examples} responses across layers {uncached_layers}...")
-    for response_data in tqdm(responses_data):
+    # Pre-filter responses with valid thinking processes and precompute metadata
+    valid_items = []
+    for response_data in responses_data:
         thinking_process = extract_thinking_process(response_data["full_response"])
         if not thinking_process:
             continue
-            
-        thinking_text = thinking_process
         full_response = response_data["full_response"]
-        
-        sentences = split_into_sentences(thinking_text)
-        
-        input_ids = tokenizer.encode(full_response, return_tensors="pt").to(model.device)
-        
-        # Get layer activations for all uncached layers in one trace
+        sentences = split_into_sentences(thinking_process)
+        valid_items.append({
+            "full_response": full_response,
+            "sentences": sentences,
+        })
+
+    # Sort by token length for efficient batching (less padding waste)
+    for item in valid_items:
+        item["_tok_len"] = len(tokenizer.encode(item["full_response"]))
+    valid_items.sort(key=lambda x: x["_tok_len"])
+
+    # Dynamic batching: cap total tokens per batch to avoid OOM from nnsight trace overhead
+    MAX_BATCH_TOKENS = 16_000
+    MAX_BATCH_SIZE = 16
+    batches = []
+    i = 0
+    while i < len(valid_items):
+        batch = [valid_items[i]]
+        max_len = valid_items[i]["_tok_len"]
+        i += 1
+        while i < len(valid_items) and len(batch) < MAX_BATCH_SIZE:
+            candidate_max = max(max_len, valid_items[i]["_tok_len"])
+            if candidate_max * (len(batch) + 1) > MAX_BATCH_TOKENS:
+                break
+            batch.append(valid_items[i])
+            max_len = candidate_max
+            i += 1
+        batches.append(batch)
+
+    print(f"Extracting activations for {len(valid_items)} valid responses "
+          f"({len(batches)} batches, max_tokens={MAX_BATCH_TOKENS}) "
+          f"across layers {uncached_layers}...")
+
+    # Use forward hooks instead of nnsight for batched extraction (avoids memory leaks)
+    raw_model = model._model if hasattr(model, '_model') else model
+
+    for batch_items in tqdm(batches):
+        batch_texts = [item["full_response"] for item in batch_items]
+
+        encodings = tokenizer(
+            batch_texts, return_tensors="pt", padding=True, truncation=False,
+        ).to(raw_model.device)
+        input_ids = encodings["input_ids"]
+        attention_mask = encodings["attention_mask"]
+
+        item_seq_info = []
+        for b_idx in range(len(batch_items)):
+            seq_len = int(attention_mask[b_idx].sum().item())
+            max_seq_len = int(attention_mask.shape[1])
+            item_seq_info.append((seq_len, max_seq_len))
+
         layer_outputs = {}
-        with model.trace({
-            "input_ids": input_ids, 
-            "attention_mask": (input_ids != tokenizer.pad_token_id).long()
-        }) as tracer:
-            for layer in uncached_layers:
-                saved_output = model.model.layers[layer].output.save()
-                assert torch.isfinite(saved_output).all(), f"Layer {layer}: non-finite values after save"
-                layer_outputs[layer] = saved_output
-
-        # Detach and convert to float32
+        hooks = []
         for layer in uncached_layers:
-            layer_outputs[layer] = layer_outputs[layer].detach().cpu().to(torch.float32)
-            assert torch.isfinite(layer_outputs[layer]).all(), f"Layer {layer}: non-finite values after detach and to float32"
+            def _make_hook(l):
+                def hook_fn(module, inp, out):
+                    hidden = out[0] if isinstance(out, tuple) else out
+                    layer_outputs[l] = hidden.detach().cpu().to(torch.float32)
+                return hook_fn
+            h = raw_model.model.layers[layer].register_forward_hook(_make_hook(layer))
+            hooks.append(h)
 
-        char_to_token = get_char_to_token_map(full_response, tokenizer)
-        
-        # Process each sentence for each layer
-        for layer in uncached_layers:
-            layer_output = layer_outputs[layer]
-            min_token_start = float('inf')
-            max_token_end = -float('inf')
+        with torch.no_grad():
+            raw_model(input_ids=input_ids, attention_mask=attention_mask)
 
-            for sentence in sentences:
-                text_pos = full_response.find(sentence)
-                if text_pos >= 0:
-                    token_start = char_to_token.get(text_pos, None)
-                    token_end = char_to_token.get(text_pos + len(sentence), None)
-                    
-                    if token_start is not None and token_end is not None and token_start < token_end:
-                        if token_start < min_token_start:
-                            min_token_start = token_start
-                        if token_end > max_token_end:
-                            max_token_end = token_end
-
-                        segment = layer_output[:, token_start - 1:token_end, :]
-                        assert segment.shape[1] > 0, (
-                            f"Empty token slice at layer {layer}: token_start={token_start}, token_end={token_end}, "
-                            f"sentence='{sentence[:80]}', full_response='{full_response[:200]}'"
-                        )
-                        segment_activations = segment.mean(dim=1).numpy()
-                        assert np.isfinite(segment_activations).all(), f"Layer {layer}: non-finite values after numpy conversion"
-                        
-                        activations_by_layer[layer].append(segment_activations)
-                        texts_by_layer[layer].append(sentence)
-            
-            if min_token_start < layer_output.shape[1] and max_token_end > 0:
-                vector = layer_output[:, min_token_start:max_token_end, :].mean(dim=1).cpu()
-                mean_by_layer[layer] = mean_by_layer[layer] + (vector - mean_by_layer[layer]) / (count_by_layer[layer] + 1)
-                count_by_layer[layer] += 1
-
+        for h in hooks:
+            h.remove()
+        del input_ids, attention_mask, encodings, hooks
         clear_gpu_memory()
+
+        # Process each item in the batch (all data is on CPU now)
+        for b_idx, item in enumerate(batch_items):
+            full_response = item["full_response"]
+            sentences = item["sentences"]
+            seq_len, max_seq_len = item_seq_info[b_idx]
+            pad_offset = max_seq_len - seq_len
+
+            char_to_token = get_char_to_token_map(full_response, tokenizer)
+
+            for layer in uncached_layers:
+                layer_output = layer_outputs[layer][b_idx:b_idx+1, pad_offset:, :]
+                min_token_start = float('inf')
+                max_token_end = -float('inf')
+
+                for sentence in sentences:
+                    text_pos = full_response.find(sentence)
+                    if text_pos >= 0:
+                        token_start = char_to_token.get(text_pos, None)
+                        token_end = char_to_token.get(text_pos + len(sentence), None)
+
+                        if token_start is not None and token_end is not None and token_start < token_end:
+                            if token_start < min_token_start:
+                                min_token_start = token_start
+                            if token_end > max_token_end:
+                                max_token_end = token_end
+
+                            segment = layer_output[:, token_start - 1:token_end, :]
+                            assert segment.shape[1] > 0, (
+                                f"Empty token slice at layer {layer}: token_start={token_start}, "
+                                f"token_end={token_end}, sentence='{sentence[:80]}'"
+                            )
+                            segment_activations = segment.mean(dim=1).numpy()
+                            assert np.isfinite(segment_activations).all(), (
+                                f"Layer {layer}: non-finite values after numpy conversion"
+                            )
+
+                            activations_by_layer[layer].append(segment_activations)
+                            texts_by_layer[layer].append(sentence)
+
+                if min_token_start < layer_output.shape[1] and max_token_end > 0:
+                    vector = layer_output[:, min_token_start:max_token_end, :].mean(dim=1).cpu()
+                    mean_by_layer[layer] = mean_by_layer[layer] + (vector - mean_by_layer[layer]) / (count_by_layer[layer] + 1)
+                    count_by_layer[layer] += 1
+
+        del layer_outputs
 
     # Save results for each newly processed layer
     for layer in uncached_layers:
@@ -506,6 +567,7 @@ def load_model(device="auto", load_in_8bit=False, model_name="deepseek-ai/DeepSe
         load_in_8bit (bool): If True, load the model in 8-bit mode
         model_name (str): Name/path of the model to load
     """
+    LanguageModel = _get_LanguageModel()
     model = LanguageModel(model_name, dispatch=True, load_in_8bit=load_in_8bit, device_map=device, dtype=torch.bfloat16)
     
     model.generation_config.temperature=None
@@ -914,3 +976,105 @@ def load_steering_vectors(device: str = "cpu", hyperparams_dir: str | None = Non
         print_and_flush(f"[load_steering_vectors] Loaded {len(category_to_vector)} vectors.")
 
     return category_to_vector
+
+
+# ---------------------------------------------------------------------------
+# Annotation-based per-question per-category character-count rankings
+# ---------------------------------------------------------------------------
+
+def load_annotation_rankings(
+    annotations_path: str,
+    n_clusters: int | None = None,
+) -> dict[int, dict[str, int]]:
+    """Parse an annotated-responses JSON and compute per-question, per-category
+    character counts.
+
+    Returns:
+        {question_id: {cat_id_str: total_chars_in_that_category, ...}, ...}
+    """
+    with open(annotations_path) as f:
+        data = json.load(f)
+
+    pat = re.compile(r'\["[\d.]+:idx(\d+)"\](.*?)\["end-section"\]', re.DOTALL)
+    rankings: dict[int, dict[str, int]] = {}
+    for entry in data:
+        qid = entry["question_id"]
+        counts: dict[str, int] = {}
+        for m in pat.finditer(entry.get("annotated_thinking", "")):
+            idx = m.group(1)
+            if n_clusters is not None and int(idx) >= n_clusters:
+                continue
+            counts[idx] = counts.get(idx, 0) + len(m.group(2))
+        rankings[qid] = counts
+    return rankings
+
+
+def select_top_questions_per_category(
+    rankings: dict[int, dict[str, int]],
+    n_per_category: int,
+    n_categories: int,
+) -> tuple[dict[str, list[int]], set[int]]:
+    """For each category, return question_ids ranked by character count (desc).
+
+    Returns:
+        per_cat_top: {cat_id_str: [qid, qid, ...]}  (top n_per_category)
+        union_qids:  set of all question_ids in the union of per-cat tops
+    """
+    per_cat_top: dict[str, list[int]] = {}
+    for cat_id in range(n_categories):
+        cid = str(cat_id)
+        scored = [
+            (qid, counts.get(cid, 0))
+            for qid, counts in rankings.items()
+        ]
+        scored.sort(key=lambda x: -x[1])
+        per_cat_top[cid] = [qid for qid, _ in scored[:n_per_category]]
+    union_qids = set()
+    for qids in per_cat_top.values():
+        union_qids.update(qids)
+    return per_cat_top, union_qids
+
+
+def select_balanced_bias_questions(
+    rankings: dict[int, dict[str, int]],
+    n_total: int,
+    n_categories: int,
+    exclude_qids: set[int] | None = None,
+) -> list[int]:
+    """Select a balanced set of question_ids for bias diff-of-means.
+
+    Takes the top examples from each category in round-robin fashion,
+    skipping duplicates, until n_total unique questions are collected.
+    """
+    exclude = exclude_qids or set()
+    per_cat_ranked: dict[str, list[int]] = {}
+    for cat_id in range(n_categories):
+        cid = str(cat_id)
+        scored = [
+            (qid, counts.get(cid, 0))
+            for qid, counts in rankings.items()
+            if qid not in exclude
+        ]
+        scored.sort(key=lambda x: -x[1])
+        per_cat_ranked[cid] = [qid for qid, sc in scored if sc > 0]
+
+    selected: list[int] = []
+    seen: set[int] = set()
+    cat_ptrs = {cid: 0 for cid in per_cat_ranked}
+    while len(selected) < n_total:
+        added_any = False
+        for cid in sorted(per_cat_ranked.keys(), key=int):
+            if len(selected) >= n_total:
+                break
+            ranked = per_cat_ranked[cid]
+            while cat_ptrs[cid] < len(ranked):
+                qid = ranked[cat_ptrs[cid]]
+                cat_ptrs[cid] += 1
+                if qid not in seen:
+                    selected.append(qid)
+                    seen.add(qid)
+                    added_any = True
+                    break
+        if not added_any:
+            break
+    return selected

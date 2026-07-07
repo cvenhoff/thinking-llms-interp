@@ -1,0 +1,85 @@
+{
+  "base_id": "qwen2.5-32b",
+  "dataset": "gsm8k",
+  "suffix": "final",
+  "sources": {
+    "main": "mlp_eval_qa_instr_holdoutsel_h512/qwq-32b/judge_reps_qwen2.5-32b_gsm8k_final.json",
+    "extra_think": "mlp_eval_qa_instr_holdoutsel_h512/qwq-32b/judge_reps_extra_think_qwen2.5-32b_gsm8k_final.json"
+  },
+  "roles": {
+    "thinking_s0": {
+      "per_rep_acc_pct": [
+        98.18043972706596,
+        98.1046247156937,
+        98.18043972706596
+      ],
+      "mean_pct": 98.15516805660855,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "base": {
+      "per_rep_acc_pct": [
+        69.74981046247157,
+        69.67399545109932,
+        69.59818043972706
+      ],
+      "mean_pct": 69.67399545109932,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "hybrid": {
+      "per_rep_acc_pct": [
+        77.78620166793026,
+        78.01364670204701,
+        77.8620166793025
+      ],
+      "mean_pct": 77.88728834975991,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "thinking_s1": {
+      "per_rep_acc_pct": [
+        97.72554965883245,
+        97.72554965883245,
+        97.72554965883245
+      ],
+      "mean_pct": 97.72554965883245,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "thinking_s2": {
+      "per_rep_acc_pct": [
+        97.64973464746019,
+        97.72554965883245,
+        97.72554965883245
+      ],
+      "mean_pct": 97.70027798837503,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "thinking": {
+      "per_rep_acc_pct": [
+        98.18043972706596,
+        98.1046247156937,
+        98.18043972706596,
+        97.72554965883245,
+        97.72554965883245,
+        97.72554965883245,
+        97.64973464746019,
+        97.72554965883245,
+        97.72554965883245
+      ],
+      "mean_pct": 97.860331901272,
+      "n_samples": 3,
+      "n_reps_per_sample": 3
+    }
+  },
+  "total": 1319,
+  "headline": {
+    "thinking_mean_pct": 97.860331901272,
+    "base_mean_pct": 69.67399545109932,
+    "hybrid_mean_pct": 77.88728834975991,
+    "gap_pct": 28.18633645017269,
+    "gap_recovered_pct": 29.13927077106992
+  }
+}

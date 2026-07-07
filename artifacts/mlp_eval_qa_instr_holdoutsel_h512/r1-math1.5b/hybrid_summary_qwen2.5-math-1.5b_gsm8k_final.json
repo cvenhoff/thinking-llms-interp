@@ -1,0 +1,85 @@
+{
+  "base_id": "qwen2.5-math-1.5b",
+  "dataset": "gsm8k",
+  "suffix": "final",
+  "sources": {
+    "main": "mlp_eval_qa_instr_holdoutsel_h512/r1-math1.5b/judge_reps_qwen2.5-math-1.5b_gsm8k_final.json",
+    "extra_think": "mlp_eval_qa_instr_holdoutsel_h512/r1-math1.5b/judge_reps_extra_think_qwen2.5-math-1.5b_gsm8k_final.json"
+  },
+  "roles": {
+    "thinking_s0": {
+      "per_rep_acc_pct": [
+        91.20545868081881,
+        91.0538286580743,
+        91.0538286580743
+      ],
+      "mean_pct": 91.10437199898912,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "base": {
+      "per_rep_acc_pct": [
+        74.14708112206216,
+        74.07126611068992,
+        73.9196360879454
+      ],
+      "mean_pct": 74.04599444023249,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "hybrid": {
+      "per_rep_acc_pct": [
+        73.69219105382865,
+        73.54056103108415,
+        73.38893100833965
+      ],
+      "mean_pct": 73.54056103108415,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "thinking_s1": {
+      "per_rep_acc_pct": [
+        90.67475360121304,
+        90.67475360121304,
+        90.82638362395754
+      ],
+      "mean_pct": 90.72529694212788,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "thinking_s2": {
+      "per_rep_acc_pct": [
+        90.67475360121304,
+        90.59893858984078,
+        90.59893858984078
+      ],
+      "mean_pct": 90.6242102602982,
+      "n_samples": 1,
+      "n_reps_per_sample": 3
+    },
+    "thinking": {
+      "per_rep_acc_pct": [
+        91.20545868081881,
+        91.0538286580743,
+        91.0538286580743,
+        90.67475360121304,
+        90.67475360121304,
+        90.82638362395754,
+        90.67475360121304,
+        90.59893858984078,
+        90.59893858984078
+      ],
+      "mean_pct": 90.81795973380507,
+      "n_samples": 3,
+      "n_reps_per_sample": 3
+    }
+  },
+  "total": 1319,
+  "headline": {
+    "thinking_mean_pct": 90.81795973380507,
+    "base_mean_pct": 74.04599444023249,
+    "hybrid_mean_pct": 73.54056103108415,
+    "gap_pct": 16.771965293572578,
+    "gap_recovered_pct": 0.0
+  }
+}

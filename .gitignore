@@ -1,7 +1,50 @@
+# --- secrets / machine-specific env ---
 .env
-wandb
-__pycache__
-.DS_Store
-base_models_reasoning_interp.egg-info/
-train-vectors/results/vars/perplexity/
+.env_exports.sh
 
+# --- virtualenvs ---
+.venv/
+.venv_vllm/
+wandb/
+
+# --- python caches / build ---
+__pycache__/
+*.pyc
+*.egg-info/
+
+# --- OS ---
+.DS_Store
+
+# --- category-vector checkpoints ---
+# The final SELECTED vectors are committed so they can be loaded directly.
+# The per-run training outputs (run1 + best-of-3 runs) are regenerable scratch,
+# and the big regenerable pieces of the selected set are excluded below.
+artifacts/mlp_vectors_qa_instr_h512/
+artifacts/mlp_vectors_qa_instr_h512_bo3/
+# big regenerable pieces of the selected set (excluded everywhere):
+# - activation cache rebuilt during training
+# - per-epoch training snapshots
+disagree_cache.pt
+epoch_checkpoints/
+
+# --- hybrid-eval outputs ---
+# Keep the result files (summaries, judge traces, per-category metrics, plots)
+# so every number and figure is reproducible without rerunning eval. Drop the
+# multi-GB raw per-sample rollout dumps.
+artifacts/mlp_eval_*/**/*.jsonl
+artifacts/mlp_eval_*/**/rolling/
+
+# --- cached base/thinking model rollouts (multi-GB, regenerable) ---
+hybrid/results/
+train-vectors/results/
+generate-responses/results/
+visualize-saes/results/
+# SAE activations + trained clustering artifacts (multi-GB)
+train-saes/results/
+
+# --- cluster logs / scratch ---
+slurm_logs/
+slurm_jobs/
+*.out
+*.log
+*.err

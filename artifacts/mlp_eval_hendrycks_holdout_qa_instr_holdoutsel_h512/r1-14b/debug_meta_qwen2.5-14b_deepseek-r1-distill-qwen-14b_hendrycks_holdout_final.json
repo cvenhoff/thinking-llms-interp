@@ -1,0 +1,81 @@
+{
+  "base_model": "Qwen/Qwen2.5-14B",
+  "thinking_model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+  "base_id": "qwen2.5-14b",
+  "thinking_id": "deepseek-r1-distill-qwen-14b",
+  "dataset": "hendrycks_holdout",
+  "sae_layer": 38,
+  "n_clusters": 5,
+  "sae_path": null,
+  "coef_sweep": [
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0
+  ],
+  "coef_select": "mlp",
+  "kl_topk": 3,
+  "bias_only": false,
+  "bias_vector_path": null,
+  "bias_layer": null,
+  "random_firing": false,
+  "random_guardrail": false,
+  "random_seed": 0,
+  "steer_all_positions": false,
+  "steer_all_positions_full": false,
+  "disable_sae_mean": false,
+  "old_vectors_dir": "mlp_vectors_qa_instr_holdoutsel_h512/r1-14b",
+  "old_vectors_layer": 18,
+  "n_latent_descriptions": 5,
+  "layer_map": {
+    "idx0": 18,
+    "idx1": 18,
+    "idx2": 18,
+    "idx3": 18,
+    "idx4": 18
+  },
+  "steering_vectors": {
+    "idx0": {
+      "shape": [
+        5120
+      ],
+      "norm": 37.522945404052734,
+      "layer": 18
+    },
+    "idx1": {
+      "shape": [
+        5120
+      ],
+      "norm": 36.03359603881836,
+      "layer": 18
+    },
+    "idx2": {
+      "shape": [
+        5120
+      ],
+      "norm": 41.363014221191406,
+      "layer": 18
+    },
+    "idx3": {
+      "shape": [
+        5120
+      ],
+      "norm": 48.72212219238281,
+      "layer": 18
+    },
+    "idx4": {
+      "shape": [
+        5120
+      ],
+      "norm": 24.49618148803711,
+      "layer": 18
+    }
+  },
+  "suffix": "_final"
+}

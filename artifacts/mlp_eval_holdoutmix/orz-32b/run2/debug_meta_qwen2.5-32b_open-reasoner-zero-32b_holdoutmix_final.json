@@ -1,0 +1,161 @@
+{
+  "base_model": "Qwen/Qwen2.5-32B",
+  "thinking_model": "Open-Reasoner-Zero/Open-Reasoner-Zero-32B",
+  "base_id": "qwen2.5-32b",
+  "thinking_id": "open-reasoner-zero-32b",
+  "dataset": "holdoutmix",
+  "sae_layer": 27,
+  "n_clusters": 15,
+  "sae_path": null,
+  "coef_sweep": [
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0
+  ],
+  "coef_select": "mlp",
+  "kl_topk": 3,
+  "bias_only": false,
+  "bias_vector_path": null,
+  "bias_layer": null,
+  "random_firing": false,
+  "random_guardrail": false,
+  "random_seed": 0,
+  "steer_all_positions": false,
+  "steer_all_positions_full": false,
+  "disable_sae_mean": false,
+  "old_vectors_dir": "mlp_vectors_qa_instr_h512/orz-32b",
+  "old_vectors_layer": 24,
+  "n_latent_descriptions": 15,
+  "layer_map": {
+    "idx0": 24,
+    "idx1": 24,
+    "idx2": 24,
+    "idx3": 24,
+    "idx4": 24,
+    "idx5": 24,
+    "idx6": 24,
+    "idx7": 24,
+    "idx8": 24,
+    "idx9": 24,
+    "idx10": 24,
+    "idx11": 24,
+    "idx12": 24,
+    "idx13": 24,
+    "idx14": 24
+  },
+  "steering_vectors": {
+    "idx0": {
+      "shape": [
+        5120
+      ],
+      "norm": 6.110360622406006,
+      "layer": 24
+    },
+    "idx1": {
+      "shape": [
+        5120
+      ],
+      "norm": 41.78574752807617,
+      "layer": 24
+    },
+    "idx2": {
+      "shape": [
+        5120
+      ],
+      "norm": 48.69540786743164,
+      "layer": 24
+    },
+    "idx3": {
+      "shape": [
+        5120
+      ],
+      "norm": 48.2105598449707,
+      "layer": 24
+    },
+    "idx4": {
+      "shape": [
+        5120
+      ],
+      "norm": 40.03565979003906,
+      "layer": 24
+    },
+    "idx5": {
+      "shape": [
+        5120
+      ],
+      "norm": 8.773340225219727,
+      "layer": 24
+    },
+    "idx6": {
+      "shape": [
+        5120
+      ],
+      "norm": 41.362972259521484,
+      "layer": 24
+    },
+    "idx7": {
+      "shape": [
+        5120
+      ],
+      "norm": 42.06278610229492,
+      "layer": 24
+    },
+    "idx8": {
+      "shape": [
+        5120
+      ],
+      "norm": 48.08030700683594,
+      "layer": 24
+    },
+    "idx9": {
+      "shape": [
+        5120
+      ],
+      "norm": 50.679012298583984,
+      "layer": 24
+    },
+    "idx10": {
+      "shape": [
+        5120
+      ],
+      "norm": 42.0623893737793,
+      "layer": 24
+    },
+    "idx11": {
+      "shape": [
+        5120
+      ],
+      "norm": 30.869022369384766,
+      "layer": 24
+    },
+    "idx12": {
+      "shape": [
+        5120
+      ],
+      "norm": 43.015586853027344,
+      "layer": 24
+    },
+    "idx13": {
+      "shape": [
+        5120
+      ],
+      "norm": 40.229103088378906,
+      "layer": 24
+    },
+    "idx14": {
+      "shape": [
+        5120
+      ],
+      "norm": 44.123390197753906,
+      "layer": 24
+    }
+  },
+  "suffix": "_final"
+}

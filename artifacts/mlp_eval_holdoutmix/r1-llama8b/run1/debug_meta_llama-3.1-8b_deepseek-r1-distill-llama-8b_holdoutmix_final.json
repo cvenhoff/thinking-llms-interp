@@ -1,0 +1,161 @@
+{
+  "base_model": "Meta-Llama/Llama-3.1-8B",
+  "thinking_model": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+  "base_id": "llama-3.1-8b",
+  "thinking_id": "deepseek-r1-distill-llama-8b",
+  "dataset": "holdoutmix",
+  "sae_layer": 6,
+  "n_clusters": 15,
+  "sae_path": null,
+  "coef_sweep": [
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0
+  ],
+  "coef_select": "mlp",
+  "kl_topk": 3,
+  "bias_only": false,
+  "bias_vector_path": null,
+  "bias_layer": null,
+  "random_firing": false,
+  "random_guardrail": false,
+  "random_seed": 0,
+  "steer_all_positions": false,
+  "steer_all_positions_full": false,
+  "disable_sae_mean": false,
+  "old_vectors_dir": "mlp_vectors_qa_instr_h512/r1-llama8b",
+  "old_vectors_layer": 12,
+  "n_latent_descriptions": 15,
+  "layer_map": {
+    "idx0": 12,
+    "idx1": 12,
+    "idx2": 12,
+    "idx3": 12,
+    "idx4": 12,
+    "idx5": 12,
+    "idx6": 12,
+    "idx7": 12,
+    "idx8": 12,
+    "idx9": 12,
+    "idx10": 12,
+    "idx11": 12,
+    "idx12": 12,
+    "idx13": 12,
+    "idx14": 12
+  },
+  "steering_vectors": {
+    "idx0": {
+      "shape": [
+        4096
+      ],
+      "norm": 34.40541076660156,
+      "layer": 12
+    },
+    "idx1": {
+      "shape": [
+        4096
+      ],
+      "norm": 33.93394088745117,
+      "layer": 12
+    },
+    "idx2": {
+      "shape": [
+        4096
+      ],
+      "norm": 39.51480484008789,
+      "layer": 12
+    },
+    "idx3": {
+      "shape": [
+        4096
+      ],
+      "norm": 26.92967414855957,
+      "layer": 12
+    },
+    "idx4": {
+      "shape": [
+        4096
+      ],
+      "norm": 34.41651153564453,
+      "layer": 12
+    },
+    "idx5": {
+      "shape": [
+        4096
+      ],
+      "norm": 37.861724853515625,
+      "layer": 12
+    },
+    "idx6": {
+      "shape": [
+        4096
+      ],
+      "norm": 29.259809494018555,
+      "layer": 12
+    },
+    "idx7": {
+      "shape": [
+        4096
+      ],
+      "norm": 41.49150085449219,
+      "layer": 12
+    },
+    "idx8": {
+      "shape": [
+        4096
+      ],
+      "norm": 41.752628326416016,
+      "layer": 12
+    },
+    "idx9": {
+      "shape": [
+        4096
+      ],
+      "norm": 38.9140510559082,
+      "layer": 12
+    },
+    "idx10": {
+      "shape": [
+        4096
+      ],
+      "norm": 38.148475646972656,
+      "layer": 12
+    },
+    "idx11": {
+      "shape": [
+        4096
+      ],
+      "norm": 41.381858825683594,
+      "layer": 12
+    },
+    "idx12": {
+      "shape": [
+        4096
+      ],
+      "norm": 38.519901275634766,
+      "layer": 12
+    },
+    "idx13": {
+      "shape": [
+        4096
+      ],
+      "norm": 38.95207214355469,
+      "layer": 12
+    },
+    "idx14": {
+      "shape": [
+        4096
+      ],
+      "norm": 40.72536849975586,
+      "layer": 12
+    }
+  },
+  "suffix": "_final"
+}
