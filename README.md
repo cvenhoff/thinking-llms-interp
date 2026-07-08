@@ -2,10 +2,9 @@
 
 Code for the paper [Base Models Know How to Reason, Thinking Models Learn When](https://arxiv.org/abs/2510.07364) (ICML 2026).
 
-This branch reproduces the **category-vector hybrid-steering** results: we discover
-per-model reasoning taxonomies with SAEs, train a small MLP that decides which
-taxonomy direction to steer with and where, and build hybrid models (a base model
-plus the learned steering) that we compare against the matching thinking model.
+This repository contains code to reproduce the paper: SAE reasoning taxonomies,
+category-vector training, hybrid-model evaluation across the nine base/thinking model
+pairs, and all figures and tables.
 
 ## Setup
 
@@ -13,8 +12,8 @@ Requires Python 3.10+, [`uv`](https://docs.astral.sh/uv/), and GPUs (the 32B pai
 need 2×80 GB).
 
 ```bash
-git clone https://github.com/cvenhoff/cot-interp.git
-cd cot-interp
+git clone https://github.com/cvenhoff/thinking-llms-interp.git
+cd thinking-llms-interp
 uv sync                                       # installs everything into .venv
 cp .env_exports.sh.example .env_exports.sh    # then edit paths (HF cache, etc.)
 echo "ANTHROPIC_API_KEY=sk-..." > .env        # LLM judge credentials
